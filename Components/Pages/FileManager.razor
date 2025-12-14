@@ -1,0 +1,248 @@
+@page "/file-manager"
+@using QingFeng.Services
+@using QingFeng.Models
+@inject IFileManagerService FileManagerService
+@rendermode InteractiveServer
+
+<PageTitle>文件管理器</PageTitle>
+
+<h1>文件管理器</h1>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="RefreshFiles">
+        <span class="bi bi-arrow-clockwise"></span> 刷新
+    </button>
+    <button class="btn btn-secondary" @onclick="GoUp">
+        <span class="bi bi-arrow-up"></span> 上级目录
+    </button>
+    <button class="btn btn-success" @onclick="() => showCreateDialog = true">
+        <span class="bi bi-folder-plus"></span> 新建文件夹
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+        @message
+        <button type="button" class="btn-close" @onclick="() => message = string.Empty"></button>
+    </div>
+}
+
+<!-- Current Path -->
+<div class="mb-3">
+    <div class="input-group">
+        <span class="input-group-text"><span class="bi bi-folder"></span></span>
+        <input type="text" class="form-control" @bind="currentPath" readonly />
+    </div>
+</div>
+
+<!-- File List -->
+<div class="card mb-3">
+    <div class="card-body">
+        @if (files != null && files.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>类型</th>
+                            <th>大小</th>
+                            <th>修改时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var file in files)
+                        {
+                            <tr>
+                                <td>
+                                    @if (file.IsDirectory)
+                                    {
+                                        <a href="#" @onclick="() => NavigateTo(file.Path)" @onclick:preventDefault>
+                                            <span class="bi bi-folder-fill text-warning"></span>
+                                            @file.Name
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="bi bi-file-earmark"></span>
+                                        @file.Name
+                                    }
+                                </td>
+                                <td>@(file.IsDirectory ? "文件夹" : "文件")</td>
+                                <td>@file.SizeDisplay</td>
+                                <td>@file.LastModified.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td>
+                                    @if (!file.IsDirectory && file.Name != "..")
+                                    {
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteFile(file.Path)">
+                                            <span class="bi bi-trash"></span>
+                                        </button>
+                                    }
+                                    @if (file.IsDirectory && file.Name != "..")
+                                    {
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteDirectory(file.Path)">
+                                            <span class="bi bi-trash"></span>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (files == null)
+        {
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p>加载中...</p>
+            </div>
+        }
+        else
+        {
+            <p>此目录为空</p>
+        }
+    </div>
+</div>
+
+<!-- Create Directory Dialog -->
+@if (showCreateDialog)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">新建文件夹</h5>
+                    <button type="button" class="btn-close" @onclick="() => showCreateDialog = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="newFolderName" class="form-label">文件夹名称</label>
+                        <input type="text" class="form-control" id="newFolderName" 
+                               @bind="newFolderName" placeholder="输入文件夹名称" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => showCreateDialog = false">取消</button>
+                    <button type="button" class="btn btn-primary" @onclick="CreateDirectory">创建</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<FileItemInfo>? files;
+    private string currentPath = string.Empty;
+    private string message = string.Empty;
+    private bool isError = false;
+    private bool showCreateDialog = false;
+    private string newFolderName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Start at user's home directory or root
+        if (OperatingSystem.IsWindows())
+        {
+            currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        }
+        else
+        {
+            currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        }
+        
+        await RefreshFiles();
+    }
+
+    private async Task RefreshFiles()
+    {
+        try
+        {
+            files = await FileManagerService.GetFilesAsync(currentPath);
+            message = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            message = $"加载文件列表失败: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private async Task NavigateTo(string path)
+    {
+        currentPath = path;
+        await RefreshFiles();
+    }
+
+    private async Task GoUp()
+    {
+        var parent = FileManagerService.GetParentPath(currentPath);
+        if (!string.IsNullOrEmpty(parent) && parent != currentPath)
+        {
+            currentPath = parent;
+            await RefreshFiles();
+        }
+    }
+
+    private async Task DeleteFile(string path)
+    {
+        try
+        {
+            await FileManagerService.DeleteFileAsync(path);
+            message = "文件已删除";
+            isError = false;
+            await RefreshFiles();
+        }
+        catch (Exception ex)
+        {
+            message = $"删除文件失败: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private async Task DeleteDirectory(string path)
+    {
+        try
+        {
+            await FileManagerService.DeleteDirectoryAsync(path);
+            message = "文件夹已删除";
+            isError = false;
+            await RefreshFiles();
+        }
+        catch (Exception ex)
+        {
+            message = $"删除文件夹失败: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private async Task CreateDirectory()
+    {
+        if (string.IsNullOrWhiteSpace(newFolderName))
+        {
+            message = "请输入文件夹名称";
+            isError = true;
+            return;
+        }
+
+        try
+        {
+            var newPath = Path.Combine(currentPath, newFolderName);
+            await FileManagerService.CreateDirectoryAsync(newPath);
+            message = "文件夹已创建";
+            isError = false;
+            showCreateDialog = false;
+            newFolderName = string.Empty;
+            await RefreshFiles();
+        }
+        catch (Exception ex)
+        {
+            message = $"创建文件夹失败: {ex.Message}";
+            isError = true;
+        }
+    }
+}

@@ -1,0 +1,118 @@
+﻿@page "/"
+@using QingFeng.Services
+@using QingFeng.Models
+@inject ISystemMonitorService SystemMonitorService
+@rendermode InteractiveServer
+
+<PageTitle>清风 - 家庭服务器主页</PageTitle>
+
+<h1>欢迎使用清风家庭服务器</h1>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5>系统概览</h5>
+            </div>
+            <div class="card-body">
+                @if (systemInfo != null)
+                {
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="info-card">
+                                <h6>CPU</h6>
+                                <p class="display-6">@systemInfo.Cpu.UsagePercent%</p>
+                                <small>@systemInfo.Cpu.CoreCount 核心</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-card">
+                                <h6>内存</h6>
+                                <p class="display-6">@systemInfo.Memory.UsagePercent%</p>
+                                <small>@systemInfo.Memory.UsedGB / @systemInfo.Memory.TotalGB</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-card">
+                                <h6>磁盘</h6>
+                                <p class="display-6">@diskCount</p>
+                                <small>@diskCount 个磁盘</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="info-card">
+                                <h6>网络</h6>
+                                <p class="display-6">@networkCount</p>
+                                <small>@networkCount 个接口</small>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <h6>功能介绍</h6>
+            <ul>
+                <li><strong>系统监控</strong>：实时查看CPU、内存、磁盘、网络等系统资源信息</li>
+                <li><strong>磁盘管理</strong>：管理磁盘挂载和共享</li>
+                <li><strong>Docker管理</strong>：管理Docker容器和镜像</li>
+                <li><strong>文件管理</strong>：浏览和管理文件系统</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+@code {
+    private SystemResourceInfo? systemInfo;
+    private int diskCount = 0;
+    private int networkCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+    }
+
+    private async Task RefreshData()
+    {
+        systemInfo = await SystemMonitorService.GetSystemResourceInfoAsync();
+        diskCount = systemInfo?.Disks?.Count ?? 0;
+        networkCount = systemInfo?.Networks?.Count ?? 0;
+    }
+}
+
+<style>
+    .info-card {
+        padding: 15px;
+        text-align: center;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .info-card h6 {
+        margin-bottom: 10px;
+        color: #6c757d;
+    }
+    
+    .info-card .display-6 {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .info-card small {
+        color: #6c757d;
+    }
+</style>
