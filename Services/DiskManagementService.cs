@@ -53,6 +53,19 @@ public class DiskManagementService : IDiskManagementService
             return "Disk mounting is only supported on Linux";
         }
 
+        // Validate input parameters to prevent command injection
+        if (string.IsNullOrWhiteSpace(devicePath) || string.IsNullOrWhiteSpace(mountPoint))
+        {
+            return "Device path and mount point cannot be empty";
+        }
+
+        // Basic validation to prevent path traversal and command injection
+        if (devicePath.Contains("&&") || devicePath.Contains(";") || devicePath.Contains("|") ||
+            mountPoint.Contains("&&") || mountPoint.Contains(";") || mountPoint.Contains("|"))
+        {
+            return "Invalid characters in device path or mount point";
+        }
+
         try
         {
             // Create mount point if it doesn't exist
@@ -101,6 +114,18 @@ public class DiskManagementService : IDiskManagementService
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             return "Disk unmounting is only supported on Linux";
+        }
+
+        // Validate input parameter to prevent command injection
+        if (string.IsNullOrWhiteSpace(mountPoint))
+        {
+            return "Mount point cannot be empty";
+        }
+
+        // Basic validation to prevent path traversal and command injection
+        if (mountPoint.Contains("&&") || mountPoint.Contains(";") || mountPoint.Contains("|"))
+        {
+            return "Invalid characters in mount point";
         }
 
         try
