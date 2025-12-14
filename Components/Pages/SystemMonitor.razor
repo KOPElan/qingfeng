@@ -1,0 +1,235 @@
+@page "/system-monitor"
+@using QingFeng.Services
+@using QingFeng.Models
+@inject ISystemMonitorService SystemMonitorService
+@rendermode InteractiveServer
+
+<PageTitle>系统监控</PageTitle>
+
+<h1>系统监控</h1>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="RefreshData">
+        <span class="bi bi-arrow-clockwise"></span> 刷新
+    </button>
+</div>
+
+@if (systemInfo != null)
+{
+    <!-- CPU Information -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5><span class="bi bi-cpu"></span> CPU信息</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>核心数：</strong>@systemInfo.Cpu.CoreCount</p>
+                    <p><strong>架构：</strong>@systemInfo.Cpu.ProcessorName</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</p>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" 
+                             style="width: @(systemInfo.Cpu.UsagePercent)%" 
+                             aria-valuenow="@systemInfo.Cpu.UsagePercent" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            @systemInfo.Cpu.UsagePercent%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Memory Information -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5><span class="bi bi-memory"></span> 内存信息</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>总内存：</strong>@systemInfo.Memory.TotalGB</p>
+                    <p><strong>已使用：</strong>@systemInfo.Memory.UsedGB</p>
+                    <p><strong>可用：</strong>@systemInfo.Memory.AvailableGB</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</p>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" 
+                             style="width: @(systemInfo.Memory.UsagePercent)%" 
+                             aria-valuenow="@systemInfo.Memory.UsagePercent" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            @systemInfo.Memory.UsagePercent%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Disk Information -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5><span class="bi bi-device-hdd"></span> 磁盘信息</h5>
+        </div>
+        <div class="card-body">
+            @if (systemInfo.Disks.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>名称</th>
+                                <th>挂载点</th>
+                                <th>文件系统</th>
+                                <th>总容量</th>
+                                <th>已使用</th>
+                                <th>可用</th>
+                                <th>使用率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var disk in systemInfo.Disks)
+                            {
+                                <tr>
+                                    <td>@disk.Name</td>
+                                    <td>@disk.MountPoint</td>
+                                    <td>@disk.FileSystem</td>
+                                    <td>@(disk.IsReady ? disk.TotalGB : "N/A")</td>
+                                    <td>@(disk.IsReady ? disk.UsedGB : "N/A")</td>
+                                    <td>@(disk.IsReady ? disk.AvailableGB : "N/A")</td>
+                                    <td>
+                                        @if (disk.IsReady)
+                                        {
+                                            <div class="progress">
+                                                <div class="progress-bar" role="progressbar" 
+                                                     style="width: @(disk.UsagePercent)%" 
+                                                     aria-valuenow="@disk.UsagePercent" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100">
+                                                    @disk.UsagePercent%
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span>未就绪</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p>没有找到磁盘信息</p>
+            }
+        </div>
+    </div>
+
+    <!-- Network Information -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5><span class="bi bi-ethernet"></span> 网络信息</h5>
+        </div>
+        <div class="card-body">
+            @if (systemInfo.Networks.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>名称</th>
+                                <th>描述</th>
+                                <th>状态</th>
+                                <th>已发送</th>
+                                <th>已接收</th>
+                                <th>IP地址</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var network in systemInfo.Networks)
+                            {
+                                <tr>
+                                    <td>@network.Name</td>
+                                    <td>@network.Description</td>
+                                    <td>
+                                        <span class="badge @(network.Status == "Up" ? "bg-success" : "bg-secondary")">
+                                            @network.Status
+                                        </span>
+                                    </td>
+                                    <td>@network.SentMB</td>
+                                    <td>@network.ReceivedMB</td>
+                                    <td>
+                                        @if (network.IpAddresses.Any())
+                                        {
+                                            <div>
+                                                @foreach (var ip in network.IpAddresses)
+                                                {
+                                                    <div>@ip</div>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p>没有找到网络接口信息</p>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p>加载中...</p>
+    </div>
+}
+
+@code {
+    private SystemResourceInfo? systemInfo;
+    private System.Threading.Timer? timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+        
+        // Auto-refresh every 5 seconds
+        timer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await RefreshData();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private async Task RefreshData()
+    {
+        systemInfo = await SystemMonitorService.GetSystemResourceInfoAsync();
+    }
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}

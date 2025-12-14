@@ -1,0 +1,283 @@
+@page "/disk-management"
+@using QingFeng.Services
+@using QingFeng.Models
+@inject IDiskManagementService DiskManagementService
+@rendermode InteractiveServer
+
+<PageTitle>磁盘管理</PageTitle>
+
+<h1>磁盘管理</h1>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="RefreshData">
+        <span class="bi bi-arrow-clockwise"></span> 刷新
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+        @message
+        <button type="button" class="btn-close" @onclick="() => message = string.Empty"></button>
+    </div>
+}
+
+<!-- Disk List -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h5><span class="bi bi-device-hdd"></span> 磁盘列表</h5>
+    </div>
+    <div class="card-body">
+        @if (disks != null && disks.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>挂载点</th>
+                            <th>文件系统</th>
+                            <th>总容量</th>
+                            <th>已使用</th>
+                            <th>可用</th>
+                            <th>使用率</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var disk in disks)
+                        {
+                            <tr>
+                                <td>@disk.Name</td>
+                                <td>@disk.MountPoint</td>
+                                <td>@disk.FileSystem</td>
+                                <td>@(disk.IsReady ? disk.TotalGB : "N/A")</td>
+                                <td>@(disk.IsReady ? disk.UsedGB : "N/A")</td>
+                                <td>@(disk.IsReady ? disk.AvailableGB : "N/A")</td>
+                                <td>
+                                    @if (disk.IsReady)
+                                    {
+                                        <div class="progress">
+                                            <div class="progress-bar @GetProgressBarClass(disk.UsagePercent)" 
+                                                 role="progressbar" 
+                                                 style="width: @(disk.UsagePercent)%" 
+                                                 aria-valuenow="@disk.UsagePercent" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                @disk.UsagePercent%
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge @(disk.IsReady ? "bg-success" : "bg-secondary")">
+                                        @(disk.IsReady ? "就绪" : "未就绪")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (disks == null)
+        {
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p>加载中...</p>
+            </div>
+        }
+        else
+        {
+            <p>没有找到磁盘</p>
+        }
+    </div>
+</div>
+
+<!-- Mount/Unmount Section -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5><span class="bi bi-plus-circle"></span> 挂载磁盘</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="devicePath" class="form-label">设备路径</label>
+                    <input type="text" class="form-control" id="devicePath" 
+                           @bind="devicePath" placeholder="/dev/sdb1" />
+                    <small class="form-text text-muted">例如：/dev/sdb1</small>
+                </div>
+                <div class="mb-3">
+                    <label for="mountPoint" class="form-label">挂载点</label>
+                    <input type="text" class="form-control" id="mountPoint" 
+                           @bind="mountPoint" placeholder="/mnt/disk1" />
+                    <small class="form-text text-muted">例如：/mnt/disk1</small>
+                </div>
+                <button class="btn btn-success" @onclick="MountDisk" disabled="@isMounting">
+                    @if (isMounting)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    }
+                    挂载
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5><span class="bi bi-dash-circle"></span> 卸载磁盘</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="unmountPoint" class="form-label">挂载点</label>
+                    <input type="text" class="form-control" id="unmountPoint" 
+                           @bind="unmountPoint" placeholder="/mnt/disk1" />
+                    <small class="form-text text-muted">输入要卸载的挂载点</small>
+                </div>
+                <button class="btn btn-danger" @onclick="UnmountDisk" disabled="@isUnmounting">
+                    @if (isUnmounting)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    }
+                    卸载
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Shares Section -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h5><span class="bi bi-share"></span> 共享列表</h5>
+    </div>
+    <div class="card-body">
+        @if (shares != null && shares.Any())
+        {
+            <ul class="list-group">
+                @foreach (var share in shares)
+                {
+                    <li class="list-group-item">@share</li>
+                }
+            </ul>
+        }
+        else if (shares == null)
+        {
+            <p>加载中...</p>
+        }
+        else
+        {
+            <p>没有找到共享</p>
+        }
+    </div>
+</div>
+
+@code {
+    private List<DiskInfo>? disks;
+    private List<string>? shares;
+    private string devicePath = string.Empty;
+    private string mountPoint = string.Empty;
+    private string unmountPoint = string.Empty;
+    private string message = string.Empty;
+    private bool isError = false;
+    private bool isMounting = false;
+    private bool isUnmounting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+    }
+
+    private async Task RefreshData()
+    {
+        disks = await DiskManagementService.GetAllDisksAsync();
+        shares = await DiskManagementService.GetSharesAsync();
+    }
+
+    private async Task MountDisk()
+    {
+        if (string.IsNullOrWhiteSpace(devicePath) || string.IsNullOrWhiteSpace(mountPoint))
+        {
+            message = "请输入设备路径和挂载点";
+            isError = true;
+            return;
+        }
+
+        isMounting = true;
+        message = string.Empty;
+        
+        try
+        {
+            var result = await DiskManagementService.MountDiskAsync(devicePath, mountPoint);
+            message = result;
+            isError = !result.Contains("Successfully");
+            
+            if (!isError)
+            {
+                devicePath = string.Empty;
+                mountPoint = string.Empty;
+                await RefreshData();
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"挂载失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isMounting = false;
+        }
+    }
+
+    private async Task UnmountDisk()
+    {
+        if (string.IsNullOrWhiteSpace(unmountPoint))
+        {
+            message = "请输入挂载点";
+            isError = true;
+            return;
+        }
+
+        isUnmounting = true;
+        message = string.Empty;
+        
+        try
+        {
+            var result = await DiskManagementService.UnmountDiskAsync(unmountPoint);
+            message = result;
+            isError = !result.Contains("Successfully");
+            
+            if (!isError)
+            {
+                unmountPoint = string.Empty;
+                await RefreshData();
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"卸载失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isUnmounting = false;
+        }
+    }
+
+    private string GetProgressBarClass(double usagePercent)
+    {
+        if (usagePercent >= 90) return "bg-danger";
+        if (usagePercent >= 75) return "bg-warning";
+        return "bg-success";
+    }
+}
