@@ -1,96 +1,327 @@
 ﻿@page "/"
 @using QingFeng.Services
 @using QingFeng.Models
+@using System.Text.Json
 @inject ISystemMonitorService SystemMonitorService
+@inject IDockerService DockerService
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
-<PageTitle>清风 - 家庭服务器主页</PageTitle>
+<PageTitle>清风 - 个人主页</PageTitle>
 
-<MudText Typo="Typo.h3" Class="mb-4">欢迎使用清风家庭服务器</MudText>
+<div class="home-hero">
+    <div class="home-hero__top">
+        <div>
+            <MudText Typo="Typo.h4" Class="mb-1">@GreetingText</MudText>
+            <MudText Typo="Typo.subtitle2" Class="text-muted">@DateTime.Now:dddd, HH:mm</MudText>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="RefreshData">
+            刷新
+        </MudButton>
+    </div>
+    <div class="home-hero__stats">
+        @if (systemInfo is null)
+        {
+            <MudSkeleton Height="120px" Width="100%" Animation="Animation.Wave" />
+        }
+        else
+        {
+            <div class="stat-card">
+                <div class="stat-card__icon" aria-hidden="true">
+                    <MudIcon Icon="@Icons.Material.Filled.Speed" />
+                </div>
+                <div>
+                    <MudText Typo="Typo.overline">CPU</MudText>
+                    <MudText Typo="Typo.h5">@systemInfo.Cpu.UsagePercent%</MudText>
+                    <MudText Typo="Typo.caption">@systemInfo.Cpu.CoreCount 核心 · @systemInfo.Cpu.ProcessorName</MudText>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__icon" aria-hidden="true">
+                    <MudIcon Icon="@Icons.Material.Filled.Memory" />
+                </div>
+                <div>
+                    <MudText Typo="Typo.overline">内存</MudText>
+                    <MudText Typo="Typo.h5">@systemInfo.Memory.UsagePercent%</MudText>
+                    <MudText Typo="Typo.caption">@systemInfo.Memory.UsedGB / @systemInfo.Memory.TotalGB 可用 @systemInfo.Memory.AvailableGB</MudText>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__icon" aria-hidden="true">
+                    <MudIcon Icon="@Icons.Material.Filled.Storage" />
+                </div>
+                <div>
+                    <MudText Typo="Typo.overline">存储</MudText>
+                    <MudText Typo="Typo.h5">@DiskUsagePercent.ToString("F1")%</MudText>
+                    <MudText Typo="Typo.caption">@DiskUsedGb / @DiskTotalGb (@diskCount 个卷)</MudText>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__icon" aria-hidden="true">
+                    <MudIcon Icon="@Icons.Material.Filled.NetworkCheck" />
+                </div>
+                <div>
+                    <MudText Typo="Typo.overline">网络</MudText>
+                    <MudText Typo="Typo.h5">@networkCount 个接口</MudText>
+                    <MudText Typo="Typo.caption">@ActiveInterfacesSummary</MudText>
+                </div>
+            </div>
+        }
+    </div>
+</div>
 
-<MudPaper Elevation="2" Class="pa-4 mb-4">
-    <MudText Typo="Typo.h5" Class="mb-4">系统概览</MudText>
-    @if (systemInfo != null)
-    {
-        <MudGrid>
-            <MudItem xs="12" sm="6" md="3">
-                <MudCard Elevation="4">
-                    <MudCardContent Class="text-center">
-                        <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Large" Color="Color.Primary" Class="mb-2" />
-                        <MudText Typo="Typo.h6" Class="mb-1">CPU</MudText>
-                        <MudText Typo="Typo.h3" Color="Color.Primary">@systemInfo.Cpu.UsagePercent%</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">@systemInfo.Cpu.CoreCount 核心</MudText>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-            <MudItem xs="12" sm="6" md="3">
-                <MudCard Elevation="4">
-                    <MudCardContent Class="text-center">
-                        <MudIcon Icon="@Icons.Material.Filled.Memory" Size="Size.Large" Color="Color.Secondary" Class="mb-2" />
-                        <MudText Typo="Typo.h6" Class="mb-1">内存</MudText>
-                        <MudText Typo="Typo.h3" Color="Color.Secondary">@systemInfo.Memory.UsagePercent%</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">@systemInfo.Memory.UsedGB / @systemInfo.Memory.TotalGB</MudText>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-            <MudItem xs="12" sm="6" md="3">
-                <MudCard Elevation="4">
-                    <MudCardContent Class="text-center">
-                        <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Large" Color="Color.Tertiary" Class="mb-2" />
-                        <MudText Typo="Typo.h6" Class="mb-1">磁盘</MudText>
-                        <MudText Typo="Typo.h3" Color="Color.Tertiary">@diskCount</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">@diskCount 个磁盘</MudText>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-            <MudItem xs="12" sm="6" md="3">
-                <MudCard Elevation="4">
-                    <MudCardContent Class="text-center">
-                        <MudIcon Icon="@Icons.Material.Filled.NetworkCheck" Size="Size.Large" Color="Color.Success" Class="mb-2" />
-                        <MudText Typo="Typo.h6" Class="mb-1">网络</MudText>
-                        <MudText Typo="Typo.h3" Color="Color.Success">@networkCount</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">@networkCount 个接口</MudText>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-        </MudGrid>
-    }
-    else
-    {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        <MudText Class="ml-2">加载中...</MudText>
-    }
-</MudPaper>
+<MudGrid Class="home-grid" GutterSize="GutterSize.Size3">
+    <MudItem xs="12" lg="8">
+        <MudPaper Class="home-panel" Elevation="2">
+            <div class="panel-title">
+                <MudText Typo="Typo.h6">常用导航</MudText>
+                <MudBadge Color="Color.Secondary" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Bolt">
+                    快速进入
+                </MudBadge>
+            </div>
+            <div class="quick-links">
+                <MudLink Href="/system-monitor" Class="quick-link">
+                    <MudIcon Icon="@Icons.Material.Filled.DashboardCustomize" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">系统监控</MudText>
+                        <MudText Typo="Typo.caption">CPU · 内存 · 磁盘</MudText>
+                    </div>
+                </MudLink>
+                <MudLink Href="/docker" Class="quick-link">
+                    <MudIcon Icon="@Icons.Material.Filled.Dns" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">Docker 管理</MudText>
+                        <MudText Typo="Typo.caption">容器与镜像</MudText>
+                    </div>
+                </MudLink>
+                <MudLink Href="/disk-management" Class="quick-link">
+                    <MudIcon Icon="@Icons.Material.Filled.Storage" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">磁盘管理</MudText>
+                        <MudText Typo="Typo.caption">卷与分区</MudText>
+                    </div>
+                </MudLink>
+                <MudLink Href="/file-manager" Class="quick-link">
+                    <MudIcon Icon="@Icons.Material.Filled.Folder" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">文件管理</MudText>
+                        <MudText Typo="Typo.caption">浏览与上传</MudText>
+                    </div>
+                </MudLink>
+            </div>
+        </MudPaper>
 
-<MudAlert Severity="Severity.Info" Variant="Variant.Filled">
-    <MudText Typo="Typo.h6" Class="mb-2">功能介绍</MudText>
-    <MudStack Spacing="2">
-        <MudStack Row="true" AlignItems="AlignItems.Center">
-            <MudIcon Icon="@Icons.Material.Filled.Dashboard" />
-            <MudText><strong>系统监控</strong>：实时查看CPU、内存、磁盘、网络等系统资源信息</MudText>
-        </MudStack>
-        <MudStack Row="true" AlignItems="AlignItems.Center">
-            <MudIcon Icon="@Icons.Material.Filled.Storage" />
-            <MudText><strong>磁盘管理</strong>：管理磁盘挂载和共享</MudText>
-        </MudStack>
-        <MudStack Row="true" AlignItems="AlignItems.Center">
-            <MudIcon Icon="@Icons.Material.Filled.ContentCopy" />
-            <MudText><strong>Docker管理</strong>：管理Docker容器和镜像</MudText>
-        </MudStack>
-        <MudStack Row="true" AlignItems="AlignItems.Center">
-            <MudIcon Icon="@Icons.Material.Filled.Folder" />
-            <MudText><strong>文件管理</strong>：浏览和管理文件系统</MudText>
-        </MudStack>
-    </MudStack>
-</MudAlert>
+        <MudPaper Class="home-panel" Elevation="2">
+            <div class="panel-title">
+                <MudText Typo="Typo.h6">应用与服务</MudText>
+                <MudText Typo="Typo.caption">内置、常用自托管、以及你自定义的链接</MudText>
+            </div>
+            <div class="shortcut-grid">
+                @foreach (var shortcut in OrderedShortcuts)
+                {
+                    <div class="shortcut-card">
+                        <a href="@shortcut.Url" target="_blank" rel="noreferrer" class="shortcut-card__body">
+                            <div class="shortcut-card__icon" aria-hidden="true">
+                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" />
+                            </div>
+                            <div>
+                                <MudText Typo="Typo.subtitle2">@shortcut.Title</MudText>
+                                @if (!string.IsNullOrWhiteSpace(shortcut.Description))
+                                {
+                                    <MudText Typo="Typo.caption" Class="text-muted">@shortcut.Description</MudText>
+                                }
+                            </div>
+                        </a>
+                        <div class="shortcut-card__footer">
+                            <MudBadge Color="Color.Info" Variant="Variant.Outlined">
+                                @(!string.IsNullOrWhiteSpace(shortcut.Category) ? shortcut.Category : "自定义")
+                            </MudBadge>
+                            <div class="shortcut-card__actions">
+                                <MudIconButton Icon="@(shortcut.IsPinned ? Icons.Material.Filled.PushPin : Icons.Material.Outlined.PushPin)" Color="Color.Primary" Size="Size.Small" OnClick="() => TogglePin(shortcut)" />
+                                @if (IsCustom(shortcut))
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => RemoveShortcut(shortcut)" />
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </MudPaper>
+
+        <MudPaper Class="home-panel" Elevation="2">
+            <div class="panel-title">
+                <MudText Typo="Typo.h6">Docker 应用</MudText>
+                <MudText Typo="Typo.caption">基于容器的服务，点击即可访问或快速加入 Dock</MudText>
+            </div>
+            @if (dockerContainers.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                    未检测到运行中的容器。确保 Docker 已启动，或前往 Docker 管理页面查看详情。
+                </MudAlert>
+            }
+            else
+            {
+                <MudGrid Class="docker-grid" GutterSize="GutterSize.Size2">
+                    @foreach (var container in dockerContainers)
+                    {
+                        var guessUrl = GuessContainerUrl(container);
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudPaper Class="docker-card" Elevation="1">
+                                <div class="docker-card__header">
+                                    <MudIcon Icon="@Icons.Material.Filled.IntegrationInstructions" />
+                                    <MudBadge Color="@(container.State == "running" ? Color.Success : Color.Warning)" Variant="Variant.Filled">
+                                        @container.State
+                                    </MudBadge>
+                                </div>
+                                <MudText Typo="Typo.subtitle2">@container.Name</MudText>
+                                <MudText Typo="Typo.caption" Class="text-muted">@container.Image</MudText>
+                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mt-2">
+                                    <MudIcon Size="Size.Small" Icon="@Icons.Material.Filled.Link" />
+                                    <MudText Typo="Typo.caption">@string.Join(", ", container.Ports)</MudText>
+                                </MudStack>
+                                <MudStack Row="true" Spacing="1" Class="mt-3">
+                                    @if (!string.IsNullOrWhiteSpace(guessUrl))
+                                    {
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Href="@guessUrl" Target="_blank">
+                                            打开
+                                        </MudButton>
+                                    }
+                                    <MudButton Variant="Variant.Text" Color="Color.Secondary" Size="Size.Small" OnClick="() => PrefillFromContainer(container, guessUrl)">
+                                        加入Dock
+                                    </MudButton>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" lg="4">
+        <MudPaper Class="home-panel" Elevation="2">
+            <div class="panel-title">
+                <MudText Typo="Typo.h6">添加快捷方式</MudText>
+                <MudText Typo="Typo.caption">支持普通应用、Docker 服务、内网或外网链接</MudText>
+            </div>
+
+            <MudStack Spacing="2">
+                <MudTextField @bind-Value="draftShortcut.Title" Label="名称" Required="true" Immediate="true" />
+                <MudTextField @bind-Value="draftShortcut.Url" Label="链接" Placeholder="http:// 或 https://" Required="true" Immediate="true" />
+                <MudTextField @bind-Value="draftShortcut.Icon" Label="MudBlazor 图标" Placeholder="Icons.Material.Filled.Link" Immediate="true" />
+                <MudTextField @bind-Value="draftShortcut.Description" Label="描述" Immediate="true" />
+                <MudTextField @bind-Value="draftShortcut.Category" Label="分组标签" Immediate="true" />
+                <MudSwitch T="bool" @bind-Checked="draftShortcut.IsPinned" Color="Color.Primary" Label="添加到 Dock" />
+                <MudSwitch T="bool" @bind-Checked="draftShortcut.IsDocker" Color="Color.Secondary" Label="Docker 服务" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Disabled="@(CanSubmit == false)"
+                           OnClick="AddShortcut">保存快捷方式</MudButton>
+                <MudText Typo="Typo.caption" Class="text-muted">
+                    默认会保存到浏览器本地存储，可随时移除或重新置顶。
+                </MudText>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<div class="dock">
+    <MudPaper Class="dock__panel" Elevation="6">
+        <div class="dock__header">
+            <MudText Typo="Typo.subtitle1">Dock 快捷区</MudText>
+            <MudText Typo="Typo.caption" Class="text-muted">长驻入口，可自由固定/取消固定</MudText>
+        </div>
+        @if (PinnedShortcuts.Count == 0)
+        {
+            <MudText Typo="Typo.caption">暂未固定任何快捷方式，点击应用卡片右上角的图钉即可添加。</MudText>
+        }
+        else
+        {
+            <div class="dock__items">
+                @foreach (var shortcut in PinnedShortcuts)
+                {
+                    <a href="@shortcut.Url" class="dock__item" target="_blank" rel="noreferrer">
+                        <MudIcon Icon="@ResolveIcon(shortcut.Icon)" />
+                        <MudText Typo="Typo.caption">@shortcut.Title</MudText>
+                    </a>
+                }
+            </div>
+        }
+    </MudPaper>
+</div>
 
 @code {
     private SystemResourceInfo? systemInfo;
-    private int diskCount = 0;
-    private int networkCount = 0;
-
-    protected override async Task OnInitializedAsync()
+    private List<DockerContainerInfo> dockerContainers = new();
+    private readonly List<ShortcutLink> defaultShortcuts = new()
     {
+        new ShortcutLink { Id = "internal-home", Title = "主页", Url = "/", Icon = Icons.Material.Filled.Home, Description = "清风入口", Category = "内置", IsPinned = true },
+        new ShortcutLink { Id = "internal-monitor", Title = "系统监控", Url = "/system-monitor", Icon = Icons.Material.Filled.DashboardCustomize, Description = "CPU / 内存 / 磁盘", Category = "内置", IsPinned = true },
+        new ShortcutLink { Id = "internal-docker", Title = "Docker 管理", Url = "/docker", Icon = Icons.Material.Filled.Dns, Description = "容器与镜像", Category = "内置" },
+        new ShortcutLink { Id = "internal-disk", Title = "磁盘管理", Url = "/disk-management", Icon = Icons.Material.Filled.Storage, Description = "卷与存储", Category = "内置" },
+        new ShortcutLink { Id = "internal-files", Title = "文件管理", Url = "/file-manager", Icon = Icons.Material.Filled.Folder, Description = "浏览文件", Category = "内置" },
+        new ShortcutLink { Id = "ha", Title = "Home Assistant", Url = "http://homeassistant.local:8123", Icon = Icons.Material.Filled.Home, Description = "智能家居面板", Category = "自托管", IsPinned = true },
+        new ShortcutLink { Id = "pihole", Title = "Pi-hole", Url = "http://pi.hole/admin", Icon = Icons.Material.Filled.Security, Description = "网络广告拦截", Category = "自托管" },
+        new ShortcutLink { Id = "plex", Title = "Plex", Url = "http://localhost:32400/web", Icon = Icons.Material.Filled.Tv, Description = "媒体中心", Category = "影音" },
+        new ShortcutLink { Id = "jellyfin", Title = "Jellyfin", Url = "http://localhost:8096", Icon = Icons.Material.Filled.PlayCircleFilled, Description = "家庭影院", Category = "影音" },
+        new ShortcutLink { Id = "transmission", Title = "Transmission", Url = "http://localhost:9091", Icon = Icons.Material.Filled.SwapVert, Description = "下载任务", Category = "工具" },
+        new ShortcutLink { Id = "adguard", Title = "AdGuard Home", Url = "http://localhost:3000", Icon = Icons.Material.Filled.VerifiedUser, Description = "DNS 过滤", Category = "自托管" },
+        new ShortcutLink { Id = "tailscale", Title = "Tailscale", Url = "https://login.tailscale.com/admin", Icon = Icons.Material.Filled.VpnLock, Description = "内网穿透", Category = "网络" },
+        new ShortcutLink { Id = "etherpad", Title = "Etherpad", Url = "http://localhost:9001", Icon = Icons.Material.Filled.EditNote, Description = "协作笔记", Category = "协作" }
+    };
+
+    private List<ShortcutLink> customShortcuts = new();
+    private HashSet<string> pinnedIds = new();
+    private ShortcutLink draftShortcut = new()
+    {
+        Id = Guid.NewGuid().ToString("N"),
+        Icon = Icons.Material.Filled.Link,
+        IsPinned = true
+    };
+    private int diskCount;
+    private int networkCount;
+
+    private static readonly JsonSerializerOptions StorageOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false
+    };
+
+    private string GreetingText => DateTime.Now.Hour switch
+    {
+        >= 6 and < 12 => "早上好，欢迎回来",
+        >= 12 and < 18 => "下午好，保持专注",
+        _ => "晚上好，注意休息"
+    };
+
+    private string DiskUsedGb => systemInfo is null ? "0 GB" : $"{SumDisks(d => d.UsedBytes) / 1024d / 1024d / 1024d:F2} GB";
+    private string DiskTotalGb => systemInfo is null ? "0 GB" : $"{SumDisks(d => d.TotalBytes) / 1024d / 1024d / 1024d:F2} GB";
+    private double DiskUsagePercent => systemInfo is null || SumDisks(d => d.TotalBytes) <= 0 ? 0 : Math.Round(SumDisks(d => d.UsedBytes) / SumDisks(d => d.TotalBytes) * 100, 1);
+    private string ActiveInterfacesSummary => systemInfo?.Networks is null || systemInfo.Networks.Count == 0
+        ? "暂无网络信息"
+        : string.Join(" · ", systemInfo.Networks.Take(2).Select(n => n.Name));
+
+    private IEnumerable<ShortcutLink> OrderedShortcuts => defaultShortcuts
+        .Concat(customShortcuts)
+        .Select(link =>
+        {
+            link.IsPinned = pinnedIds.Contains(link.Id);
+            return link;
+        })
+        .OrderByDescending(l => l.IsPinned)
+        .ThenBy(l => l.Category)
+        .ThenBy(l => l.Title);
+
+    private List<ShortcutLink> PinnedShortcuts => OrderedShortcuts.Where(s => s.IsPinned).Take(16).ToList();
+
+    private bool _stateLoaded;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _stateLoaded)
+            return;
+
+        _stateLoaded = true;
+        await LoadStateAsync();
         await RefreshData();
     }
 
@@ -99,5 +330,147 @@
         systemInfo = await SystemMonitorService.GetSystemResourceInfoAsync();
         diskCount = systemInfo?.Disks?.Count ?? 0;
         networkCount = systemInfo?.Networks?.Count ?? 0;
+        dockerContainers = await DockerService.GetContainersAsync(false);
+        StateHasChanged();
+    }
+
+    private async Task LoadStateAsync()
+    {
+        try
+        {
+            var pinnedJson = await JS.InvokeAsync<string?>("localStorage.getItem", "qingfeng-pinned-shortcuts");
+            if (!string.IsNullOrWhiteSpace(pinnedJson))
+            {
+                pinnedIds = JsonSerializer.Deserialize<HashSet<string>>(pinnedJson, StorageOptions) ?? new HashSet<string>();
+            }
+
+            var customJson = await JS.InvokeAsync<string?>("localStorage.getItem", "qingfeng-custom-shortcuts");
+            if (!string.IsNullOrWhiteSpace(customJson))
+            {
+                customShortcuts = JsonSerializer.Deserialize<List<ShortcutLink>>(customJson, StorageOptions) ?? new List<ShortcutLink>();
+            }
+        }
+        catch
+        {
+            pinnedIds = new HashSet<string>();
+            customShortcuts = new List<ShortcutLink>();
+        }
+
+        if (pinnedIds.Count == 0)
+        {
+            foreach (var link in defaultShortcuts.Where(l => l.IsPinned))
+            {
+                pinnedIds.Add(link.Id);
+            }
+        }
+    }
+
+    private async Task SaveStateAsync()
+    {
+        await JS.InvokeVoidAsync("localStorage.setItem", "qingfeng-pinned-shortcuts", JsonSerializer.Serialize(pinnedIds, StorageOptions));
+        await JS.InvokeVoidAsync("localStorage.setItem", "qingfeng-custom-shortcuts", JsonSerializer.Serialize(customShortcuts, StorageOptions));
+    }
+
+    private bool CanSubmit => !string.IsNullOrWhiteSpace(draftShortcut.Title) && !string.IsNullOrWhiteSpace(draftShortcut.Url);
+
+    private async Task AddShortcut()
+    {
+        if (!CanSubmit)
+            return;
+
+        if (string.IsNullOrWhiteSpace(draftShortcut.Id))
+        {
+            draftShortcut.Id = Guid.NewGuid().ToString("N");
+        }
+
+        customShortcuts.Add(new ShortcutLink
+        {
+            Id = draftShortcut.Id,
+            Title = draftShortcut.Title,
+            Url = draftShortcut.Url,
+            Icon = string.IsNullOrWhiteSpace(draftShortcut.Icon) ? Icons.Material.Filled.Link : draftShortcut.Icon,
+            Description = draftShortcut.Description,
+            Category = string.IsNullOrWhiteSpace(draftShortcut.Category) ? "自定义" : draftShortcut.Category,
+            IsPinned = draftShortcut.IsPinned,
+            IsDocker = draftShortcut.IsDocker
+        });
+
+        if (draftShortcut.IsPinned)
+        {
+            pinnedIds.Add(draftShortcut.Id);
+        }
+
+        draftShortcut = new ShortcutLink
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Icon = Icons.Material.Filled.Link,
+            IsPinned = true
+        };
+
+        await SaveStateAsync();
+    }
+
+    private async Task TogglePin(ShortcutLink shortcut)
+    {
+        if (pinnedIds.Contains(shortcut.Id))
+        {
+            pinnedIds.Remove(shortcut.Id);
+        }
+        else
+        {
+            pinnedIds.Add(shortcut.Id);
+        }
+
+        await SaveStateAsync();
+    }
+
+    private void PrefillFromContainer(DockerContainerInfo container, string? guessUrl)
+    {
+        draftShortcut = new ShortcutLink
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Title = container.Name,
+            Url = string.IsNullOrWhiteSpace(guessUrl) ? string.Empty : guessUrl,
+            Icon = Icons.Material.Filled.SettingsEthernet,
+            Description = container.Image,
+            Category = "Docker",
+            IsPinned = true,
+            IsDocker = true
+        };
+    }
+
+    private bool IsCustom(ShortcutLink shortcut) => customShortcuts.Any(c => c.Id == shortcut.Id);
+
+    private async Task RemoveShortcut(ShortcutLink shortcut)
+    {
+        if (!IsCustom(shortcut))
+            return;
+
+        customShortcuts = customShortcuts.Where(c => c.Id != shortcut.Id).ToList();
+        pinnedIds.Remove(shortcut.Id);
+        await SaveStateAsync();
+    }
+
+    private string GuessContainerUrl(DockerContainerInfo container)
+    {
+        var portString = container.Ports.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(portString))
+            return string.Empty;
+
+        var parts = portString.Split(':', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0 || !int.TryParse(parts[0], out var publicPort))
+            return string.Empty;
+
+        return $"http://localhost:{publicPort}";
+    }
+
+    private double SumDisks(Func<DiskInfo, long> selector)
+    {
+        return systemInfo?.Disks?.Where(d => d.IsReady).Select(selector).Sum() ?? 0;
+    }
+
+    private string ResolveIcon(string icon)
+    {
+        return string.IsNullOrWhiteSpace(icon) ? Icons.Material.Filled.Link : icon;
     }
 }
