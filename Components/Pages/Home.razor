@@ -6,74 +6,83 @@
 
 <PageTitle>清风 - 家庭服务器主页</PageTitle>
 
-<h1>欢迎使用清风家庭服务器</h1>
+<MudText Typo="Typo.h3" Class="mb-4">欢迎使用清风家庭服务器</MudText>
 
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5>系统概览</h5>
-            </div>
-            <div class="card-body">
-                @if (systemInfo != null)
-                {
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="info-card">
-                                <h6>CPU</h6>
-                                <p class="display-6">@systemInfo.Cpu.UsagePercent%</p>
-                                <small>@systemInfo.Cpu.CoreCount 核心</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="info-card">
-                                <h6>内存</h6>
-                                <p class="display-6">@systemInfo.Memory.UsagePercent%</p>
-                                <small>@systemInfo.Memory.UsedGB / @systemInfo.Memory.TotalGB</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="info-card">
-                                <h6>磁盘</h6>
-                                <p class="display-6">@diskCount</p>
-                                <small>@diskCount 个磁盘</small>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="info-card">
-                                <h6>网络</h6>
-                                <p class="display-6">@networkCount</p>
-                                <small>@networkCount 个接口</small>
-                            </div>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <div class="text-center">
-                        <div class="spinner-border" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-</div>
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudText Typo="Typo.h5" Class="mb-4">系统概览</MudText>
+    @if (systemInfo != null)
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="4">
+                    <MudCardContent Class="text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Large" Color="Color.Primary" Class="mb-2" />
+                        <MudText Typo="Typo.h6" Class="mb-1">CPU</MudText>
+                        <MudText Typo="Typo.h3" Color="Color.Primary">@systemInfo.Cpu.UsagePercent%</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@systemInfo.Cpu.CoreCount 核心</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="4">
+                    <MudCardContent Class="text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Memory" Size="Size.Large" Color="Color.Secondary" Class="mb-2" />
+                        <MudText Typo="Typo.h6" Class="mb-1">内存</MudText>
+                        <MudText Typo="Typo.h3" Color="Color.Secondary">@systemInfo.Memory.UsagePercent%</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@systemInfo.Memory.UsedGB / @systemInfo.Memory.TotalGB</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="4">
+                    <MudCardContent Class="text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Large" Color="Color.Tertiary" Class="mb-2" />
+                        <MudText Typo="Typo.h6" Class="mb-1">磁盘</MudText>
+                        <MudText Typo="Typo.h3" Color="Color.Tertiary">@diskCount</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@diskCount 个磁盘</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Elevation="4">
+                    <MudCardContent Class="text-center">
+                        <MudIcon Icon="@Icons.Material.Filled.NetworkCheck" Size="Size.Large" Color="Color.Success" Class="mb-2" />
+                        <MudText Typo="Typo.h6" Class="mb-1">网络</MudText>
+                        <MudText Typo="Typo.h3" Color="Color.Success">@networkCount</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@networkCount 个接口</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    }
+    else
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        <MudText Class="ml-2">加载中...</MudText>
+    }
+</MudPaper>
 
-<div class="row mt-4">
-    <div class="col-md-12">
-        <div class="alert alert-info">
-            <h6>功能介绍</h6>
-            <ul>
-                <li><strong>系统监控</strong>：实时查看CPU、内存、磁盘、网络等系统资源信息</li>
-                <li><strong>磁盘管理</strong>：管理磁盘挂载和共享</li>
-                <li><strong>Docker管理</strong>：管理Docker容器和镜像</li>
-                <li><strong>文件管理</strong>：浏览和管理文件系统</li>
-            </ul>
-        </div>
-    </div>
-</div>
+<MudAlert Severity="Severity.Info" Variant="Variant.Filled">
+    <MudText Typo="Typo.h6" Class="mb-2">功能介绍</MudText>
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.Dashboard" />
+            <MudText><strong>系统监控</strong>：实时查看CPU、内存、磁盘、网络等系统资源信息</MudText>
+        </MudStack>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.Storage" />
+            <MudText><strong>磁盘管理</strong>：管理磁盘挂载和共享</MudText>
+        </MudStack>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.ContentCopy" />
+            <MudText><strong>Docker管理</strong>：管理Docker容器和镜像</MudText>
+        </MudStack>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.Folder" />
+            <MudText><strong>文件管理</strong>：浏览和管理文件系统</MudText>
+        </MudStack>
+    </MudStack>
+</MudAlert>
 
 @code {
     private SystemResourceInfo? systemInfo;
@@ -92,27 +101,3 @@
         networkCount = systemInfo?.Networks?.Count ?? 0;
     }
 }
-
-<style>
-    .info-card {
-        padding: 15px;
-        text-align: center;
-        background-color: #f8f9fa;
-        border-radius: 8px;
-    }
-    
-    .info-card h6 {
-        margin-bottom: 10px;
-        color: #6c757d;
-    }
-    
-    .info-card .display-6 {
-        font-size: 2rem;
-        font-weight: bold;
-        margin-bottom: 5px;
-    }
-    
-    .info-card small {
-        color: #6c757d;
-    }
-</style>

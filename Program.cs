@@ -1,11 +1,15 @@
 using QingFeng.Components;
 using QingFeng.Services;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Add MudBlazor services
+builder.Services.AddMudServices();
 
 // Register custom services
 builder.Services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
