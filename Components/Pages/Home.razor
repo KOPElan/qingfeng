@@ -2,6 +2,7 @@
 @using QingFeng.Services
 @using QingFeng.Models
 @using System.Text.Json
+@layout HomeLayout
 @inject ISystemMonitorService SystemMonitorService
 @inject IDockerService DockerService
 @inject IJSRuntime JS
@@ -9,68 +10,165 @@
 
 <PageTitle>清风 - 个人主页</PageTitle>
 
-<div class="home-hero">
-    <div class="home-hero__top">
-        <div>
-            <MudText Typo="Typo.h4" Class="mb-1">@GreetingText</MudText>
-            <MudText Typo="Typo.subtitle2" Class="text-muted">@DateTime.Now:dddd, HH:mm</MudText>
+<div class="homepage-container">
+    <div class="hero-section">
+        <div class="hero-icon">
+            <MudIcon Icon="@Icons.Material.Filled.WbSunny" Size="Size.Large" />
         </div>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="RefreshData">
-            刷新
-        </MudButton>
+        <MudText Typo="Typo.h3" Class="hero-greeting">@GreetingText</MudText>
+        
+        <div class="hero-content">
+            <!-- Recents Panel -->
+            <MudPaper Class="hero-panel recents-panel" Elevation="3">
+                <MudText Typo="Typo.subtitle2" Class="panel-header">Recents</MudText>
+                <div class="recent-items">
+                    <div class="recent-item">
+                        <MudIcon Icon="@Icons.Material.Filled.AudioFile" Class="recent-icon" Style="color: #c084fc;" />
+                        <div class="recent-info">
+                            <MudText Typo="Typo.body2">Vida La Vida</MudText>
+                            <MudText Typo="Typo.caption" Class="text-muted">MP3</MudText>
+                        </div>
+                    </div>
+                    <div class="recent-item">
+                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="recent-icon" Style="color: #60a5fa;" />
+                        <div class="recent-info">
+                            <MudText Typo="Typo.body2">Home 2 Write-up Draft</MudText>
+                            <MudText Typo="Typo.caption" Class="text-muted">TXT</MudText>
+                        </div>
+                    </div>
+                    <div class="recent-item">
+                        <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="recent-icon" Style="color: #34d399;" />
+                        <div class="recent-info">
+                            <MudText Typo="Typo.body2">3rd Quarter Financials</MudText>
+                            <MudText Typo="Typo.caption" Class="text-muted">XLSX</MudText>
+                        </div>
+                    </div>
+                </div>
+            </MudPaper>
+
+            <!-- System Stats Cards -->
+            <div class="stats-cards">
+                @if (systemInfo is null)
+                {
+                    <MudSkeleton Height="140px" Width="100%" Animation="Animation.Wave" />
+                }
+                else
+                {
+                    <MudPaper Class="stat-card-new" Elevation="3">
+                        <MudIcon Icon="@Icons.Material.Filled.Thermostat" Class="stat-icon" />
+                        <div class="stat-content">
+                            <MudText Typo="Typo.caption" Class="text-muted">Optimal</MudText>
+                            <MudText Typo="Typo.h6">@systemInfo.Cpu.UsagePercent°C</MudText>
+                        </div>
+                    </MudPaper>
+                    <MudPaper Class="stat-card-new" Elevation="3">
+                        <MudIcon Icon="@Icons.Material.Filled.Storage" Class="stat-icon" />
+                        <div class="stat-content">
+                            <MudText Typo="Typo.caption" Class="text-muted">Free</MudText>
+                            <MudText Typo="Typo.h6">@DiskTotalGb</MudText>
+                        </div>
+                    </MudPaper>
+                    <MudPaper Class="stat-card-new" Elevation="3">
+                        <MudIcon Icon="@Icons.Material.Filled.Memory" Class="stat-icon" />
+                        <div class="stat-content">
+                            <MudText Typo="Typo.caption" Class="text-muted">Memory</MudText>
+                            <MudText Typo="Typo.h6">@systemInfo.Memory.UsedGB</MudText>
+                        </div>
+                    </MudPaper>
+                }
+            </div>
+
+            <!-- Activity Panel -->
+            <MudPaper Class="hero-panel activity-panel" Elevation="3">
+                <div class="activity-items">
+                    <div class="activity-item">
+                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Style="color: #fbbf24;" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">Following update</MudText>
+                    </div>
+                    <div class="activity-item">
+                        <MudIcon Icon="@Icons.Material.Filled.ThumbUp" Style="color: #fb923c;" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">Reaction</MudText>
+                    </div>
+                    <div class="activity-item">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Style="color: #94a3b8;" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">Profile update</MudText>
+                    </div>
+                    <div class="activity-item">
+                        <MudIcon Icon="@Icons.Material.Filled.Chat" Style="color: #94a3b8;" Size="Size.Small" />
+                        <MudText Typo="Typo.body2" Class="text-muted">Reaction</MudText>
+                    </div>
+                </div>
+                <div class="activity-count">
+                    <MudText Typo="Typo.h4" Class="text-muted" Style="opacity: 0.3;">128</MudText>
+                </div>
+            </MudPaper>
+        </div>
     </div>
-    <div class="home-hero__stats">
-        @if (systemInfo is null)
-        {
-            <MudSkeleton Height="120px" Width="100%" Animation="Animation.Wave" />
-        }
-        else
-        {
-            <div class="stat-card">
-                <div class="stat-card__icon" aria-hidden="true">
-                    <MudIcon Icon="@Icons.Material.Filled.Speed" />
-                </div>
-                <div>
-                    <MudText Typo="Typo.overline">CPU</MudText>
-                    <MudText Typo="Typo.h5">@systemInfo.Cpu.UsagePercent%</MudText>
-                    <MudText Typo="Typo.caption">@systemInfo.Cpu.CoreCount 核心 · @systemInfo.Cpu.ProcessorName</MudText>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__icon" aria-hidden="true">
-                    <MudIcon Icon="@Icons.Material.Filled.Memory" />
-                </div>
-                <div>
-                    <MudText Typo="Typo.overline">内存</MudText>
-                    <MudText Typo="Typo.h5">@systemInfo.Memory.UsagePercent%</MudText>
-                    <MudText Typo="Typo.caption">@systemInfo.Memory.UsedGB / @systemInfo.Memory.TotalGB 可用 @systemInfo.Memory.AvailableGB</MudText>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__icon" aria-hidden="true">
-                    <MudIcon Icon="@Icons.Material.Filled.Storage" />
-                </div>
-                <div>
-                    <MudText Typo="Typo.overline">存储</MudText>
-                    <MudText Typo="Typo.h5">@DiskUsagePercent.ToString("F1")%</MudText>
-                    <MudText Typo="Typo.caption">@DiskUsedGb / @DiskTotalGb (@diskCount 个卷)</MudText>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__icon" aria-hidden="true">
-                    <MudIcon Icon="@Icons.Material.Filled.NetworkCheck" />
-                </div>
-                <div>
-                    <MudText Typo="Typo.overline">网络</MudText>
-                    <MudText Typo="Typo.h5">@networkCount 个接口</MudText>
-                    <MudText Typo="Typo.caption">@ActiveInterfacesSummary</MudText>
-                </div>
-            </div>
-        }
+
+    <!-- App Grid Section -->
+    <div class="apps-section">
+        <div class="apps-header">
+            <MudText Typo="Typo.subtitle2" Class="section-label">Files</MudText>
+            <MudText Typo="Typo.subtitle2" Class="section-label">Settings</MudText>
+            <MudText Typo="Typo.subtitle2" Class="section-label">Nostr Relay</MudText>
+        </div>
+        
+        <div class="apps-grid">
+            @foreach (var shortcut in OrderedShortcuts.Take(12))
+            {
+                <a href="@shortcut.Url" class="app-item" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
+                    <div class="app-icon" style="background: @GetAppColor(shortcut.Id);">
+                        <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Large" />
+                    </div>
+                    <MudText Typo="Typo.caption" Class="app-title">@shortcut.Title</MudText>
+                </a>
+            }
+        </div>
+
+        <div class="carousel-dots">
+            <div class="dot active"></div>
+            <div class="dot"></div>
+        </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-section">
+        <MudTextField T="string" Placeholder="Search" Variant="Variant.Outlined" 
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="search-input" />
+        <MudText Typo="Typo.caption" Class="text-muted">⌘K</MudText>
+    </div>
+
+    <!-- Dock -->
+    <div class="bottom-dock">
+        <MudPaper Class="dock-panel" Elevation="8">
+            @if (PinnedShortcuts.Count > 0)
+            {
+                @foreach (var shortcut in PinnedShortcuts.Take(6))
+                {
+                    <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
+                        <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                            <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                        </div>
+                    </a>
+                }
+            }
+            else
+            {
+                @foreach (var shortcut in defaultShortcuts.Where(s => s.IsPinned).Take(6))
+                {
+                    <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
+                        <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                            <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                        </div>
+                    </a>
+                }
+            }
+        </MudPaper>
     </div>
 </div>
 
-<MudGrid Class="home-grid" GutterSize="GutterSize.Size3">
+<MudGrid Class="home-grid" GutterSize="GutterSize.Size3" Style="display: none;">
     <MudItem xs="12" lg="8">
         <MudPaper Class="home-panel" Elevation="2">
             <div class="panel-title">
@@ -224,7 +322,7 @@
     </MudItem>
 </MudGrid>
 
-<div class="dock">
+<div class="dock" style="display: none;">
     <MudPaper Class="dock__panel" Elevation="6">
         <div class="dock__header">
             <MudText Typo="Typo.subtitle1">Dock 快捷区</MudText>
@@ -472,5 +570,26 @@
     private string ResolveIcon(string icon)
     {
         return string.IsNullOrWhiteSpace(icon) ? Icons.Material.Filled.Link : icon;
+    }
+
+    private string GetAppColor(string id)
+    {
+        return id switch
+        {
+            "internal-home" => "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            "internal-monitor" => "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+            "internal-docker" => "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+            "internal-disk" => "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+            "internal-files" => "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+            "ha" => "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
+            "pihole" => "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
+            "plex" => "linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%)",
+            "jellyfin" => "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
+            "transmission" => "linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%)",
+            "adguard" => "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
+            "tailscale" => "linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)",
+            "etherpad" => "linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)",
+            _ => "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+        };
     }
 }
