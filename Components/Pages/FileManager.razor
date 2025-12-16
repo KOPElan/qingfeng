@@ -6,158 +6,388 @@
 
 <PageTitle>文件管理器</PageTitle>
 
-<MudText Typo="Typo.h3" Class="mb-4">文件管理器</MudText>
-
-<MudStack Row="true" Class="mb-4">
-    <MudButton Variant="Variant.Filled" 
-               Color="Color.Primary" 
-               StartIcon="@Icons.Material.Filled.Refresh" 
-               OnClick="RefreshFiles">
-        刷新
-    </MudButton>
-    <MudButton Variant="Variant.Filled" 
-               Color="Color.Secondary" 
-               StartIcon="@Icons.Material.Filled.ArrowUpward" 
-               OnClick="GoUp">
-        上级目录
-    </MudButton>
-    <MudButton Variant="Variant.Filled" 
-               Color="Color.Success" 
-               StartIcon="@Icons.Material.Filled.CreateNewFolder" 
-               OnClick="@(() => showCreateDialog = true)">
-        新建文件夹
-    </MudButton>
-</MudStack>
-
-@if (!string.IsNullOrEmpty(message))
-{
-    <MudAlert Severity="@(isError ? Severity.Error : Severity.Success)" 
-              Class="mb-4" 
-              CloseIconClicked="@(() => message = string.Empty)">
-        @message
-    </MudAlert>
-}
-
-<!-- Current Path -->
-<MudPaper Elevation="1" Class="pa-3 mb-4">
-    <MudStack Row="true" AlignItems="AlignItems.Center">
-        <MudIcon Icon="@Icons.Material.Filled.Folder" />
-        <MudText Typo="Typo.body1"><strong>当前路径：</strong>@currentPath</MudText>
-    </MudStack>
-</MudPaper>
-
-<!-- File List -->
-<MudPaper Elevation="2" Class="pa-4">
-    @if (files != null && files.Any())
-    {
-        <MudTable Items="@files" Hover="true" Dense="false" FixedHeader="true" Height="600px">
-            <HeaderContent>
-                <MudTh>名称</MudTh>
-                <MudTh>类型</MudTh>
-                <MudTh>大小</MudTh>
-                <MudTh>修改时间</MudTh>
-                <MudTh>操作</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="名称">
-                    @if (context.IsDirectory)
-                    {
-                        <MudLink OnClick="@(() => NavigateTo(context.Path))" Color="Color.Primary">
-                            <MudIcon Icon="@Icons.Material.Filled.Folder" Color="Color.Warning" Class="mr-2" />
-                            @context.Name
-                        </MudLink>
-                    }
-                    else
-                    {
-                        <MudStack Row="true" AlignItems="AlignItems.Center">
-                            <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Color="Color.Info" />
-                            <MudText>@context.Name</MudText>
-                        </MudStack>
-                    }
-                </MudTd>
-                <MudTd DataLabel="类型">
-                    <MudChip T="string" Size="Size.Small" 
-                            Color="@(context.IsDirectory ? Color.Warning : Color.Info)" 
-                            Variant="Variant.Outlined">
-                        @(context.IsDirectory ? "文件夹" : "文件")
-                    </MudChip>
-                </MudTd>
-                <MudTd DataLabel="大小">@context.SizeDisplay</MudTd>
-                <MudTd DataLabel="修改时间">@context.LastModified.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
-                <MudTd DataLabel="操作">
-                    @if (context.Name != "..")
-                    {
-                        @if (!context.IsDirectory)
-                        {
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" 
-                                          Color="Color.Error" 
-                                          Size="Size.Small"
-                                          OnClick="@(() => DeleteFile(context.Path))" />
-                        }
-                        else
-                        {
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" 
-                                          Color="Color.Error" 
-                                          Size="Size.Small"
-                                          OnClick="@(() => DeleteDirectory(context.Path))" />
-                        }
-                    }
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
+<style>
+    .file-manager-container {
+        display: flex;
+        height: calc(100vh - 180px);
+        gap: 0;
     }
-    else if (files == null)
-    {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        <MudText Class="ml-2">加载中...</MudText>
+    
+    .sidebar {
+        width: 220px;
+        background-color: var(--mud-palette-background);
+        border-right: 1px solid var(--mud-palette-divider);
+        overflow-y: auto;
+        flex-shrink: 0;
     }
-    else
-    {
-        <MudText Color="Color.Secondary">此目录为空</MudText>
+    
+    .sidebar-section {
+        padding: 16px 8px 8px 8px;
     }
-</MudPaper>
+    
+    .sidebar-title {
+        font-size: 12px;
+        color: var(--mud-palette-text-secondary);
+        padding: 4px 12px;
+        margin-bottom: 4px;
+        font-weight: 500;
+    }
+    
+    .sidebar-item {
+        padding: 8px 12px;
+        margin: 2px 4px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        transition: background-color 0.2s;
+    }
+    
+    .sidebar-item:hover {
+        background-color: var(--mud-palette-action-default-hover);
+    }
+    
+    .sidebar-item.selected {
+        background-color: var(--mud-palette-primary);
+        color: white;
+    }
+    
+    .sidebar-item .mud-icon-root {
+        font-size: 20px;
+    }
+    
+    .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    
+    .toolbar {
+        padding: 12px 24px;
+        border-bottom: 1px solid var(--mud-palette-divider);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background-color: var(--mud-palette-surface);
+    }
+    
+    .breadcrumb-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+    }
+    
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 14px;
+    }
+    
+    .file-count {
+        font-size: 13px;
+        color: var(--mud-palette-text-secondary);
+        margin-left: 8px;
+    }
+    
+    .file-grid {
+        padding: 24px;
+        overflow-y: auto;
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 20px;
+        align-content: start;
+    }
+    
+    .file-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .file-item:hover {
+        background-color: var(--mud-palette-action-default-hover);
+    }
+    
+    .folder-icon {
+        font-size: 80px !important;
+        color: #FFA726;
+        margin-bottom: 8px;
+    }
+    
+    .file-icon {
+        font-size: 80px !important;
+        color: #42A5F5;
+        margin-bottom: 8px;
+    }
+    
+    .file-name {
+        font-size: 13px;
+        text-align: center;
+        word-break: break-word;
+        margin-bottom: 4px;
+    }
+    
+    .file-date {
+        font-size: 11px;
+        color: var(--mud-palette-text-secondary);
+    }
+    
+    .status-bar {
+        padding: 8px 24px;
+        border-top: 1px solid var(--mud-palette-divider);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        background-color: var(--mud-palette-surface);
+    }
+    
+    .path-display {
+        color: var(--mud-palette-text-secondary);
+    }
+    
+    .storage-info {
+        color: var(--mud-palette-text-secondary);
+    }
+</style>
 
-<!-- Create Directory Dialog -->
-<MudDialog @bind-Visible="showCreateDialog">
-    <TitleContent>
-        <MudText Typo="Typo.h6">
-            <MudIcon Icon="@Icons.Material.Filled.CreateNewFolder" Class="mr-2" />
-            新建文件夹
-        </MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudTextField @bind-Value="newFolderName" 
-                     Label="文件夹名称" 
-                     Variant="Variant.Outlined"
-                     Placeholder="输入文件夹名称"
-                     HelperText="请输入要创建的文件夹名称" />
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="@(() => showCreateDialog = false)">取消</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CreateDirectory">创建</MudButton>
-    </DialogActions>
-</MudDialog>
+<div class="file-manager-container">
+    <!-- Left Sidebar -->
+    <div class="sidebar">
+        <!-- Shortcuts Section -->
+        <div class="sidebar-section">
+            <div class="sidebar-title">收藏</div>
+            @if (shortcuts != null)
+            {
+                @foreach (var shortcut in shortcuts)
+                {
+                    <div class="sidebar-item @(currentPath == shortcut.Path ? "selected" : "")" 
+                         @onclick="@(() => NavigateTo(shortcut.Path))">
+                        <MudIcon Icon="@GetShortcutIcon(shortcut.Type)" Size="Size.Small" />
+                        <span>@shortcut.Name</span>
+                    </div>
+                }
+            }
+        </div>
+        
+        <!-- Drives Section -->
+        <div class="sidebar-section">
+            <div class="sidebar-title">存储</div>
+            @if (drives != null)
+            {
+                @foreach (var drive in drives)
+                {
+                    <div class="sidebar-item @(currentPath == drive.Path || currentPath.StartsWith(drive.Path) ? "selected" : "")" 
+                         @onclick="@(() => NavigateTo(drive.Path))">
+                        <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" />
+                        <span>@drive.Name</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" 
+                          Size="Size.Small" 
+                          OnClick="GoBack"
+                          Disabled="@(navigationHistory.Count <= 1)" />
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" 
+                          Size="Size.Small"
+                          OnClick="GoForward"
+                          Disabled="@(forwardHistory.Count == 0)" />
+            
+            <div class="breadcrumb-container">
+                <div class="breadcrumb">
+                    <MudText Typo="Typo.body2">Files</MudText>
+                    @foreach (var part in GetPathParts())
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                        <MudLink Typo="Typo.body2" OnClick="@(() => NavigateTo(part.Path))">@part.Name</MudLink>
+                    }
+                </div>
+                @if (files != null)
+                {
+                    <span class="file-count">@files.Count 项</span>
+                }
+            </div>
+            
+            <MudIconButton Icon="@Icons.Material.Filled.Help" Size="Size.Small" />
+            <MudIconButton Icon="@Icons.Material.Filled.VideoLibrary" Size="Size.Small" />
+            <MudIconButton Icon="@Icons.Material.Filled.FolderShared" Size="Size.Small" />
+            <MudButton Variant="Variant.Filled" 
+                      Color="Color.Primary" 
+                      StartIcon="@Icons.Material.Filled.Upload"
+                      Size="Size.Small">
+                导入
+            </MudButton>
+            <MudIconButton Icon="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)" 
+                          Size="Size.Small"
+                          OnClick="ToggleViewMode" />
+            <MudIconButton Icon="@Icons.Material.Filled.GridView" Size="Size.Small" />
+        </div>
+        
+        <!-- File Grid View -->
+        @if (isGridView)
+        {
+            <div class="file-grid">
+                @if (files != null && files.Any())
+                {
+                    @foreach (var file in files.Where(f => f.Name != ".."))
+                    {
+                        <div class="file-item" @onclick="@(() => NavigateTo(file.Path))">
+                            @if (file.IsDirectory)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Folder" Class="folder-icon" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Class="file-icon" />
+                            }
+                            <div class="file-name">@file.Name</div>
+                            <div class="file-date">@file.LastModified.ToString("dd/MM HH:mm")</div>
+                        </div>
+                    }
+                }
+                else if (files == null)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+            </div>
+        }
+        else
+        {
+            <!-- List View -->
+            <div style="padding: 24px; overflow-y: auto; flex: 1;">
+                @if (files != null && files.Any())
+                {
+                    <MudTable Items="@files.Where(f => f.Name != "..")" Hover="true" Dense="true">
+                        <HeaderContent>
+                            <MudTh>名称</MudTh>
+                            <MudTh>类型</MudTh>
+                            <MudTh>大小</MudTh>
+                            <MudTh>修改时间</MudTh>
+                            <MudTh>操作</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="名称">
+                                @if (context.IsDirectory)
+                                {
+                                    <MudLink OnClick="@(() => NavigateTo(context.Path))">
+                                        <MudIcon Icon="@Icons.Material.Filled.Folder" Color="Color.Warning" Size="Size.Small" Class="mr-2" />
+                                        @context.Name
+                                    </MudLink>
+                                }
+                                else
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Color="Color.Info" Size="Size.Small" />
+                                        <MudText>@context.Name</MudText>
+                                    </MudStack>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="类型">
+                                <MudChip T="string" Size="Size.Small" 
+                                        Color="@(context.IsDirectory ? Color.Warning : Color.Info)" 
+                                        Variant="Variant.Outlined">
+                                    @(context.IsDirectory ? "文件夹" : "文件")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="大小">@context.SizeDisplay</MudTd>
+                            <MudTd DataLabel="修改时间">@context.LastModified.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+                            <MudTd DataLabel="操作">
+                                @if (!context.IsDirectory)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                  Color="Color.Error" 
+                                                  Size="Size.Small"
+                                                  OnClick="@(() => DeleteFile(context.Path))" />
+                                }
+                                else
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                  Color="Color.Error" 
+                                                  Size="Size.Small"
+                                                  OnClick="@(() => DeleteDirectory(context.Path))" />
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+                else if (files == null)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    <MudText Class="ml-2">加载中...</MudText>
+                }
+                else
+                {
+                    <MudText Color="Color.Secondary">此目录为空</MudText>
+                }
+            </div>
+        }
+        
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="path-display">
+                <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Style="vertical-align: middle;" />
+                @GetSimplifiedPath()
+            </div>
+            <div class="storage-info">
+                @if (storageTotal > 0)
+                {
+                    <span>@FormatSize(storageAvailable) 可用/@FormatSize(storageTotal)</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
 
 @code {
     private List<FileItemInfo>? files;
+    private List<DriveItemInfo>? drives;
+    private List<ShortcutItemInfo>? shortcuts;
     private string currentPath = string.Empty;
-    private string message = string.Empty;
-    private bool isError = false;
-    private bool showCreateDialog = false;
-    private string newFolderName = string.Empty;
+    private bool isGridView = true;
+    private long storageTotal = 0;
+    private long storageAvailable = 0;
+    
+    private Stack<string> navigationHistory = new Stack<string>();
+    private Stack<string> forwardHistory = new Stack<string>();
 
     protected override async Task OnInitializedAsync()
     {
-        // Start at user's home directory or root
-        if (OperatingSystem.IsWindows())
+        // Load drives and shortcuts
+        drives = await FileManagerService.GetDrivesAsync();
+        shortcuts = await FileManagerService.GetShortcutsAsync();
+        
+        // Start at user's home directory or first drive
+        if (drives != null && drives.Any())
+        {
+            currentPath = drives.First().Path;
+        }
+        else if (OperatingSystem.IsWindows())
         {
             currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         }
         else
         {
-            currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            currentPath = "/";
         }
         
+        navigationHistory.Push(currentPath);
         await RefreshFiles();
     }
 
@@ -166,29 +396,62 @@
         try
         {
             files = await FileManagerService.GetFilesAsync(currentPath);
-            message = string.Empty;
+            var storage = await FileManagerService.GetStorageInfoAsync(currentPath);
+            storageTotal = storage.total;
+            storageAvailable = storage.available;
         }
         catch (Exception ex)
         {
-            message = $"加载文件列表失败: {ex.Message}";
-            isError = true;
+            // Log error silently or handle as needed
+            Console.WriteLine($"加载文件列表失败: {ex.Message}");
         }
     }
 
     private async Task NavigateTo(string path)
     {
-        currentPath = path;
-        await RefreshFiles();
-    }
-
-    private async Task GoUp()
-    {
-        var parent = FileManagerService.GetParentPath(currentPath);
-        if (!string.IsNullOrEmpty(parent) && parent != currentPath)
+        if (Directory.Exists(path))
         {
-            currentPath = parent;
+            // Add current path to history if it's different
+            if (currentPath != path)
+            {
+                navigationHistory.Push(currentPath);
+                forwardHistory.Clear(); // Clear forward history on new navigation
+            }
+            
+            currentPath = path;
             await RefreshFiles();
         }
+        else if (File.Exists(path))
+        {
+            // Handle file click - could add file preview/download here
+            Console.WriteLine("文件操作功能即将推出");
+        }
+    }
+
+    private async Task GoBack()
+    {
+        if (navigationHistory.Count > 1)
+        {
+            forwardHistory.Push(currentPath);
+            navigationHistory.Pop(); // Remove current
+            currentPath = navigationHistory.Peek(); // Go to previous
+            await RefreshFiles();
+        }
+    }
+
+    private async Task GoForward()
+    {
+        if (forwardHistory.Count > 0)
+        {
+            navigationHistory.Push(currentPath);
+            currentPath = forwardHistory.Pop();
+            await RefreshFiles();
+        }
+    }
+
+    private void ToggleViewMode()
+    {
+        isGridView = !isGridView;
     }
 
     private async Task DeleteFile(string path)
@@ -196,14 +459,11 @@
         try
         {
             await FileManagerService.DeleteFileAsync(path);
-            message = "文件已删除";
-            isError = false;
             await RefreshFiles();
         }
         catch (Exception ex)
         {
-            message = $"删除文件失败: {ex.Message}";
-            isError = true;
+            Console.WriteLine($"删除文件失败: {ex.Message}");
         }
     }
 
@@ -212,40 +472,92 @@
         try
         {
             await FileManagerService.DeleteDirectoryAsync(path);
-            message = "文件夹已删除";
-            isError = false;
             await RefreshFiles();
         }
         catch (Exception ex)
         {
-            message = $"删除文件夹失败: {ex.Message}";
-            isError = true;
+            Console.WriteLine($"删除文件夹失败: {ex.Message}");
         }
     }
 
-    private async Task CreateDirectory()
+    private List<(string Name, string Path)> GetPathParts()
     {
-        if (string.IsNullOrWhiteSpace(newFolderName))
+        var parts = new List<(string Name, string Path)>();
+        
+        if (string.IsNullOrEmpty(currentPath))
+            return parts;
+        
+        var path = currentPath;
+        var pathSegments = new List<string>();
+        
+        // Split path into segments
+        while (!string.IsNullOrEmpty(path))
         {
-            message = "请输入文件夹名称";
-            isError = true;
-            return;
+            var dirInfo = new DirectoryInfo(path);
+            if (dirInfo.Parent == null)
+            {
+                pathSegments.Insert(0, path);
+                break;
+            }
+            pathSegments.Insert(0, dirInfo.Name);
+            path = dirInfo.Parent.FullName;
         }
+        
+        // Build path parts
+        var currentBuild = "";
+        foreach (var segment in pathSegments)
+        {
+            if (string.IsNullOrEmpty(currentBuild))
+            {
+                currentBuild = segment;
+            }
+            else
+            {
+                currentBuild = Path.Combine(currentBuild, segment);
+            }
+            parts.Add((segment, currentBuild));
+        }
+        
+        return parts;
+    }
 
-        try
+    private string GetSimplifiedPath()
+    {
+        if (string.IsNullOrEmpty(currentPath))
+            return "/";
+        
+        var parts = currentPath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length <= 3)
+            return $"/ {string.Join(" / ", parts)}";
+        
+        return $"/ {parts[0]} / ... / {parts[parts.Length - 1]}";
+    }
+
+    private string GetShortcutIcon(string type)
+    {
+        return type switch
         {
-            var newPath = Path.Combine(currentPath, newFolderName);
-            await FileManagerService.CreateDirectoryAsync(newPath);
-            message = "文件夹已创建";
-            isError = false;
-            showCreateDialog = false;
-            newFolderName = string.Empty;
-            await RefreshFiles();
-        }
-        catch (Exception ex)
+            "documents" => Icons.Material.Filled.Description,
+            "downloads" => Icons.Material.Filled.Download,
+            "gallery" => Icons.Material.Filled.PhotoLibrary,
+            "media" => Icons.Material.Filled.Movie,
+            "backup" => Icons.Material.Filled.Backup,
+            _ => Icons.Material.Filled.Folder
+        };
+    }
+
+    private string FormatSize(long bytes)
+    {
+        if (bytes == 0) return "0 B";
+        
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
         {
-            message = $"创建文件夹失败: {ex.Message}";
-            isError = true;
+            order++;
+            len = len / 1024;
         }
+        return $"{len:0.##} {sizes[order]}";
     }
 }

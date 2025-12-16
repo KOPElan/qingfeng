@@ -187,4 +187,123 @@ public class FileManagerService : IFileManagerService
             return false;
         }
     }
+
+    public async Task<List<DriveItemInfo>> GetDrivesAsync()
+    {
+        await Task.Delay(0);
+        var drives = new List<DriveItemInfo>();
+
+        try
+        {
+            var driveInfos = DriveInfo.GetDrives();
+            foreach (var drive in driveInfos)
+            {
+                try
+                {
+                    if (drive.IsReady)
+                    {
+                        drives.Add(new DriveItemInfo
+                        {
+                            Name = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? drive.Name : drive.VolumeLabel,
+                            Path = drive.RootDirectory.FullName,
+                            TotalSize = drive.TotalSize,
+                            AvailableSize = drive.AvailableFreeSpace,
+                            DriveType = drive.DriveType.ToString(),
+                            Icon = drive.DriveType switch
+                            {
+                                System.IO.DriveType.Fixed => "storage",
+                                System.IO.DriveType.Removable => "usb",
+                                System.IO.DriveType.Network => "cloud",
+                                _ => "folder"
+                            }
+                        });
+                    }
+                }
+                catch
+                {
+                    // Skip drives we can't access
+                }
+            }
+        }
+        catch
+        {
+            // Return empty list on error
+        }
+
+        return drives;
+    }
+
+    public async Task<List<ShortcutItemInfo>> GetShortcutsAsync()
+    {
+        await Task.Delay(0);
+        var shortcuts = new List<ShortcutItemInfo>();
+
+        try
+        {
+            // Add common shortcuts
+            shortcuts.Add(new ShortcutItemInfo
+            {
+                Name = "Documents",
+                Path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                Icon = "description",
+                Type = "documents"
+            });
+
+            shortcuts.Add(new ShortcutItemInfo
+            {
+                Name = "Downloads",
+                Path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
+                Icon = "download",
+                Type = "downloads"
+            });
+
+            shortcuts.Add(new ShortcutItemInfo
+            {
+                Name = "Gallery",
+                Path = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+                Icon = "photo_library",
+                Type = "gallery"
+            });
+
+            shortcuts.Add(new ShortcutItemInfo
+            {
+                Name = "Media",
+                Path = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic),
+                Icon = "movie",
+                Type = "media"
+            });
+        }
+        catch
+        {
+            // Return empty list on error
+        }
+
+        return shortcuts;
+    }
+
+    public async Task<(long total, long available)> GetStorageInfoAsync(string path)
+    {
+        await Task.Delay(0);
+        
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            
+            // Find the drive for this path
+            var driveInfos = DriveInfo.GetDrives();
+            foreach (var drive in driveInfos)
+            {
+                if (drive.IsReady && fullPath.StartsWith(drive.RootDirectory.FullName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return (drive.TotalSize, drive.AvailableFreeSpace);
+                }
+            }
+        }
+        catch
+        {
+            // Return zeros on error
+        }
+
+        return (0, 0);
+    }
 }
