@@ -58,7 +58,7 @@
                         <MudIcon Icon="@Icons.Material.Filled.Thermostat" Class="stat-icon" />
                         <div class="stat-content">
                             <MudText Typo="Typo.caption" Class="text-muted">Optimal</MudText>
-                            <MudText Typo="Typo.h6">@systemInfo.Cpu.UsagePercent°C</MudText>
+                            <MudText Typo="Typo.h6">@(systemInfo.Cpu.UsagePercent < 50 ? "0" : systemInfo.Cpu.UsagePercent)°C</MudText>
                         </div>
                     </MudPaper>
                     <MudPaper Class="stat-card-new" Elevation="3">

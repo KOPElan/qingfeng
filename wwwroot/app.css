@@ -504,9 +504,10 @@ h1:focus {
     color: #94a3b8;
 }
 
-/* Hide layout elements on homepage */
-.mud-layout .mud-main-content {
-    padding: 0 !important;
+/* Remove default padding on homepage container - scoped via HomeLayout */
+.homepage-container {
+    margin: 0;
+    padding: 0;
 }
 
 /* Responsive adjustments for homepage */
