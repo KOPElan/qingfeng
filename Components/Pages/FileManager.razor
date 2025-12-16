@@ -1,6 +1,7 @@
 @page "/file-manager"
 @using QingFeng.Services
 @using QingFeng.Models
+@using QingFeng.Utilities
 @inject IFileManagerService FileManagerService
 @rendermode InteractiveServer
 
@@ -348,7 +349,7 @@
             <div class="storage-info">
                 @if (storageTotal > 0)
                 {
-                    <span>@FormatSize(storageAvailable) 可用/@FormatSize(storageTotal)</span>
+                    <span>@FileUtilities.FormatSize(storageAvailable) 可用/@FileUtilities.FormatSize(storageTotal)</span>
                 }
             </div>
         </div>
@@ -544,20 +545,5 @@
             "backup" => Icons.Material.Filled.Backup,
             _ => Icons.Material.Filled.Folder
         };
-    }
-
-    private string FormatSize(long bytes)
-    {
-        if (bytes == 0) return "0 B";
-        
-        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-        double len = bytes;
-        int order = 0;
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len = len / 1024;
-        }
-        return $"{len:0.##} {sizes[order]}";
     }
 }

@@ -188,9 +188,8 @@ public class FileManagerService : IFileManagerService
         }
     }
 
-    public async Task<List<DriveItemInfo>> GetDrivesAsync()
+    public Task<List<DriveItemInfo>> GetDrivesAsync()
     {
-        await Task.Delay(0);
         var drives = new List<DriveItemInfo>();
 
         try
@@ -230,12 +229,11 @@ public class FileManagerService : IFileManagerService
             // Return empty list on error
         }
 
-        return drives;
+        return Task.FromResult(drives);
     }
 
-    public async Task<List<ShortcutItemInfo>> GetShortcutsAsync()
+    public Task<List<ShortcutItemInfo>> GetShortcutsAsync()
     {
-        await Task.Delay(0);
         var shortcuts = new List<ShortcutItemInfo>();
 
         try
@@ -278,13 +276,11 @@ public class FileManagerService : IFileManagerService
             // Return empty list on error
         }
 
-        return shortcuts;
+        return Task.FromResult(shortcuts);
     }
 
-    public async Task<(long total, long available)> GetStorageInfoAsync(string path)
+    public Task<(long total, long available)> GetStorageInfoAsync(string path)
     {
-        await Task.Delay(0);
-        
         try
         {
             var fullPath = Path.GetFullPath(path);
@@ -295,7 +291,7 @@ public class FileManagerService : IFileManagerService
             {
                 if (drive.IsReady && fullPath.StartsWith(drive.RootDirectory.FullName, StringComparison.OrdinalIgnoreCase))
                 {
-                    return (drive.TotalSize, drive.AvailableFreeSpace);
+                    return Task.FromResult((drive.TotalSize, drive.AvailableFreeSpace));
                 }
             }
         }
@@ -304,6 +300,6 @@ public class FileManagerService : IFileManagerService
             // Return zeros on error
         }
 
-        return (0, 0);
+        return Task.FromResult((0L, 0L));
     }
 }

@@ -1,3 +1,5 @@
+using QingFeng.Utilities;
+
 namespace QingFeng.Models;
 
 public class FileItemInfo
@@ -9,18 +11,5 @@ public class FileItemInfo
     public DateTime LastModified { get; set; }
     public string Extension { get; set; } = string.Empty;
     
-    public string SizeDisplay => IsDirectory ? "-" : FormatSize(Size);
-    
-    private static string FormatSize(long bytes)
-    {
-        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-        double len = bytes;
-        int order = 0;
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len = len / 1024;
-        }
-        return $"{len:0.##} {sizes[order]}";
-    }
+    public string SizeDisplay => IsDirectory ? "-" : FileUtilities.FormatSize(Size);
 }
