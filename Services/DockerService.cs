@@ -158,10 +158,9 @@ public class DockerService : IDockerService
             Tail = tailLines.ToString()
         };
 
-        var multiplexedStream = await _client.Containers.GetContainerLogsAsync(containerId, false, logsParameters, CancellationToken.None);
-        
+        using var multiplexedStream = await _client.Containers.GetContainerLogsAsync(containerId, false, logsParameters, CancellationToken.None);
         using var memoryStream = new MemoryStream();
-        await multiplexedStream.CopyOutputToAsync(Stream.Null, memoryStream, Stream.Null, CancellationToken.None);
+        await multiplexedStream.CopyOutputToAsync(memoryStream, memoryStream, Stream.Null, CancellationToken.None);
         
         memoryStream.Position = 0;
         using var reader = new StreamReader(memoryStream);
