@@ -6,6 +6,7 @@
 @inject ISystemMonitorService SystemMonitorService
 @inject IDockerService DockerService
 @inject IHomeConfigService HomeConfigService
+@inject IDialogService DialogService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
@@ -147,22 +148,56 @@
             {
                 @foreach (var shortcut in PinnedShortcuts.Take(6))
                 {
-                    <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
-                        <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                            <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                    @if (IsInternalManagementPage(shortcut.Url))
+                    {
+                        <div class="dock-icon" 
+                             @onclick="() => OpenInModal(shortcut)" 
+                             @onkeydown="(e) => HandleKeyDown(e, shortcut)"
+                             tabindex="0" 
+                             role="button" 
+                             aria-label="@shortcut.Title"
+                             style="cursor: pointer;">
+                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                            </div>
                         </div>
-                    </a>
+                    }
+                    else
+                    {
+                        <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
+                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                            </div>
+                        </a>
+                    }
                 }
             }
             else
             {
                 @foreach (var shortcut in defaultShortcuts.Where(s => s.IsPinned).Take(6))
                 {
-                    <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
-                        <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                            <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                    @if (IsInternalManagementPage(shortcut.Url))
+                    {
+                        <div class="dock-icon" 
+                             @onclick="() => OpenInModal(shortcut)" 
+                             @onkeydown="(e) => HandleKeyDown(e, shortcut)"
+                             tabindex="0" 
+                             role="button" 
+                             aria-label="@shortcut.Title"
+                             style="cursor: pointer;">
+                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                            </div>
                         </div>
-                    </a>
+                    }
+                    else
+                    {
+                        <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
+                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                            </div>
+                        </a>
+                    }
                 }
             }
         </MudPaper>
@@ -514,6 +549,14 @@
         if (!CanSubmit)
             return;
 
+        // Validate URL to prevent XSS
+        var sanitizedUrl = SanitizeUrl(draftShortcut.Url);
+        if (sanitizedUrl == "#")
+        {
+            // Invalid URL, don't save
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(draftShortcut.Id))
         {
             draftShortcut.Id = Guid.NewGuid().ToString("N");
@@ -523,7 +566,7 @@
         {
             Id = draftShortcut.Id,
             Title = draftShortcut.Title,
-            Url = draftShortcut.Url,
+            Url = sanitizedUrl,
             Icon = string.IsNullOrWhiteSpace(draftShortcut.Icon) ? Icons.Material.Filled.Link : draftShortcut.Icon,
             Description = draftShortcut.Description,
             Category = string.IsNullOrWhiteSpace(draftShortcut.Category) ? "自定义" : draftShortcut.Category,
@@ -617,5 +660,77 @@
             "etherpad" => "linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)",
             _ => "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
         };
+    }
+
+    private bool IsInternalManagementPage(string url)
+    {
+        return url == Constants.InternalPages.SystemMonitor ||
+               url == Constants.InternalPages.Docker ||
+               url == Constants.InternalPages.DiskManagement ||
+               url == Constants.InternalPages.FileManager;
+    }
+
+    private async Task OpenInModal(ShortcutLink shortcut)
+    {
+        var options = new DialogOptions 
+        { 
+            MaxWidth = MaxWidth.ExtraExtraLarge, 
+            FullWidth = true,
+            CloseButton = true,
+            FullScreen = true
+        };
+
+        var parameters = new DialogParameters
+        {
+            { "Title", shortcut.Title }
+        };
+
+        switch (shortcut.Url)
+        {
+            case var url when url == Constants.InternalPages.SystemMonitor:
+                await DialogService.ShowAsync<QingFeng.Components.Dialogs.SystemMonitorDialog>(shortcut.Title, parameters, options);
+                break;
+            case var url when url == Constants.InternalPages.Docker:
+                // TODO: Implement Docker dialog
+                break;
+            case var url when url == Constants.InternalPages.DiskManagement:
+                // TODO: Implement Disk Management dialog
+                break;
+            case var url when url == Constants.InternalPages.FileManager:
+                // TODO: Implement File Manager dialog
+                break;
+        }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e, ShortcutLink shortcut)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            _ = OpenInModal(shortcut);
+        }
+    }
+
+    private bool IsExternalUrl(string url)
+    {
+        return url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+               url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string SanitizeUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return "#";
+
+        // Allow only http, https, and relative URLs
+        var lowerUrl = url.Trim().ToLowerInvariant();
+        if (lowerUrl.StartsWith("javascript:") ||
+            lowerUrl.StartsWith("data:") ||
+            lowerUrl.StartsWith("vbscript:") ||
+            lowerUrl.StartsWith("file:"))
+        {
+            return "#";
+        }
+
+        return url;
     }
 }

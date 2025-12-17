@@ -1,0 +1,163 @@
+@using QingFeng.Services
+@using QingFeng.Models
+@using Microsoft.AspNetCore.Components
+@inject ISystemMonitorService SystemMonitorService
+@implements IDisposable
+@rendermode InteractiveServer
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.DashboardCustomize" Class="mr-2" />
+            @(Title ?? "系统监控")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <div style="height: 70vh; overflow-y: auto;">
+            @if (systemInfo != null)
+            {
+                <!-- CPU Information -->
+                <MudPaper Elevation="2" Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h5" Class="mb-3">
+                        <MudIcon Icon="@Icons.Material.Filled.Speed" Class="mr-2" />
+                        CPU信息
+                    </MudText>
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudText><strong>核心数：</strong>@systemInfo.Cpu.CoreCount</MudText>
+                            <MudText><strong>架构：</strong>@systemInfo.Cpu.ProcessorName</MudText>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Class="mb-2"><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</MudText>
+                            <MudProgressLinear Color="Color.Primary" 
+                                               Value="@systemInfo.Cpu.UsagePercent" 
+                                               Size="Size.Large">
+                                <MudText Typo="Typo.body1" Color="Color.Surface">@systemInfo.Cpu.UsagePercent%</MudText>
+                            </MudProgressLinear>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <!-- Memory Information -->
+                <MudPaper Elevation="2" Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h5" Class="mb-3">
+                        <MudIcon Icon="@Icons.Material.Filled.Memory" Class="mr-2" />
+                        内存信息
+                    </MudText>
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudText><strong>总内存：</strong>@systemInfo.Memory.TotalGB GB</MudText>
+                            <MudText><strong>已使用：</strong>@systemInfo.Memory.UsedGB GB</MudText>
+                            <MudText><strong>可用：</strong>@systemInfo.Memory.AvailableGB GB</MudText>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Class="mb-2"><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</MudText>
+                            <MudProgressLinear Color="Color.Secondary" 
+                                               Value="@systemInfo.Memory.UsagePercent" 
+                                               Size="Size.Large">
+                                <MudText Typo="Typo.body1" Color="Color.Surface">@systemInfo.Memory.UsagePercent%</MudText>
+                            </MudProgressLinear>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <!-- Disk Information -->
+                <MudPaper Elevation="2" Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h5" Class="mb-3">
+                        <MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" />
+                        磁盘信息
+                    </MudText>
+                    @if (systemInfo.Disks != null && systemInfo.Disks.Any())
+                    {
+                        foreach (var disk in systemInfo.Disks)
+                        {
+                            <MudPaper Elevation="1" Class="pa-3 mb-3">
+                                <MudText Typo="Typo.h6">@disk.Name</MudText>
+                                <MudText><strong>挂载点：</strong>@disk.MountPoint</MudText>
+                                <MudText><strong>文件系统：</strong>@disk.FileSystem</MudText>
+                                <MudText><strong>总容量：</strong>@disk.TotalGB</MudText>
+                                <MudText><strong>已使用：</strong>@disk.UsedGB</MudText>
+                                <MudText><strong>可用：</strong>@disk.AvailableGB</MudText>
+                                <MudText Class="mb-2"><strong>使用率：</strong>@disk.UsagePercent%</MudText>
+                                <MudProgressLinear Color="Color.Info" 
+                                                   Value="@disk.UsagePercent" 
+                                                   Size="Size.Medium" />
+                            </MudPaper>
+                        }
+                    }
+                </MudPaper>
+
+                <!-- Network Information -->
+                <MudPaper Elevation="2" Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h5" Class="mb-3">
+                        <MudIcon Icon="@Icons.Material.Filled.NetworkCheck" Class="mr-2" />
+                        网络信息
+                    </MudText>
+                    @if (systemInfo.Networks != null && systemInfo.Networks.Any())
+                    {
+                        foreach (var network in systemInfo.Networks)
+                        {
+                            <MudPaper Elevation="1" Class="pa-3 mb-3">
+                                <MudText Typo="Typo.h6">@network.Name</MudText>
+                                <MudText><strong>描述：</strong>@network.Description</MudText>
+                                <MudText><strong>状态：</strong>@network.Status</MudText>
+                                <MudText><strong>接收：</strong>@network.ReceivedMB</MudText>
+                                <MudText><strong>发送：</strong>@network.SentMB</MudText>
+                            </MudPaper>
+                        }
+                    }
+                </MudPaper>
+            }
+            else
+            {
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="RefreshData" Color="Color.Primary" Variant="Variant.Filled">刷新</MudButton>
+        <MudButton OnClick="Close" Color="Color.Default">关闭</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public MudBlazor.IDialogReference? MudDialog { get; set; }
+    [Parameter] public string? Title { get; set; }
+    
+    private SystemResourceInfo? systemInfo;
+    private System.Threading.Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+        
+        // Auto-refresh every 5 seconds using System.Threading.Timer for consistency
+        _timer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await RefreshData();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private async Task RefreshData()
+    {
+        try
+        {
+            systemInfo = await SystemMonitorService.GetSystemResourceInfoAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error refreshing system info: {ex.Message}");
+        }
+    }
+
+    private void Close() => MudDialog?.Close();
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}
