@@ -5,6 +5,7 @@
 @layout HomeLayout
 @inject ISystemMonitorService SystemMonitorService
 @inject IDockerService DockerService
+@inject IHomeConfigService HomeConfigService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
@@ -350,6 +351,8 @@
 @code {
     private SystemResourceInfo? systemInfo;
     private List<DockerContainerInfo> dockerContainers = new();
+    private List<ShortcutLink> allShortcuts = new();
+    private List<ShortcutLink> customShortcuts = new();
     private readonly List<ShortcutLink> defaultShortcuts = new()
     {
         new ShortcutLink { Id = "internal-home", Title = "主页", Url = "/", Icon = Icons.Material.Filled.Home, Description = "清风入口", Category = "内置", IsPinned = true },
@@ -367,8 +370,6 @@
         new ShortcutLink { Id = "etherpad", Title = "Etherpad", Url = "http://localhost:9001", Icon = Icons.Material.Filled.EditNote, Description = "协作笔记", Category = "协作" }
     };
 
-    private List<ShortcutLink> customShortcuts = new();
-    private HashSet<string> pinnedIds = new();
     private ShortcutLink draftShortcut = new()
     {
         Id = Guid.NewGuid().ToString("N"),
@@ -398,18 +399,12 @@
         ? "暂无网络信息"
         : string.Join(" · ", systemInfo.Networks.Take(2).Select(n => n.Name));
 
-    private IEnumerable<ShortcutLink> OrderedShortcuts => defaultShortcuts
-        .Concat(customShortcuts)
-        .Select(link =>
-        {
-            link.IsPinned = pinnedIds.Contains(link.Id);
-            return link;
-        })
+    private IEnumerable<ShortcutLink> OrderedShortcuts => allShortcuts
         .OrderByDescending(l => l.IsPinned)
         .ThenBy(l => l.Category)
         .ThenBy(l => l.Title);
 
-    private List<ShortcutLink> PinnedShortcuts => OrderedShortcuts.Where(s => s.IsPinned).Take(16).ToList();
+    private List<ShortcutLink> PinnedShortcuts => allShortcuts.Where(s => s.IsPinned).Take(16).ToList();
 
     private bool _stateLoaded;
 
@@ -436,37 +431,80 @@
     {
         try
         {
-            var pinnedJson = await JS.InvokeAsync<string?>("localStorage.getItem", "qingfeng-pinned-shortcuts");
-            if (!string.IsNullOrWhiteSpace(pinnedJson))
-            {
-                pinnedIds = JsonSerializer.Deserialize<HashSet<string>>(pinnedJson, StorageOptions) ?? new HashSet<string>();
-            }
+            // Try to migrate from localStorage if database is empty
+            await MigrateFromLocalStorageAsync();
 
-            var customJson = await JS.InvokeAsync<string?>("localStorage.getItem", "qingfeng-custom-shortcuts");
-            if (!string.IsNullOrWhiteSpace(customJson))
-            {
-                customShortcuts = JsonSerializer.Deserialize<List<ShortcutLink>>(customJson, StorageOptions) ?? new List<ShortcutLink>();
-            }
+            // Load all shortcuts from database
+            allShortcuts = await HomeConfigService.GetAllShortcutsAsync();
+            customShortcuts = allShortcuts.Where(s => !s.Category.StartsWith("内置")).ToList();
         }
-        catch
+        catch (Exception ex)
         {
-            pinnedIds = new HashSet<string>();
+            Console.WriteLine($"Error loading state: {ex.Message}");
+            // Fallback to default shortcuts
+            allShortcuts = defaultShortcuts.ToList();
             customShortcuts = new List<ShortcutLink>();
-        }
-
-        if (pinnedIds.Count == 0)
-        {
-            foreach (var link in defaultShortcuts.Where(l => l.IsPinned))
-            {
-                pinnedIds.Add(link.Id);
-            }
         }
     }
 
-    private async Task SaveStateAsync()
+    private async Task MigrateFromLocalStorageAsync()
     {
-        await JS.InvokeVoidAsync("localStorage.setItem", "qingfeng-pinned-shortcuts", JsonSerializer.Serialize(pinnedIds, StorageOptions));
-        await JS.InvokeVoidAsync("localStorage.setItem", "qingfeng-custom-shortcuts", JsonSerializer.Serialize(customShortcuts, StorageOptions));
+        try
+        {
+            // Check if we've already migrated
+            var migrated = await HomeConfigService.GetConfigAsync("localStorage_migrated");
+            if (migrated == "true")
+                return;
+
+            // Get data from localStorage
+            var pinnedJson = await JS.InvokeAsync<string?>("localStorage.getItem", "qingfeng-pinned-shortcuts");
+            var customJson = await JS.InvokeAsync<string?>("localStorage.getItem", "qingfeng-custom-shortcuts");
+
+            if (!string.IsNullOrWhiteSpace(pinnedJson))
+            {
+                var pinnedIds = JsonSerializer.Deserialize<HashSet<string>>(pinnedJson, StorageOptions);
+                if (pinnedIds != null)
+                {
+                    // Update pinned states in database
+                    foreach (var id in pinnedIds)
+                    {
+                        try
+                        {
+                            await HomeConfigService.TogglePinAsync(id);
+                        }
+                        catch { /* Continue on error */ }
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(customJson))
+            {
+                var customShortcuts = JsonSerializer.Deserialize<List<ShortcutLink>>(customJson, StorageOptions);
+                if (customShortcuts != null)
+                {
+                    // Save custom shortcuts to database
+                    foreach (var shortcut in customShortcuts)
+                    {
+                        try
+                        {
+                            await HomeConfigService.SaveShortcutAsync(shortcut);
+                        }
+                        catch { /* Continue on error */ }
+                    }
+                }
+            }
+
+            // Mark as migrated
+            await HomeConfigService.SetConfigAsync("localStorage_migrated", "true");
+
+            // Optionally clear localStorage
+            await JS.InvokeVoidAsync("localStorage.removeItem", "qingfeng-pinned-shortcuts");
+            await JS.InvokeVoidAsync("localStorage.removeItem", "qingfeng-custom-shortcuts");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Migration error: {ex.Message}");
+        }
     }
 
     private bool CanSubmit => !string.IsNullOrWhiteSpace(draftShortcut.Title) && !string.IsNullOrWhiteSpace(draftShortcut.Url);
@@ -481,7 +519,7 @@
             draftShortcut.Id = Guid.NewGuid().ToString("N");
         }
 
-        customShortcuts.Add(new ShortcutLink
+        var newShortcut = new ShortcutLink
         {
             Id = draftShortcut.Id,
             Title = draftShortcut.Title,
@@ -491,12 +529,9 @@
             Category = string.IsNullOrWhiteSpace(draftShortcut.Category) ? "自定义" : draftShortcut.Category,
             IsPinned = draftShortcut.IsPinned,
             IsDocker = draftShortcut.IsDocker
-        });
+        };
 
-        if (draftShortcut.IsPinned)
-        {
-            pinnedIds.Add(draftShortcut.Id);
-        }
+        await HomeConfigService.SaveShortcutAsync(newShortcut);
 
         draftShortcut = new ShortcutLink
         {
@@ -505,21 +540,13 @@
             IsPinned = true
         };
 
-        await SaveStateAsync();
+        await LoadStateAsync();
     }
 
     private async Task TogglePin(ShortcutLink shortcut)
     {
-        if (pinnedIds.Contains(shortcut.Id))
-        {
-            pinnedIds.Remove(shortcut.Id);
-        }
-        else
-        {
-            pinnedIds.Add(shortcut.Id);
-        }
-
-        await SaveStateAsync();
+        await HomeConfigService.TogglePinAsync(shortcut.Id);
+        await LoadStateAsync();
     }
 
     private void PrefillFromContainer(DockerContainerInfo container, string? guessUrl)
@@ -544,9 +571,8 @@
         if (!IsCustom(shortcut))
             return;
 
-        customShortcuts = customShortcuts.Where(c => c.Id != shortcut.Id).ToList();
-        pinnedIds.Remove(shortcut.Id);
-        await SaveStateAsync();
+        await HomeConfigService.DeleteShortcutAsync(shortcut.Id);
+        await LoadStateAsync();
     }
 
     private string GuessContainerUrl(DockerContainerInfo container)
