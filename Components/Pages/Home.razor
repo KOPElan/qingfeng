@@ -355,17 +355,17 @@
     private List<ShortcutLink> customShortcuts = new();
     private readonly List<ShortcutLink> defaultShortcuts = new()
     {
-        new ShortcutLink { Id = "internal-home", Title = "主页", Url = "/", Icon = Icons.Material.Filled.Home, Description = "清风入口", Category = "内置", IsPinned = true },
-        new ShortcutLink { Id = "internal-monitor", Title = "系统监控", Url = "/system-monitor", Icon = Icons.Material.Filled.DashboardCustomize, Description = "CPU / 内存 / 磁盘", Category = "内置", IsPinned = true },
-        new ShortcutLink { Id = "internal-docker", Title = "Docker 管理", Url = "/docker", Icon = Icons.Material.Filled.Dns, Description = "容器与镜像", Category = "内置" },
-        new ShortcutLink { Id = "internal-disk", Title = "磁盘管理", Url = "/disk-management", Icon = Icons.Material.Filled.Storage, Description = "卷与存储", Category = "内置" },
-        new ShortcutLink { Id = "internal-files", Title = "文件管理", Url = "/file-manager", Icon = Icons.Material.Filled.Folder, Description = "浏览文件", Category = "内置" },
+        new ShortcutLink { Id = "internal-home", Title = "主页", Url = "/", Icon = Icons.Material.Filled.Home, Description = "清风入口", Category = Constants.BuiltInCategory, IsPinned = true },
+        new ShortcutLink { Id = "internal-monitor", Title = "系统监控", Url = "/system-monitor", Icon = Icons.Material.Filled.DashboardCustomize, Description = "CPU / 内存 / 磁盘", Category = Constants.BuiltInCategory, IsPinned = true },
+        new ShortcutLink { Id = "internal-docker", Title = "Docker 管理", Url = "/docker", Icon = Icons.Material.Filled.Dns, Description = "容器与镜像", Category = Constants.BuiltInCategory },
+        new ShortcutLink { Id = "internal-disk", Title = "磁盘管理", Url = "/disk-management", Icon = Icons.Material.Filled.Storage, Description = "卷与存储", Category = Constants.BuiltInCategory },
+        new ShortcutLink { Id = "internal-files", Title = "文件管理", Url = "/file-manager", Icon = Icons.Material.Filled.Folder, Description = "浏览文件", Category = Constants.BuiltInCategory },
         new ShortcutLink { Id = "ha", Title = "Home Assistant", Url = "http://homeassistant.local:8123", Icon = Icons.Material.Filled.Home, Description = "智能家居面板", Category = "自托管", IsPinned = true },
         new ShortcutLink { Id = "pihole", Title = "Pi-hole", Url = "http://pi.hole/admin", Icon = Icons.Material.Filled.Security, Description = "网络广告拦截", Category = "自托管" },
         new ShortcutLink { Id = "plex", Title = "Plex", Url = "http://localhost:32400/web", Icon = Icons.Material.Filled.Tv, Description = "媒体中心", Category = "影音" },
         new ShortcutLink { Id = "jellyfin", Title = "Jellyfin", Url = "http://localhost:8096", Icon = Icons.Material.Filled.PlayCircleFilled, Description = "家庭影院", Category = "影音" },
         new ShortcutLink { Id = "transmission", Title = "Transmission", Url = "http://localhost:9091", Icon = Icons.Material.Filled.SwapVert, Description = "下载任务", Category = "工具" },
-        new ShortcutLink { Id = "adguard", Title = "AdGuard Home", Url = "http://localhost:3000", Icon = Icons.Material.Filled.VerifiedUser, Description = "DNS 过滤", Category = "自托管" },
+        new ShortcutLink { Id = "adguard", Title = "AdGuard Home", Url = "http://localhost:3000", Icon = "Icons.Material.Filled.VerifiedUser", Description = "DNS 过滤", Category = "自托管" },
         new ShortcutLink { Id = "tailscale", Title = "Tailscale", Url = "https://login.tailscale.com/admin", Icon = Icons.Material.Filled.VpnLock, Description = "内网穿透", Category = "网络" },
         new ShortcutLink { Id = "etherpad", Title = "Etherpad", Url = "http://localhost:9001", Icon = Icons.Material.Filled.EditNote, Description = "协作笔记", Category = "协作" }
     };
@@ -436,7 +436,7 @@
 
             // Load all shortcuts from database
             allShortcuts = await HomeConfigService.GetAllShortcutsAsync();
-            customShortcuts = allShortcuts.Where(s => !s.Category.StartsWith("内置")).ToList();
+            customShortcuts = allShortcuts.Where(s => !s.Category.StartsWith(Constants.BuiltInCategory)).ToList();
         }
         catch (Exception ex)
         {
@@ -564,7 +564,7 @@
         };
     }
 
-    private bool IsCustom(ShortcutLink shortcut) => customShortcuts.Any(c => c.Id == shortcut.Id);
+    private bool IsCustom(ShortcutLink shortcut) => !shortcut.Category.StartsWith(Constants.BuiltInCategory);
 
     private async Task RemoveShortcut(ShortcutLink shortcut)
     {

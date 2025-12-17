@@ -41,7 +41,7 @@ public class HomeConfigService : IHomeConfigService
         try
         {
             var items = await _context.Shortcuts
-                .Where(s => !s.Category.StartsWith("内置"))
+                .Where(s => !s.Category.StartsWith(Constants.BuiltInCategory))
                 .OrderByDescending(s => s.IsPinned)
                 .ThenBy(s => s.SortOrder)
                 .ThenBy(s => s.Category)
@@ -94,9 +94,9 @@ public class HomeConfigService : IHomeConfigService
             }
             else
             {
-                // Add new
-                var maxOrder = await _context.Shortcuts.MaxAsync(s => (int?)s.SortOrder) ?? 0;
-                var item = ShortcutItem.FromShortcutLink(shortcut, maxOrder + 1);
+                // Add new - SortOrder doesn't need to be sequential, just use a timestamp-based approach
+                var sortOrder = (int)(DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond);
+                var item = ShortcutItem.FromShortcutLink(shortcut, sortOrder);
                 _context.Shortcuts.Add(item);
             }
 
@@ -259,11 +259,11 @@ public class HomeConfigService : IHomeConfigService
     {
         return new List<ShortcutLink>
         {
-            new ShortcutLink { Id = "internal-home", Title = "主页", Url = "/", Icon = "Icons.Material.Filled.Home", Description = "清风入口", Category = "内置", IsPinned = true },
-            new ShortcutLink { Id = "internal-monitor", Title = "系统监控", Url = "/system-monitor", Icon = "Icons.Material.Filled.DashboardCustomize", Description = "CPU / 内存 / 磁盘", Category = "内置", IsPinned = true },
-            new ShortcutLink { Id = "internal-docker", Title = "Docker 管理", Url = "/docker", Icon = "Icons.Material.Filled.Dns", Description = "容器与镜像", Category = "内置" },
-            new ShortcutLink { Id = "internal-disk", Title = "磁盘管理", Url = "/disk-management", Icon = "Icons.Material.Filled.Storage", Description = "卷与存储", Category = "内置" },
-            new ShortcutLink { Id = "internal-files", Title = "文件管理", Url = "/file-manager", Icon = "Icons.Material.Filled.Folder", Description = "浏览文件", Category = "内置" },
+            new ShortcutLink { Id = "internal-home", Title = "主页", Url = "/", Icon = "Icons.Material.Filled.Home", Description = "清风入口", Category = Constants.BuiltInCategory, IsPinned = true },
+            new ShortcutLink { Id = "internal-monitor", Title = "系统监控", Url = "/system-monitor", Icon = "Icons.Material.Filled.DashboardCustomize", Description = "CPU / 内存 / 磁盘", Category = Constants.BuiltInCategory, IsPinned = true },
+            new ShortcutLink { Id = "internal-docker", Title = "Docker 管理", Url = "/docker", Icon = "Icons.Material.Filled.Dns", Description = "容器与镜像", Category = Constants.BuiltInCategory },
+            new ShortcutLink { Id = "internal-disk", Title = "磁盘管理", Url = "/disk-management", Icon = "Icons.Material.Filled.Storage", Description = "卷与存储", Category = Constants.BuiltInCategory },
+            new ShortcutLink { Id = "internal-files", Title = "文件管理", Url = "/file-manager", Icon = "Icons.Material.Filled.Folder", Description = "浏览文件", Category = Constants.BuiltInCategory },
             new ShortcutLink { Id = "ha", Title = "Home Assistant", Url = "http://homeassistant.local:8123", Icon = "Icons.Material.Filled.Home", Description = "智能家居面板", Category = "自托管", IsPinned = true },
             new ShortcutLink { Id = "pihole", Title = "Pi-hole", Url = "http://pi.hole/admin", Icon = "Icons.Material.Filled.Security", Description = "网络广告拦截", Category = "自托管" },
             new ShortcutLink { Id = "plex", Title = "Plex", Url = "http://localhost:32400/web", Icon = "Icons.Material.Filled.Tv", Description = "媒体中心", Category = "影音" },
