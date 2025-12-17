@@ -7,165 +7,159 @@
 
 <PageTitle>系统监控</PageTitle>
 
-<MudText Typo="Typo.h3" Class="mb-4">系统监控</MudText>
+<h3 Class="mb-4">系统监控</h3>
 
-<MudButton Variant="Variant.Filled" 
-           Color="Color.Primary" 
-           StartIcon="@Icons.Material.Filled.Refresh" 
+<button type="button" class="btn btn-custom-primary" 
            OnClick="RefreshData" 
            Class="mb-4">
     刷新
-</MudButton>
+</button>
 
 @if (systemInfo != null)
 {
     <!-- CPU Information -->
-    <MudPaper Elevation="2" Class="pa-4 mb-4">
-        <MudText Typo="Typo.h5" Class="mb-3">
-            <MudIcon Icon="@Icons.Material.Filled.Speed" Class="mr-2" />
+    <div Class="pa-4 mb-4">
+        <h5 Class="mb-3">
+            <i class="@Icons.Material.Filled.Speed"></i>
             CPU信息
-        </MudText>
-        <MudGrid>
-            <MudItem xs="12" md="6">
-                <MudText><strong>核心数：</strong>@systemInfo.Cpu.CoreCount</MudText>
-                <MudText><strong>架构：</strong>@systemInfo.Cpu.ProcessorName</MudText>
-            </MudItem>
-            <MudItem xs="12" md="6">
-                <MudText Class="mb-2"><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</MudText>
-                <MudProgressLinear Color="Color.Primary" 
-                                   Value="@systemInfo.Cpu.UsagePercent" 
-                                   Size="Size.Large">
-                    <MudText Typo="Typo.body1" Color="Color.Surface">@systemInfo.Cpu.UsagePercent%</MudText>
+        </h5>
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>核心数：</strong>@systemInfo.Cpu.CoreCount</p>
+                <p><strong>架构：</strong>@systemInfo.Cpu.ProcessorName</p>
+            </div>
+            <div class="col-md-6">
+                <p Class="mb-2"><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</p>
+                <MudProgressLinear 
+                                   Value="@systemInfo.Cpu.UsagePercent">
+                    <p Typo="Typo.body1">@systemInfo.Cpu.UsagePercent%</p>
                 </MudProgressLinear>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+            </div>
+        </div>
+    </div>
 
     <!-- Memory Information -->
-    <MudPaper Elevation="2" Class="pa-4 mb-4">
-        <MudText Typo="Typo.h5" Class="mb-3">
-            <MudIcon Icon="@Icons.Material.Filled.Memory" Class="mr-2" />
+    <div Class="pa-4 mb-4">
+        <h5 Class="mb-3">
+            <i class="@Icons.Material.Filled.Memory"></i>
             内存信息
-        </MudText>
-        <MudGrid>
-            <MudItem xs="12" md="6">
-                <MudText><strong>总内存：</strong>@systemInfo.Memory.TotalGB</MudText>
-                <MudText><strong>已使用：</strong>@systemInfo.Memory.UsedGB</MudText>
-                <MudText><strong>可用：</strong>@systemInfo.Memory.AvailableGB</MudText>
-            </MudItem>
-            <MudItem xs="12" md="6">
-                <MudText Class="mb-2"><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</MudText>
-                <MudProgressLinear Color="Color.Secondary" 
-                                   Value="@systemInfo.Memory.UsagePercent" 
-                                   Size="Size.Large">
-                    <MudText Typo="Typo.body1" Color="Color.Surface">@systemInfo.Memory.UsagePercent%</MudText>
+        </h5>
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>总内存：</strong>@systemInfo.Memory.TotalGB</p>
+                <p><strong>已使用：</strong>@systemInfo.Memory.UsedGB</p>
+                <p><strong>可用：</strong>@systemInfo.Memory.AvailableGB</p>
+            </div>
+            <div class="col-md-6">
+                <p Class="mb-2"><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</p>
+                <MudProgressLinear 
+                                   Value="@systemInfo.Memory.UsagePercent">
+                    <p Typo="Typo.body1">@systemInfo.Memory.UsagePercent%</p>
                 </MudProgressLinear>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+            </div>
+        </div>
+    </div>
 
     <!-- Disk Information -->
-    <MudPaper Elevation="2" Class="pa-4 mb-4">
-        <MudText Typo="Typo.h5" Class="mb-3">
-            <MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" />
+    <div Class="pa-4 mb-4">
+        <h5 Class="mb-3">
+            <i class="@Icons.Material.Filled.Storage"></i>
             磁盘信息
-        </MudText>
+        </h5>
         @if (systemInfo.Disks.Any())
         {
-            <MudTable Items="@systemInfo.Disks" Hover="true" Striped="true" Dense="true">
-                <HeaderContent>
-                    <MudTh>名称</MudTh>
-                    <MudTh>挂载点</MudTh>
-                    <MudTh>文件系统</MudTh>
-                    <MudTh>总容量</MudTh>
-                    <MudTh>已使用</MudTh>
-                    <MudTh>可用</MudTh>
-                    <MudTh>使用率</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="名称">@context.Name</MudTd>
-                    <MudTd DataLabel="挂载点">@context.MountPoint</MudTd>
-                    <MudTd DataLabel="文件系统">@context.FileSystem</MudTd>
-                    <MudTd DataLabel="总容量">@(context.IsReady ? context.TotalGB : "N/A")</MudTd>
-                    <MudTd DataLabel="已使用">@(context.IsReady ? context.UsedGB : "N/A")</MudTd>
-                    <MudTd DataLabel="可用">@(context.IsReady ? context.AvailableGB : "N/A")</MudTd>
-                    <MudTd DataLabel="使用率">
+            <table class="table table-custom"><tbody>
+                <thead><tr>
+                    <th>名称</th>
+                    <th>挂载点</th>
+                    <th>文件系统</th>
+                    <th>总容量</th>
+                    <th>已使用</th>
+                    <th>可用</th>
+                    <th>使用率</th>
+                </tr></thead>
+                <tr>
+                    <td>@context.Name</td>
+                    <td>@context.MountPoint</td>
+                    <td>@context.FileSystem</td>
+                    <td>@(context.IsReady ? context.TotalGB : "N/A")</td>
+                    <td>@(context.IsReady ? context.UsedGB : "N/A")</td>
+                    <td>@(context.IsReady ? context.AvailableGB : "N/A")</td>
+                    <td>
                         @if (context.IsReady)
                         {
-                            <MudProgressLinear Color="Color.Info" 
-                                             Value="@context.UsagePercent" 
-                                             Size="Size.Small">
-                                <MudText Typo="Typo.body2">@context.UsagePercent%</MudText>
+                            <MudProgressLinear 
+                                             Value="@context.UsagePercent">
+                                <p class="small">@context.UsagePercent%</p>
                             </MudProgressLinear>
                         }
                         else
                         {
-                            <MudText>未就绪</MudText>
+                            <p>未就绪</p>
                         }
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
+                    </td>
+                </tr>
+            </tbody></table>
         }
         else
         {
-            <MudText Color="Color.Secondary">没有找到磁盘信息</MudText>
+            <p>没有找到磁盘信息</p>
         }
-    </MudPaper>
+    </div>
 
     <!-- Network Information -->
-    <MudPaper Elevation="2" Class="pa-4 mb-4">
-        <MudText Typo="Typo.h5" Class="mb-3">
-            <MudIcon Icon="@Icons.Material.Filled.NetworkCheck" Class="mr-2" />
+    <div Class="pa-4 mb-4">
+        <h5 Class="mb-3">
+            <i class="@Icons.Material.Filled.NetworkCheck"></i>
             网络信息
-        </MudText>
+        </h5>
         @if (systemInfo.Networks.Any())
         {
-            <MudTable Items="@systemInfo.Networks" Hover="true" Striped="true" Dense="true">
-                <HeaderContent>
-                    <MudTh>名称</MudTh>
-                    <MudTh>描述</MudTh>
-                    <MudTh>状态</MudTh>
-                    <MudTh>已发送</MudTh>
-                    <MudTh>已接收</MudTh>
-                    <MudTh>IP地址</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="名称">@context.Name</MudTd>
-                    <MudTd DataLabel="描述">@context.Description</MudTd>
-                    <MudTd DataLabel="状态">
-                        <MudChip T="string" Size="Size.Small" 
-                                Color="@(context.Status == "Up" ? Color.Success : Color.Default)">
+            <table class="table table-custom"><tbody>
+                <thead><tr>
+                    <th>名称</th>
+                    <th>描述</th>
+                    <th>状态</th>
+                    <th>已发送</th>
+                    <th>已接收</th>
+                    <th>IP地址</th>
+                </tr></thead>
+                <tr>
+                    <td>@context.Name</td>
+                    <td>@context.Description</td>
+                    <td>
+                        <span class="badge badge-custom Color="@(context.Status == "Up" ? Color.Success : Color.Default)">
                             @context.Status
-                        </MudChip>
-                    </MudTd>
-                    <MudTd DataLabel="已发送">@context.SentMB</MudTd>
-                    <MudTd DataLabel="已接收">@context.ReceivedMB</MudTd>
-                    <MudTd DataLabel="IP地址">
+                        </span>
+                    </td>
+                    <td>@context.SentMB</td>
+                    <td>@context.ReceivedMB</td>
+                    <td>
                         @if (context.IpAddresses.Any())
                         {
                             foreach (var ip in context.IpAddresses)
                             {
-                                <MudText Typo="Typo.body2">@ip</MudText>
+                                <p class="small">@ip</p>
                             }
                         }
                         else
                         {
-                            <MudText>-</MudText>
+                            <p>-</p>
                         }
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
+                    </td>
+                </tr>
+            </tbody></table>
         }
         else
         {
-            <MudText Color="Color.Secondary">没有找到网络接口信息</MudText>
+            <p>没有找到网络接口信息</p>
         }
-    </MudPaper>
+    </div>
 }
 else
 {
-    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-    <MudText Class="ml-2">加载中...</MudText>
+    <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+    <p Class="ml-2">加载中...</p>
 }
 
 @code {

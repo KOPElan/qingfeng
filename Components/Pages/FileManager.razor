@@ -174,7 +174,7 @@
                 {
                     <div class="sidebar-item @(currentPath == shortcut.Path ? "selected" : "")" 
                          @onclick="@(() => NavigateTo(shortcut.Path))">
-                        <MudIcon Icon="@GetShortcutIcon(shortcut.Type)" Size="Size.Small" />
+                        <i class="@GetShortcutIcon(shortcut.Type)"></i>
                         <span>@shortcut.Name</span>
                     </div>
                 }
@@ -190,7 +190,7 @@
                 {
                     <div class="sidebar-item @(currentPath == drive.Path || currentPath.StartsWith(drive.Path) ? "selected" : "")" 
                          @onclick="@(() => NavigateTo(drive.Path))">
-                        <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Small" />
+                        <i class="@Icons.Material.Filled.Storage"></i>
                         <span>@drive.Name</span>
                     </div>
                 }
@@ -202,22 +202,18 @@
     <div class="main-content">
         <!-- Toolbar -->
         <div class="toolbar">
-            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" 
-                          Size="Size.Small" 
-                          OnClick="GoBack"
-                          Disabled="@(navigationHistory.Count <= 1)" />
-            <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" 
-                          Size="Size.Small"
-                          OnClick="GoForward"
-                          Disabled="@(forwardHistory.Count == 0)" />
+            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowBack" 
+                          OnClick="GoBack" disabled="@(navigationHistory.Count <= 1)" />
+            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowForward"
+                          OnClick="GoForward" disabled="@(forwardHistory.Count == 0)" />
             
             <div class="breadcrumb-container">
                 <div class="breadcrumb">
-                    <MudText Typo="Typo.body2">Files</MudText>
+                    <p class="small">Files</p>
                     @foreach (var part in GetPathParts())
                     {
-                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
-                        <MudLink Typo="Typo.body2" OnClick="@(() => NavigateTo(part.Path))">@part.Name</MudLink>
+                        <i class="@Icons.Material.Filled.ChevronRight"></i>
+                        <a Typo="Typo.body2" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
                     }
                 </div>
                 @if (files != null)
@@ -226,19 +222,15 @@
                 }
             </div>
             
-            <MudIconButton Icon="@Icons.Material.Filled.Help" Size="Size.Small" />
-            <MudIconButton Icon="@Icons.Material.Filled.VideoLibrary" Size="Size.Small" />
-            <MudIconButton Icon="@Icons.Material.Filled.FolderShared" Size="Size.Small" />
-            <MudButton Variant="Variant.Filled" 
-                      Color="Color.Primary" 
-                      StartIcon="@Icons.Material.Filled.Upload"
-                      Size="Size.Small">
+            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.Help" />
+            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.VideoLibrary" />
+            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.FolderShared" />
+            <button type="button" class="btn btn-custom-primary">
                 导入
-            </MudButton>
-            <MudIconButton Icon="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)" 
-                          Size="Size.Small"
+            </button>
+            <button type="button" class="btn btn-link text-white" Icon="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"
                           OnClick="ToggleViewMode" />
-            <MudIconButton Icon="@Icons.Material.Filled.GridView" Size="Size.Small" />
+            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.GridView" />
         </div>
         
         <!-- File Grid View -->
@@ -252,11 +244,11 @@
                         <div class="file-item" @onclick="@(() => NavigateTo(file.Path))">
                             @if (file.IsDirectory)
                             {
-                                <MudIcon Icon="@Icons.Material.Filled.Folder" Class="folder-icon" />
+                                <i class="@Icons.Material.Filled.Folder"></i>
                             }
                             else
                             {
-                                <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Class="file-icon" />
+                                <i class="@Icons.Material.Filled.InsertDriveFile"></i>
                             }
                             <div class="file-name">@file.Name</div>
                             <div class="file-date">@file.LastModified.ToString("dd/MM HH:mm")</div>
@@ -265,7 +257,7 @@
                 }
                 else if (files == null)
                 {
-                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
                 }
             </div>
         }
@@ -275,67 +267,59 @@
             <div style="padding: 24px; overflow-y: auto; flex: 1;">
                 @if (files != null && files.Any())
                 {
-                    <MudTable Items="@files.Where(f => f.Name != "..")" Hover="true" Dense="true">
-                        <HeaderContent>
-                            <MudTh>名称</MudTh>
-                            <MudTh>类型</MudTh>
-                            <MudTh>大小</MudTh>
-                            <MudTh>修改时间</MudTh>
-                            <MudTh>操作</MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="名称">
+                    <table class="table table-custom"><tbody>
+                        <thead><tr>
+                            <th>名称</th>
+                            <th>类型</th>
+                            <th>大小</th>
+                            <th>修改时间</th>
+                            <th>操作</th>
+                        </tr></thead>
+                        <tr>
+                            <td>
                                 @if (context.IsDirectory)
                                 {
-                                    <MudLink OnClick="@(() => NavigateTo(context.Path))">
-                                        <MudIcon Icon="@Icons.Material.Filled.Folder" Color="Color.Warning" Size="Size.Small" Class="mr-2" />
+                                    <a @onclick="(() => NavigateTo(context.Path))">
+                                        <i class="@Icons.Material.Filled.Folder"></i>
                                         @context.Name
-                                    </MudLink>
+                                    </a>
                                 }
                                 else
                                 {
-                                    <MudStack Row="true" AlignItems="AlignItems.Center">
-                                        <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Color="Color.Info" Size="Size.Small" />
-                                        <MudText>@context.Name</MudText>
-                                    </MudStack>
+                                    <div class="d-flex flex-column gap-2" Row="true" AlignItems="AlignItems.Center">
+                                        <i class="@Icons.Material.Filled.InsertDriveFile"></i>
+                                        <p>@context.Name</p>
+                                    </div>
                                 }
-                            </MudTd>
-                            <MudTd DataLabel="类型">
-                                <MudChip T="string" Size="Size.Small" 
-                                        Color="@(context.IsDirectory ? Color.Warning : Color.Info)" 
-                                        Variant="Variant.Outlined">
+                            </td>
+                            <td>
+                                <span class="badge badge-custom Color="@(context.IsDirectory ? Color.Warning : Color.Info)">
                                     @(context.IsDirectory ? "文件夹" : "文件")
-                                </MudChip>
-                            </MudTd>
-                            <MudTd DataLabel="大小">@context.SizeDisplay</MudTd>
-                            <MudTd DataLabel="修改时间">@context.LastModified.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
-                            <MudTd DataLabel="操作">
+                                </span>
+                            </td>
+                            <td>@context.SizeDisplay</td>
+                            <td>@context.LastModified.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>
                                 @if (!context.IsDirectory)
                                 {
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" 
-                                                  Color="Color.Error" 
-                                                  Size="Size.Small"
-                                                  OnClick="@(() => DeleteFile(context.Path))" />
+                                    <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.Delete" @onclick="(() => DeleteFile(context.Path))" />
                                 }
                                 else
                                 {
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" 
-                                                  Color="Color.Error" 
-                                                  Size="Size.Small"
-                                                  OnClick="@(() => DeleteDirectory(context.Path))" />
+                                    <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.Delete" @onclick="(() => DeleteDirectory(context.Path))" />
                                 }
-                            </MudTd>
-                        </RowTemplate>
-                    </MudTable>
+                            </td>
+                        </tr>
+                    </tbody></table>
                 }
                 else if (files == null)
                 {
-                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-                    <MudText Class="ml-2">加载中...</MudText>
+                    <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+                    <p Class="ml-2">加载中...</p>
                 }
                 else
                 {
-                    <MudText Color="Color.Secondary">此目录为空</MudText>
+                    <p>此目录为空</p>
                 }
             </div>
         }
@@ -343,7 +327,7 @@
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="path-display">
-                <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Style="vertical-align: middle;" />
+                <i class="@Icons.Material.Filled.Edit"></i>
                 @GetSimplifiedPath()
             </div>
             <div class="storage-info">

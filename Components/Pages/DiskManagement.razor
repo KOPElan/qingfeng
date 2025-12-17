@@ -6,182 +6,165 @@
 
 <PageTitle>磁盘管理</PageTitle>
 
-<MudText Typo="Typo.h3" Class="mb-4">磁盘管理</MudText>
+<h3 Class="mb-4">磁盘管理</h3>
 
-<MudButton Variant="Variant.Filled" 
-           Color="Color.Primary" 
-           StartIcon="@Icons.Material.Filled.Refresh" 
+<button type="button" class="btn btn-custom-primary" 
            OnClick="RefreshData" 
            Class="mb-4">
     刷新
-</MudButton>
+</button>
 
 @if (!string.IsNullOrEmpty(message))
 {
-    <MudAlert Severity="@(isError ? Severity.Error : Severity.Success)" 
+    <div class="alert" class="@(isError ? "alert-danger" : "alert-success")" 
               Class="mb-4" 
               CloseIconClicked="@(() => message = string.Empty)">
         @message
-    </MudAlert>
+    </div>
 }
 
 <!-- Disk List -->
-<MudPaper Elevation="2" Class="pa-4 mb-4">
-    <MudText Typo="Typo.h5" Class="mb-3">
-        <MudIcon Icon="@Icons.Material.Filled.Storage" Class="mr-2" />
+<div Class="pa-4 mb-4">
+    <h5 Class="mb-3">
+        <i class="@Icons.Material.Filled.Storage"></i>
         磁盘列表
-    </MudText>
+    </h5>
     @if (disks != null && disks.Any())
     {
-        <MudTable Items="@disks" Hover="true" Striped="true" Dense="false">
-            <HeaderContent>
-                <MudTh>名称</MudTh>
-                <MudTh>挂载点</MudTh>
-                <MudTh>文件系统</MudTh>
-                <MudTh>总容量</MudTh>
-                <MudTh>已使用</MudTh>
-                <MudTh>可用</MudTh>
-                <MudTh>使用率</MudTh>
-                <MudTh>状态</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="名称">@context.Name</MudTd>
-                <MudTd DataLabel="挂载点">@context.MountPoint</MudTd>
-                <MudTd DataLabel="文件系统">@context.FileSystem</MudTd>
-                <MudTd DataLabel="总容量">@(context.IsReady ? context.TotalGB : "N/A")</MudTd>
-                <MudTd DataLabel="已使用">@(context.IsReady ? context.UsedGB : "N/A")</MudTd>
-                <MudTd DataLabel="可用">@(context.IsReady ? context.AvailableGB : "N/A")</MudTd>
-                <MudTd DataLabel="使用率">
+        <table class="table table-custom"><tbody>
+            <thead><tr>
+                <th>名称</th>
+                <th>挂载点</th>
+                <th>文件系统</th>
+                <th>总容量</th>
+                <th>已使用</th>
+                <th>可用</th>
+                <th>使用率</th>
+                <th>状态</th>
+            </tr></thead>
+            <tr>
+                <td>@context.Name</td>
+                <td>@context.MountPoint</td>
+                <td>@context.FileSystem</td>
+                <td>@(context.IsReady ? context.TotalGB : "N/A")</td>
+                <td>@(context.IsReady ? context.UsedGB : "N/A")</td>
+                <td>@(context.IsReady ? context.AvailableGB : "N/A")</td>
+                <td>
                     @if (context.IsReady)
                     {
-                        <MudProgressLinear Color="@GetProgressColor(context.UsagePercent)" 
-                                         Value="@context.UsagePercent" 
-                                         Size="Size.Small">
-                            <MudText Typo="Typo.body2">@context.UsagePercent%</MudText>
-                        </MudProgressLinear>
+                        <div class="progress-custom"><div class="progress-bar-custom" style="width: @context.UsagePercent%">
+                            <p class="small">@context.UsagePercent%</p>
+                        </div></div>
                     }
                     else
                     {
-                        <MudText>-</MudText>
+                        <p>-</p>
                     }
-                </MudTd>
-                <MudTd DataLabel="状态">
-                    <MudChip T="string" Size="Size.Small" 
-                            Color="@(context.IsReady ? Color.Success : Color.Default)">
+                </td>
+                <td>
+                    <span class="badge badge-custom Color="@(context.IsReady ? Color.Success : Color.Default)">
                         @(context.IsReady ? "就绪" : "未就绪")
-                    </MudChip>
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
+                    </span>
+                </td>
+            </tr>
+        </tbody></table>
     }
     else if (disks == null)
     {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        <MudText Class="ml-2">加载中...</MudText>
+        <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+        <p Class="ml-2">加载中...</p>
     }
     else
     {
-        <MudText Color="Color.Secondary">没有找到磁盘</MudText>
+        <p>没有找到磁盘</p>
     }
-</MudPaper>
+</div>
 
 <!-- Mount/Unmount Section -->
-<MudGrid>
-    <MudItem xs="12" md="6">
-        <MudPaper Elevation="2" Class="pa-4 mb-4">
-            <MudText Typo="Typo.h5" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.AddCircle" Class="mr-2" />
+<div class="row">
+    <div class="col-md-6">
+        <div Class="pa-4 mb-4">
+            <h5 Class="mb-3">
+                <i class="@Icons.Material.Filled.AddCircle"></i>
                 挂载磁盘
-            </MudText>
-            <MudTextField @bind-Value="devicePath" 
-                         Label="设备路径" 
-                         Variant="Variant.Outlined"
-                         Placeholder="/dev/sdb1"
+            </h5>
+            <pField @@bind-value="devicePath" 
+                         Label="设备路径" placeholder="/dev/sdb1"
                          HelperText="例如：/dev/sdb1"
                          Class="mb-3" />
-            <MudTextField @bind-Value="mountPoint" 
-                         Label="挂载点" 
-                         Variant="Variant.Outlined"
-                         Placeholder="/mnt/disk1"
+            <MudTextField @@bind-value="mountPoint" 
+                         Label="挂载点" placeholder="/mnt/disk1"
                          HelperText="例如：/mnt/disk1"
                          Class="mb-3" />
-            <MudButton Variant="Variant.Filled" 
-                      Color="Color.Success" 
-                      OnClick="MountDisk"
-                      Disabled="@isMounting"
-                      StartIcon="@Icons.Material.Filled.Upload">
+            <button type="button" class="btn btn-custom-primary" 
+                      OnClick="MountDisk" disabled="@isMounting">
                 @if (isMounting)
                 {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
                     <span class="ml-2">挂载中...</span>
                 }
                 else
                 {
                     <span>挂载</span>
                 }
-            </MudButton>
-        </MudPaper>
-    </MudItem>
+            </button>
+        </div>
+    </div>
 
-    <MudItem xs="12" md="6">
-        <MudPaper Elevation="2" Class="pa-4 mb-4">
-            <MudText Typo="Typo.h5" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.RemoveCircle" Class="mr-2" />
+    <div class="col-md-6">
+        <div Class="pa-4 mb-4">
+            <h5 Class="mb-3">
+                <i class="@Icons.Material.Filled.RemoveCircle"></i>
                 卸载磁盘
-            </MudText>
-            <MudTextField @bind-Value="unmountPoint" 
-                         Label="挂载点" 
-                         Variant="Variant.Outlined"
-                         Placeholder="/mnt/disk1"
+            </h5>
+            <MudTextField @@bind-value="unmountPoint" 
+                         Label="挂载点" placeholder="/mnt/disk1"
                          HelperText="输入要卸载的挂载点"
                          Class="mb-3" />
-            <MudButton Variant="Variant.Filled" 
-                      Color="Color.Error" 
-                      OnClick="UnmountDisk"
-                      Disabled="@isUnmounting"
-                      StartIcon="@Icons.Material.Filled.Eject">
+            <button type="button" class="btn btn-custom-primary" 
+                      OnClick="UnmountDisk" disabled="@isUnmounting">
                 @if (isUnmounting)
                 {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
                     <span class="ml-2">卸载中...</span>
                 }
                 else
                 {
                     <span>卸载</span>
                 }
-            </MudButton>
-        </MudPaper>
-    </MudItem>
-</MudGrid>
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- Shares Section -->
-<MudPaper Elevation="2" Class="pa-4 mb-4">
-    <MudText Typo="Typo.h5" Class="mb-3">
-        <MudIcon Icon="@Icons.Material.Filled.Share" Class="mr-2" />
+<div Class="pa-4 mb-4">
+    <h5 Class="mb-3">
+        <i class="@Icons.Material.Filled.Share"></i>
         共享列表
-    </MudText>
+    </h5>
     @if (shares != null && shares.Any())
     {
-        <MudStack Spacing="2">
+        <div class="d-flex flex-column gap-2" Spacing="2">
             @foreach (var share in shares)
             {
-                <MudStack Row="true" AlignItems="AlignItems.Center">
-                    <MudIcon Icon="@Icons.Material.Filled.Folder" />
-                    <MudText>@share</MudText>
-                </MudStack>
+                <div class="d-flex flex-column gap-2" Row="true" AlignItems="AlignItems.Center">
+                    <i class="@Icons.Material.Filled.Folder"></i>
+                    <span>@share</p>
+                </div>
             }
-        </MudStack>
+        </div>
     }
     else if (shares == null)
     {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        <MudText Class="ml-2">加载中...</MudText>
+        <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+        <p Class="ml-2">加载中...</p>
     }
     else
     {
-        <MudText Color="Color.Secondary">没有找到共享</MudText>
+        <p>没有找到共享</p>
     }
-</MudPaper>
+</div>
 
 @code {
     private List<DiskInfo>? disks;

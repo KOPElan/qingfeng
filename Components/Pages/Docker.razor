@@ -7,168 +7,146 @@
 
 <PageTitle>Docker管理</PageTitle>
 
-<MudText Typo="Typo.h3" Class="mb-4">Docker管理</MudText>
+<h3 Class="mb-4">Docker管理</h3>
 
-<MudButton Variant="Variant.Filled" 
-           Color="Color.Primary" 
-           StartIcon="@Icons.Material.Filled.Refresh" 
+<button type="button" class="btn btn-custom-primary" 
            OnClick="RefreshData" 
            Class="mb-4">
     刷新
-</MudButton>
+</button>
 
 @if (!string.IsNullOrEmpty(message))
 {
-    <MudAlert Severity="@(isError ? Severity.Error : Severity.Success)" 
+    <div class="alert" class="@(isError ? "alert-danger" : "alert-success")" 
               Class="mb-4" 
               CloseIconClicked="@(() => message = string.Empty)">
         @message
-    </MudAlert>
+    </div>
 }
 
 @if (!isDockerAvailable)
 {
-    <MudAlert Severity="Severity.Warning" Class="mb-4">
+    <div class="alert" Severity="Severity.Warning" Class="mb-4">
         <strong>警告：</strong> Docker服务不可用。请确保Docker已安装并正在运行。
-    </MudAlert>
+    </div>
 }
 
 <!-- Containers Section -->
-<MudPaper Elevation="2" Class="pa-4 mb-4">
-    <MudText Typo="Typo.h5" Class="mb-3">
-        <MudIcon Icon="@Icons.Material.Filled.Inventory" Class="mr-2" />
+<div Class="pa-4 mb-4">
+    <h5 Class="mb-3">
+        <i class="@Icons.Material.Filled.Inventory"></i>
         容器列表
-    </MudText>
+    </h5>
     @if (containers != null && containers.Any())
     {
-        <MudTable Items="@containers" Hover="true" Striped="true" Dense="false">
-            <HeaderContent>
-                <MudTh>ID</MudTh>
-                <MudTh>名称</MudTh>
-                <MudTh>镜像</MudTh>
-                <MudTh>状态</MudTh>
-                <MudTh>端口</MudTh>
-                <MudTh>创建时间</MudTh>
-                <MudTh>操作</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="ID"><MudText Typo="Typo.body2" Style="font-family: monospace;">@context.Id</MudText></MudTd>
-                <MudTd DataLabel="名称">@context.Name</MudTd>
-                <MudTd DataLabel="镜像">@context.Image</MudTd>
-                <MudTd DataLabel="状态">
-                    <MudChip T="string" Size="Size.Small" Color="@GetStateColor(context.State)">
+        <table class="table table-custom"><tbody>
+            <thead><tr>
+                <th>ID</th>
+                <th>名称</th>
+                <th>镜像</th>
+                <th>状态</th>
+                <th>端口</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr></thead>
+            <tr>
+                <td><p class="small" Style="font-family: monospace;">@context.Id</p></td>
+                <td>@context.Name</td>
+                <td>@context.Image</td>
+                <td>
+                    <span class="badge badge-custom Color="@GetStateColor(context.State)">
                         @context.State
-                    </MudChip>
-                    <MudText Typo="Typo.caption">@context.Status</MudText>
-                </MudTd>
-                <MudTd DataLabel="端口">
+                    </span>
+                    <small class="text-muted-custom">@context.Status</small>
+                </td>
+                <td>
                     @if (context.Ports.Any())
                     {
                         foreach (var port in context.Ports)
                         {
-                            <MudText Typo="Typo.caption">@port</MudText>
+                            <small class="text-muted-custom">@port</small>
                         }
                     }
                     else
                     {
-                        <MudText>-</MudText>
+                        <p>-</p>
                     }
-                </MudTd>
-                <MudTd DataLabel="创建时间">@context.Created.ToString("yyyy-MM-dd HH:mm")</MudTd>
-                <MudTd DataLabel="操作">
-                    <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+                </td>
+                <td>@context.Created.ToString("yyyy-MM-dd HH:mm")</td>
+                <td>
+                    <div class="btn-group">
                         @if (context.State == "running")
                         {
-                            <MudIconButton Icon="@Icons.Material.Filled.Stop" 
-                                          Color="Color.Warning" 
-                                          OnClick="@(() => StopContainer(context.Id))"
-                                          Disabled="@isProcessing"
-                                          Size="Size.Small" />
-                            <MudIconButton Icon="@Icons.Material.Filled.RestartAlt" 
-                                          Color="Color.Info" 
-                                          OnClick="@(() => RestartContainer(context.Id))"
-                                          Disabled="@isProcessing"
-                                          Size="Size.Small" />
+                            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.Stop" @onclick="(() => StopContainer(context.Id))" disabled="@isProcessing" />
+                            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.RestartAlt" @onclick="(() => RestartContainer(context.Id))" disabled="@isProcessing" />
                         }
                         else
                         {
-                            <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" 
-                                          Color="Color.Success" 
-                                          OnClick="@(() => StartContainer(context.Id))"
-                                          Disabled="@isProcessing"
-                                          Size="Size.Small" />
+                            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.PlayArrow" @onclick="(() => StartContainer(context.Id))" disabled="@isProcessing" />
                         }
-                        <MudIconButton Icon="@Icons.Material.Filled.Article" 
-                                      Color="Color.Primary" 
-                                      OnClick="@(() => ViewLogs(context.Id, context.Name))"
-                                      Disabled="@isProcessing"
-                                      Size="Size.Small" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
-                                      Color="Color.Error" 
-                                      OnClick="@(() => RemoveContainer(context.Id))"
-                                      Disabled="@isProcessing"
-                                      Size="Size.Small" />
-                    </MudButtonGroup>
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
+                        <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.Article" @onclick="(() => ViewLogs(context.Id, context.Name))" disabled="@isProcessing" />
+                        <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.Delete" @onclick="(() => RemoveContainer(context.Id))" disabled="@isProcessing" />
+                    </div>
+                </td>
+            </tr>
+        </tbody></table>
     }
     else if (containers == null)
     {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        <MudText Class="ml-2">加载中...</MudText>
+        <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+        <p Class="ml-2">加载中...</p>
     }
     else
     {
-        <MudText Color="Color.Secondary">没有找到容器</MudText>
+        <p>没有找到容器</p>
     }
-</MudPaper>
+</div>
 
 <!-- Images Section -->
-<MudPaper Elevation="2" Class="pa-4 mb-4">
-    <MudText Typo="Typo.h5" Class="mb-3">
-        <MudIcon Icon="@Icons.Material.Filled.Layers" Class="mr-2" />
+<div Class="pa-4 mb-4">
+    <h5 Class="mb-3">
+        <i class="@Icons.Material.Filled.Layers"></i>
         镜像列表
-    </MudText>
+    </h5>
     @if (images != null && images.Any())
     {
-        <MudTable Items="@images" Hover="true" Striped="true" Dense="false">
-            <HeaderContent>
-                <MudTh>ID</MudTh>
-                <MudTh>标签</MudTh>
-                <MudTh>大小</MudTh>
-                <MudTh>创建时间</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="ID"><MudText Typo="Typo.body2" Style="font-family: monospace;">@context.Id</MudText></MudTd>
-                <MudTd DataLabel="标签">
+        <table class="table table-custom"><tbody>
+            <thead><tr>
+                <th>ID</th>
+                <th>标签</th>
+                <th>大小</th>
+                <th>创建时间</th>
+            </tr></thead>
+            <tr>
+                <td><p class="small" Style="font-family: monospace;">@context.Id</p></td>
+                <td>
                     @if (context.RepoTags.Any())
                     {
                         foreach (var tag in context.RepoTags)
                         {
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@tag</MudChip>
+                            <span class="badge badge-custom>@tag</span>
                         }
                     }
                     else
                     {
-                        <MudText Color="Color.Secondary">&lt;none&gt;</MudText>
+                        <p>&lt;none&gt;</p>
                     }
-                </MudTd>
-                <MudTd DataLabel="大小">@context.SizeMB</MudTd>
-                <MudTd DataLabel="创建时间">@context.Created.ToString("yyyy-MM-dd HH:mm")</MudTd>
-            </RowTemplate>
-        </MudTable>
+                </td>
+                <td>@context.SizeMB</td>
+                <td>@context.Created.ToString("yyyy-MM-dd HH:mm")</td>
+            </tr>
+        </tbody></table>
     }
     else if (images == null)
     {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        <MudText Class="ml-2">加载中...</MudText>
+        <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+        <p Class="ml-2">加载中...</p>
     }
     else
     {
-        <MudText Color="Color.Secondary">没有找到镜像</MudText>
+        <p>没有找到镜像</p>
     }
-</MudPaper>
+</div>
 
 
 

@@ -14,104 +14,104 @@
 <div class="homepage-container">
     <div class="hero-section">
         <div class="hero-icon">
-            <MudIcon Icon="@Icons.Material.Filled.WbSunny" Size="Size.Large" />
+            <i class="@Icons.Material.Filled.WbSunny"></i>
         </div>
-        <MudText Typo="Typo.h3" Class="hero-greeting">@GreetingText</MudText>
+        <h3 Class="hero-greeting">@GreetingText</h3>
         
         <div class="hero-content">
             <!-- Recents Panel -->
-            <MudPaper Class="hero-panel recents-panel" Elevation="3">
-                <MudText Typo="Typo.subtitle2" Class="panel-header">Recents</MudText>
+            <div Class="hero-panel recents-panel">
+                <p class="fw-semibold" Class="panel-header">Recents</p>
                 <div class="recent-items">
                     <div class="recent-item">
-                        <MudIcon Icon="@Icons.Material.Filled.AudioFile" Class="recent-icon" Style="color: #c084fc;" />
+                        <i class="@Icons.Material.Filled.AudioFile"></i>
                         <div class="recent-info">
-                            <MudText Typo="Typo.body2">Vida La Vida</MudText>
-                            <MudText Typo="Typo.caption" Class="text-muted">MP3</MudText>
+                            <p class="small">Vida La Vida</p>
+                            <small class="text-muted-custom" Class="text-muted">MP3</small>
                         </div>
                     </div>
                     <div class="recent-item">
-                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="recent-icon" Style="color: #60a5fa;" />
+                        <i class="@Icons.Material.Filled.Description"></i>
                         <div class="recent-info">
-                            <MudText Typo="Typo.body2">Home 2 Write-up Draft</MudText>
-                            <MudText Typo="Typo.caption" Class="text-muted">TXT</MudText>
+                            <p class="small">Home 2 Write-up Draft</p>
+                            <small class="text-muted-custom" Class="text-muted">TXT</small>
                         </div>
                     </div>
                     <div class="recent-item">
-                        <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="recent-icon" Style="color: #34d399;" />
+                        <i class="@Icons.Material.Filled.TableChart"></i>
                         <div class="recent-info">
-                            <MudText Typo="Typo.body2">3rd Quarter Financials</MudText>
-                            <MudText Typo="Typo.caption" Class="text-muted">XLSX</MudText>
+                            <p class="small">3rd Quarter Financials</p>
+                            <small class="text-muted-custom" Class="text-muted">XLSX</small>
                         </div>
                     </div>
                 </div>
-            </MudPaper>
+            </div>
 
             <!-- System Stats Cards -->
             <div class="stats-cards">
                 @if (systemInfo is null)
                 {
-                    <MudSkeleton Height="140px" Width="100%" Animation="Animation.Wave" />
+                    <div class="skeleton" style="height: 140px; width: 100%;"></div>
                 }
                 else
                 {
-                    <MudPaper Class="stat-card-new" Elevation="3">
-                        <MudIcon Icon="@Icons.Material.Filled.Speed" Class="stat-icon" />
+                    <div Class="stat-card-new">
+                        <i class="@Icons.Material.Filled.Speed"></i>
                         <div class="stat-content">
-                            <MudText Typo="Typo.caption" Class="text-muted">CPU</MudText>
-                            <MudText Typo="Typo.h6">@systemInfo.Cpu.UsagePercent.ToString("F1")%</MudText>
+                            <small class="text-muted-custom" Class="text-muted">CPU</small>
+                            <h6>@systemInfo.Cpu.UsagePercent.ToString("F1")%</h6>
                         </div>
-                    </MudPaper>
-                    <MudPaper Class="stat-card-new" Elevation="3">
-                        <MudIcon Icon="@Icons.Material.Filled.Storage" Class="stat-icon" />
+                    </div>
+                    <div Class="stat-card-new">
+                        <i class="@Icons.Material.Filled.Storage"></i>
                         <div class="stat-content">
-                            <MudText Typo="Typo.caption" Class="text-muted">Free</MudText>
-                            <MudText Typo="Typo.h6">@DiskTotalGb</MudText>
+                            <small class="text-muted-custom" Class="text-muted">Free</small>
+                            <h6>@DiskTotalGb</h6>
                         </div>
-                    </MudPaper>
-                    <MudPaper Class="stat-card-new" Elevation="3">
-                        <MudIcon Icon="@Icons.Material.Filled.Memory" Class="stat-icon" />
+                    </div>
+                    <div Class="stat-card-new">
+                        <i class="@Icons.Material.Filled.Memory"></i>
                         <div class="stat-content">
-                            <MudText Typo="Typo.caption" Class="text-muted">Memory</MudText>
-                            <MudText Typo="Typo.h6">@systemInfo.Memory.UsedGB</MudText>
+                            <small class="text-muted-custom" Class="text-muted">Memory</small>
+                            <h6>@systemInfo.Memory.UsedGB</h6>
                         </div>
-                    </MudPaper>
+                    </div>
                 }
             </div>
 
             <!-- Activity Panel -->
-            <MudPaper Class="hero-panel activity-panel" Elevation="3">
+            <div Class="hero-panel activity-panel">
                 <div class="activity-items">
                     <div class="activity-item">
-                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Style="color: #fbbf24;" Size="Size.Small" />
-                        <MudText Typo="Typo.body2">Following update</MudText>
+                        <i class="@Icons.Material.Filled.TrendingUp"></i>
+                        <p class="small">Following update</p>
                     </div>
                     <div class="activity-item">
-                        <MudIcon Icon="@Icons.Material.Filled.ThumbUp" Style="color: #fb923c;" Size="Size.Small" />
-                        <MudText Typo="Typo.body2">Reaction</MudText>
+                        <i class="@Icons.Material.Filled.ThumbUp"></i>
+                        <p class="small">Reaction</p>
                     </div>
                     <div class="activity-item">
-                        <MudIcon Icon="@Icons.Material.Filled.Person" Style="color: #94a3b8;" Size="Size.Small" />
-                        <MudText Typo="Typo.body2">Profile update</MudText>
+                        <i class="@Icons.Material.Filled.Person"></i>
+                        <p class="small">Profile update</p>
                     </div>
                     <div class="activity-item">
-                        <MudIcon Icon="@Icons.Material.Filled.Chat" Style="color: #94a3b8;" Size="Size.Small" />
-                        <MudText Typo="Typo.body2" Class="text-muted">Reaction</MudText>
+                        <i class="@Icons.Material.Filled.Chat"></i>
+                        <p class="small" Class="text-muted">Reaction</p>
                     </div>
                 </div>
                 <div class="activity-count">
-                    <MudText Typo="Typo.h4" Class="text-muted" Style="opacity: 0.3;">128</MudText>
+                    <h4 Class="text-muted" Style="opacity: 0.3;">128</h4>
                 </div>
-            </MudPaper>
+            </div>
         </div>
     </div>
 
     <!-- App Grid Section -->
     <div class="apps-section">
         <div class="apps-header">
-            <MudText Typo="Typo.subtitle2" Class="section-label">Files</MudText>
-            <MudText Typo="Typo.subtitle2" Class="section-label">Settings</MudText>
-            <MudText Typo="Typo.subtitle2" Class="section-label">Nostr Relay</MudText>
+            <p class="fw-semibold" Class="section-label">Files</p>
+            <p class="fw-semibold" Class="section-label">Settings</p>
+            <p class="fw-semibold" Class="section-label">Nostr Relay</p>
         </div>
         
         <div class="apps-grid">
@@ -119,9 +119,9 @@
             {
                 <a href="@shortcut.Url" class="app-item" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
                     <div class="app-icon" style="background: @GetAppColor(shortcut.Id);">
-                        <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Large" />
+                        <i class="@ResolveIcon(shortcut.Icon)"></i>
                     </div>
-                    <MudText Typo="Typo.caption" Class="app-title">@shortcut.Title</MudText>
+                    <small class="text-muted-custom" Class="app-title">@shortcut.Title</small>
                 </a>
             }
         </div>
@@ -134,15 +134,15 @@
 
     <!-- Search Bar -->
     <div class="search-section">
-        <MudTextField T="string" Placeholder="Search" Variant="Variant.Outlined" 
+        <input type="text" class="form-control-custom" placeholder="Search" 
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                      Class="search-input" />
-        <MudText Typo="Typo.caption" Class="text-muted">⌘K</MudText>
+                      Class="search-input"  />
+        <small class="text-muted-custom" Class="text-muted">⌘K</small>
     </div>
 
     <!-- Dock -->
     <div class="bottom-dock">
-        <MudPaper Class="dock-panel" Elevation="8">
+        <div Class="dock-panel">
             @if (PinnedShortcuts.Count > 0)
             {
                 @foreach (var shortcut in PinnedShortcuts.Take(6))
@@ -157,7 +157,7 @@
                              aria-label="@shortcut.Title"
                              style="cursor: pointer;">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                                <i class="@ResolveIcon(shortcut.Icon)"></i>
                             </div>
                         </div>
                     }
@@ -165,7 +165,7 @@
                     {
                         <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                                <i class="@ResolveIcon(shortcut.Icon)"></i>
                             </div>
                         </a>
                     }
@@ -185,7 +185,7 @@
                              aria-label="@shortcut.Title"
                              style="cursor: pointer;">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                                <i class="@ResolveIcon(shortcut.Icon)"></i>
                             </div>
                         </div>
                     }
@@ -193,13 +193,13 @@
                     {
                         <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                                <i class="@ResolveIcon(shortcut.Icon)"></i>
                             </div>
                         </a>
                     }
                 }
             }
-        </MudPaper>
+        </div>
     </div>
 </div>
 
