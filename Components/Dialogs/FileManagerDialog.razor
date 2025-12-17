@@ -14,8 +14,9 @@
         <div style="height: 70vh; overflow: hidden; display: flex; flex-direction: column;">
             @if (!string.IsNullOrEmpty(errorMessage))
             {
-                <div class="alert" Severity="Severity.Error" class="mb-2" CloseIconClicked="@(() => errorMessage = string.Empty)">
+                <div class="alert alert-danger mb-2">
                     @errorMessage
+                    <button type="button" class="btn-close" @onclick="@(() => errorMessage = string.Empty)" aria-label="Close"></button>
                 </div>
             }
             <!-- Toolbar -->
