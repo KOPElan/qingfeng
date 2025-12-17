@@ -2,8 +2,9 @@
 @using Microsoft.AspNetCore.Components
 @inject IDialogService DialogService
 @implements IDisposable
+@rendermode InteractiveServer
 
-@foreach (var dialog in _dialogs)
+@foreach (var dialog in DialogService.GetDialogs())
 {
     @if (dialog.IsOpen)
     {
@@ -23,29 +24,19 @@
 }
 
 @code {
-    private List<DialogReference> _dialogs = new();
-
     protected override void OnInitialized()
     {
-        if (DialogService is DialogService service)
-        {
-            service.OnDialogInstanceAdded += HandleDialogAdded;
-        }
+        DialogService.OnDialogsChanged += HandleDialogsChanged;
     }
 
-    private void HandleDialogAdded(DialogReference dialog)
+    private void HandleDialogsChanged()
     {
-        _dialogs.Add(dialog);
-        StateHasChanged();
+        InvokeAsync(StateHasChanged);
     }
 
     private void CloseDialog(DialogReference dialog)
     {
-        if (DialogService is DialogService service)
-        {
-            service.Close(dialog);
-            StateHasChanged();
-        }
+        DialogService.Close(dialog);
     }
 
     private Dictionary<string, object> GetParameters(DialogReference dialog)
@@ -81,9 +72,6 @@
 
     public void Dispose()
     {
-        if (DialogService is DialogService service)
-        {
-            service.OnDialogInstanceAdded -= HandleDialogAdded;
-        }
+        DialogService.OnDialogsChanged -= HandleDialogsChanged;
     }
 }

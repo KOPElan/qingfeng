@@ -5,7 +5,8 @@ namespace QingFeng.Services;
 public interface IDialogService
 {
     Task<object?> ShowAsync<T>(string title, Dictionary<string, object>? parameters = null, DialogOptions? options = null) where T : ComponentBase;
-    event Action<DialogReference>? OnDialogInstanceAdded;
+    event Action? OnDialogsChanged;
+    IReadOnlyList<DialogReference> GetDialogs();
     void Close(DialogReference dialog);
 }
 
@@ -31,7 +32,8 @@ public class DialogReference
 public class DialogService : IDialogService
 {
     private readonly ILogger<DialogService> _logger;
-    public event Action<DialogReference>? OnDialogInstanceAdded;
+    private readonly List<DialogReference> _dialogs = new();
+    public event Action? OnDialogsChanged;
 
     public DialogService(ILogger<DialogService> logger)
     {
@@ -50,14 +52,21 @@ public class DialogService : IDialogService
             Options = options ?? new DialogOptions()
         };
 
-        OnDialogInstanceAdded?.Invoke(dialogReference);
+        _dialogs.Add(dialogReference);
+        OnDialogsChanged?.Invoke();
         
         return dialogReference.ResultCompletion.Task;
+    }
+
+    public IReadOnlyList<DialogReference> GetDialogs()
+    {
+        return _dialogs.AsReadOnly();
     }
 
     public void Close(DialogReference dialog)
     {
         dialog.IsOpen = false;
         dialog.ResultCompletion.TrySetResult(null);
+        OnDialogsChanged?.Invoke();
     }
 }

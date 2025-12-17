@@ -21,7 +21,7 @@ builder.Services.AddSingleton<IDockerService, DockerService>();
 builder.Services.AddScoped<IFileManagerService, FileManagerService>();
 builder.Services.AddSingleton<IDiskManagementService, DiskManagementService>();
 builder.Services.AddScoped<IHomeConfigService, HomeConfigService>();
-builder.Services.AddScoped<IDialogService, DialogService>();
+builder.Services.AddSingleton<IDialogService, DialogService>();
 
 var app = builder.Build();
 
