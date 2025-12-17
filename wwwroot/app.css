@@ -208,7 +208,7 @@ h1:focus {
     color: #fff;
     margin-bottom: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    background: #999;
+    background: var(--icon-bg-gray, #999);
 }
 
 .app-title {
@@ -255,7 +255,7 @@ h1:focus {
     justify-content: center;
     color: #fff;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    background: #999 !important;
+    background: var(--icon-bg-gray, #999) !important;
 }
 
 .home-grid {
