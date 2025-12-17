@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @using QingFeng.Services
 @using QingFeng.Models
 @using System.Text.Json
@@ -14,104 +14,104 @@
 <div class="homepage-container">
     <div class="hero-section">
         <div class="hero-icon">
-            <MudIcon Icon="@Icons.Material.Filled.WbSunny" Size="Size.Large" />
+            <i class="@Icons.Material.Filled.WbSunny" style="font-size: 3rem;"></i>
         </div>
-        <MudText Typo="Typo.h3" Class="hero-greeting">@GreetingText</MudText>
+        <h3 class="hero-greeting">@GreetingText</h3>
         
         <div class="hero-content">
             <!-- Recents Panel -->
-            <MudPaper Class="hero-panel recents-panel" Elevation="3">
-                <MudText Typo="Typo.subtitle2" Class="panel-header">Recents</MudText>
+            <div class="hero-panel recents-panel card-custom">
+                <p class="panel-header fw-semibold">Recents</p>
                 <div class="recent-items">
                     <div class="recent-item">
-                        <MudIcon Icon="@Icons.Material.Filled.AudioFile" Class="recent-icon" Style="color: #c084fc;" />
+                        <i class="@Icons.Material.Filled.AudioFile recent-icon" style="color: #c084fc;"></i>
                         <div class="recent-info">
-                            <MudText Typo="Typo.body2">Vida La Vida</MudText>
-                            <MudText Typo="Typo.caption" Class="text-muted">MP3</MudText>
+                            <p class="small mb-0">Vida La Vida</p>
+                            <small class="text-muted-custom">MP3</small>
                         </div>
                     </div>
                     <div class="recent-item">
-                        <MudIcon Icon="@Icons.Material.Filled.Description" Class="recent-icon" Style="color: #60a5fa;" />
+                        <i class="@Icons.Material.Filled.Description recent-icon" style="color: #60a5fa;"></i>
                         <div class="recent-info">
-                            <MudText Typo="Typo.body2">Home 2 Write-up Draft</MudText>
-                            <MudText Typo="Typo.caption" Class="text-muted">TXT</MudText>
+                            <p class="small mb-0">Home 2 Write-up Draft</p>
+                            <small class="text-muted-custom">TXT</small>
                         </div>
                     </div>
                     <div class="recent-item">
-                        <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="recent-icon" Style="color: #34d399;" />
+                        <i class="@Icons.Material.Filled.TableChart recent-icon" style="color: #34d399;"></i>
                         <div class="recent-info">
-                            <MudText Typo="Typo.body2">3rd Quarter Financials</MudText>
-                            <MudText Typo="Typo.caption" Class="text-muted">XLSX</MudText>
+                            <p class="small mb-0">3rd Quarter Financials</p>
+                            <small class="text-muted-custom">XLSX</small>
                         </div>
                     </div>
                 </div>
-            </MudPaper>
+            </div>
 
             <!-- System Stats Cards -->
             <div class="stats-cards">
                 @if (systemInfo is null)
                 {
-                    <MudSkeleton Height="140px" Width="100%" Animation="Animation.Wave" />
+                    <div class="skeleton" style="height: 140px; width: 100%;"></div>
                 }
                 else
                 {
-                    <MudPaper Class="stat-card-new" Elevation="3">
-                        <MudIcon Icon="@Icons.Material.Filled.Speed" Class="stat-icon" />
+                    <div class="stat-card-new card-custom">
+                        <i class="@Icons.Material.Filled.Speed stat-icon"></i>
                         <div class="stat-content">
-                            <MudText Typo="Typo.caption" Class="text-muted">CPU</MudText>
-                            <MudText Typo="Typo.h6">@systemInfo.Cpu.UsagePercent.ToString("F1")%</MudText>
+                            <small class="text-muted-custom">CPU</small>
+                            <h6 class="mb-0">@systemInfo.Cpu.UsagePercent.ToString("F1")%</h6>
                         </div>
-                    </MudPaper>
-                    <MudPaper Class="stat-card-new" Elevation="3">
-                        <MudIcon Icon="@Icons.Material.Filled.Storage" Class="stat-icon" />
+                    </div>
+                    <div class="stat-card-new card-custom">
+                        <i class="@Icons.Material.Filled.Storage stat-icon"></i>
                         <div class="stat-content">
-                            <MudText Typo="Typo.caption" Class="text-muted">Free</MudText>
-                            <MudText Typo="Typo.h6">@DiskTotalGb</MudText>
+                            <small class="text-muted-custom">Free</small>
+                            <h6 class="mb-0">@DiskTotalGb</h6>
                         </div>
-                    </MudPaper>
-                    <MudPaper Class="stat-card-new" Elevation="3">
-                        <MudIcon Icon="@Icons.Material.Filled.Memory" Class="stat-icon" />
+                    </div>
+                    <div class="stat-card-new card-custom">
+                        <i class="@Icons.Material.Filled.Memory stat-icon"></i>
                         <div class="stat-content">
-                            <MudText Typo="Typo.caption" Class="text-muted">Memory</MudText>
-                            <MudText Typo="Typo.h6">@systemInfo.Memory.UsedGB</MudText>
+                            <small class="text-muted-custom">Memory</small>
+                            <h6 class="mb-0">@systemInfo.Memory.UsedGB</h6>
                         </div>
-                    </MudPaper>
+                    </div>
                 }
             </div>
 
             <!-- Activity Panel -->
-            <MudPaper Class="hero-panel activity-panel" Elevation="3">
+            <div class="hero-panel activity-panel card-custom">
                 <div class="activity-items">
                     <div class="activity-item">
-                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Style="color: #fbbf24;" Size="Size.Small" />
-                        <MudText Typo="Typo.body2">Following update</MudText>
+                        <i class="@Icons.Material.Filled.TrendingUp" style="color: #fbbf24; font-size: 1.2rem;"></i>
+                        <p class="small mb-0">Following update</p>
                     </div>
                     <div class="activity-item">
-                        <MudIcon Icon="@Icons.Material.Filled.ThumbUp" Style="color: #fb923c;" Size="Size.Small" />
-                        <MudText Typo="Typo.body2">Reaction</MudText>
+                        <i class="@Icons.Material.Filled.ThumbUp" style="color: #fb923c; font-size: 1.2rem;"></i>
+                        <p class="small mb-0">Reaction</p>
                     </div>
                     <div class="activity-item">
-                        <MudIcon Icon="@Icons.Material.Filled.Person" Style="color: #94a3b8;" Size="Size.Small" />
-                        <MudText Typo="Typo.body2">Profile update</MudText>
+                        <i class="@Icons.Material.Filled.Person" style="color: #94a3b8; font-size: 1.2rem;"></i>
+                        <p class="small mb-0">Profile update</p>
                     </div>
                     <div class="activity-item">
-                        <MudIcon Icon="@Icons.Material.Filled.Chat" Style="color: #94a3b8;" Size="Size.Small" />
-                        <MudText Typo="Typo.body2" Class="text-muted">Reaction</MudText>
+                        <i class="@Icons.Material.Filled.Chat" style="color: #94a3b8; font-size: 1.2rem;"></i>
+                        <p class="small text-muted mb-0">Reaction</p>
                     </div>
                 </div>
                 <div class="activity-count">
-                    <MudText Typo="Typo.h4" Class="text-muted" Style="opacity: 0.3;">128</MudText>
+                    <h4 class="text-muted" style="opacity: 0.3;">128</h4>
                 </div>
-            </MudPaper>
+            </div>
         </div>
     </div>
 
     <!-- App Grid Section -->
     <div class="apps-section">
         <div class="apps-header">
-            <MudText Typo="Typo.subtitle2" Class="section-label">Files</MudText>
-            <MudText Typo="Typo.subtitle2" Class="section-label">Settings</MudText>
-            <MudText Typo="Typo.subtitle2" Class="section-label">Nostr Relay</MudText>
+            <p class="section-label fw-semibold">Files</p>
+            <p class="section-label fw-semibold">Settings</p>
+            <p class="section-label fw-semibold">Nostr Relay</p>
         </div>
         
         <div class="apps-grid">
@@ -119,9 +119,9 @@
             {
                 <a href="@shortcut.Url" class="app-item" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
                     <div class="app-icon" style="background: @GetAppColor(shortcut.Id);">
-                        <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Large" />
+                        <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 2rem;"></i>
                     </div>
-                    <MudText Typo="Typo.caption" Class="app-title">@shortcut.Title</MudText>
+                    <small class="app-title">@shortcut.Title</small>
                 </a>
             }
         </div>
@@ -134,15 +134,13 @@
 
     <!-- Search Bar -->
     <div class="search-section">
-        <MudTextField T="string" Placeholder="Search" Variant="Variant.Outlined" 
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                      Class="search-input" />
-        <MudText Typo="Typo.caption" Class="text-muted">⌘K</MudText>
+        <input type="text" class="form-control-custom search-input" placeholder="Search" />
+        <small class="text-muted-custom">⌘K</small>
     </div>
 
     <!-- Dock -->
     <div class="bottom-dock">
-        <MudPaper Class="dock-panel" Elevation="8">
+        <div class="dock-panel card-custom">
             @if (PinnedShortcuts.Count > 0)
             {
                 @foreach (var shortcut in PinnedShortcuts.Take(6))
@@ -157,7 +155,7 @@
                              aria-label="@shortcut.Title"
                              style="cursor: pointer;">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                             </div>
                         </div>
                     }
@@ -165,7 +163,7 @@
                     {
                         <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                             </div>
                         </a>
                     }
@@ -185,7 +183,7 @@
                              aria-label="@shortcut.Title"
                              style="cursor: pointer;">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                             </div>
                         </div>
                     }
@@ -193,13 +191,13 @@
                     {
                         <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                             </div>
                         </a>
                     }
                 }
             }
-        </MudPaper>
+        </div>
     </div>
 </div>
 
@@ -494,13 +492,13 @@
     {
         var options = new DialogOptions 
         { 
-            MaxWidth = MaxWidth.ExtraExtraLarge, 
+            MaxWidth = true, 
             FullWidth = true,
             CloseButton = true,
             FullScreen = true
         };
 
-        var parameters = new DialogParameters
+        var parameters = new Dictionary<string, object>
         {
             { "Title", shortcut.Title }
         };

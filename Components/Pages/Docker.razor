@@ -7,178 +7,154 @@
 
 <PageTitle>Docker管理</PageTitle>
 
-<MudText Typo="Typo.h3" Class="mb-4">Docker管理</MudText>
+<h3 class="mb-4">Docker管理</h3>
 
-<MudButton Variant="Variant.Filled" 
-           Color="Color.Primary" 
-           StartIcon="@Icons.Material.Filled.Refresh" 
-           OnClick="RefreshData" 
-           Class="mb-4">
+<button type="button" class="btn btn-custom-primary mb-4" @onclick="RefreshData">
+    <i class="@Icons.Material.Filled.Refresh me-2"></i>
     刷新
-</MudButton>
+</button>
 
 @if (!string.IsNullOrEmpty(message))
 {
-    <MudAlert Severity="@(isError ? Severity.Error : Severity.Success)" 
-              Class="mb-4" 
-              CloseIconClicked="@(() => message = string.Empty)">
+    <div class="alert @(isError ? "alert-danger" : "alert-success") mb-4">
         @message
-    </MudAlert>
+        <button type="button" class="btn-close" @onclick="@(() => message = string.Empty)" aria-label="Close"></button>
+    </div>
 }
 
 @if (!isDockerAvailable)
 {
-    <MudAlert Severity="Severity.Warning" Class="mb-4">
+    <div class="alert alert-warning mb-4">
         <strong>警告：</strong> Docker服务不可用。请确保Docker已安装并正在运行。
-    </MudAlert>
+    </div>
 }
 
 <!-- Containers Section -->
-<MudPaper Elevation="2" Class="pa-4 mb-4">
-    <MudText Typo="Typo.h5" Class="mb-3">
-        <MudIcon Icon="@Icons.Material.Filled.Inventory" Class="mr-2" />
+<div class="card-custom p-4 mb-4">
+    <h5 class="mb-3">
+        <i class="@Icons.Material.Filled.Inventory me-2"></i>
         容器列表
-    </MudText>
+    </h5>
     @if (containers != null && containers.Any())
     {
-        <MudTable Items="@containers" Hover="true" Striped="true" Dense="false">
-            <HeaderContent>
-                <MudTh>ID</MudTh>
-                <MudTh>名称</MudTh>
-                <MudTh>镜像</MudTh>
-                <MudTh>状态</MudTh>
-                <MudTh>端口</MudTh>
-                <MudTh>创建时间</MudTh>
-                <MudTh>操作</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="ID"><MudText Typo="Typo.body2" Style="font-family: monospace;">@context.Id</MudText></MudTd>
-                <MudTd DataLabel="名称">@context.Name</MudTd>
-                <MudTd DataLabel="镜像">@context.Image</MudTd>
-                <MudTd DataLabel="状态">
-                    <MudChip T="string" Size="Size.Small" Color="@GetStateColor(context.State)">
-                        @context.State
-                    </MudChip>
-                    <MudText Typo="Typo.caption">@context.Status</MudText>
-                </MudTd>
-                <MudTd DataLabel="端口">
-                    @if (context.Ports.Any())
-                    {
-                        foreach (var port in context.Ports)
-                        {
-                            <MudText Typo="Typo.caption">@port</MudText>
-                        }
-                    }
-                    else
-                    {
-                        <MudText>-</MudText>
-                    }
-                </MudTd>
-                <MudTd DataLabel="创建时间">@context.Created.ToString("yyyy-MM-dd HH:mm")</MudTd>
-                <MudTd DataLabel="操作">
-                    <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
-                        @if (context.State == "running")
-                        {
-                            <MudIconButton Icon="@Icons.Material.Filled.Stop" 
-                                          Color="Color.Warning" 
-                                          OnClick="@(() => StopContainer(context.Id))"
-                                          Disabled="@isProcessing"
-                                          Size="Size.Small" />
-                            <MudIconButton Icon="@Icons.Material.Filled.RestartAlt" 
-                                          Color="Color.Info" 
-                                          OnClick="@(() => RestartContainer(context.Id))"
-                                          Disabled="@isProcessing"
-                                          Size="Size.Small" />
-                        }
-                        else
-                        {
-                            <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" 
-                                          Color="Color.Success" 
-                                          OnClick="@(() => StartContainer(context.Id))"
-                                          Disabled="@isProcessing"
-                                          Size="Size.Small" />
-                        }
-                        <MudIconButton Icon="@Icons.Material.Filled.Article" 
-                                      Color="Color.Primary" 
-                                      OnClick="@(() => ViewLogs(context.Id, context.Name))"
-                                      Disabled="@isProcessing"
-                                      Size="Size.Small" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" 
-                                      Color="Color.Error" 
-                                      OnClick="@(() => RemoveContainer(context.Id))"
-                                      Disabled="@isProcessing"
-                                      Size="Size.Small" />
-                    </MudButtonGroup>
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
-    }
-    else if (containers == null)
-    {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        <MudText Class="ml-2">加载中...</MudText>
+        <table class="table table-custom">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>名称</th>
+                    <th>镜像</th>
+                    <th>状态</th>
+                    <th>端口</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var container in containers)
+                {
+                    <tr>
+                        <td><small style="font-family: monospace;">@container.Id.Substring(0, Math.Min(12, container.Id.Length))</small></td>
+                        <td>@container.Name</td>
+                        <td>@container.Image</td>
+                        <td>
+                            <span class="badge @(container.State == "running" ? "badge-success" : "badge-custom")">
+                                @container.State
+                            </span>
+                            <br />
+                            <small class="text-muted-custom">@container.Status</small>
+                        </td>
+                        <td>
+                            @if (container.Ports.Any())
+                            {
+                                @foreach (var port in container.Ports)
+                                {
+                                    <small class="d-block">@port</small>
+                                }
+                            }
+                            else
+                            {
+                                <span>-</span>
+                            }
+                        </td>
+                        <td>@container.Created.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                @if (container.State == "running")
+                                {
+                                    <button type="button" class="btn btn-outline-warning" @onclick="@(() => StopContainer(container.Id))" disabled="@isProcessing" title="停止">
+                                        <i class="@Icons.Material.Filled.Stop"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info" @onclick="@(() => RestartContainer(container.Id))" disabled="@isProcessing" title="重启">
+                                        <i class="@Icons.Material.Filled.RestartAlt"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-outline-success" @onclick="@(() => StartContainer(container.Id))" disabled="@isProcessing" title="启动">
+                                        <i class="@Icons.Material.Filled.PlayArrow"></i>
+                                    </button>
+                                }
+                                <button type="button" class="btn btn-outline-secondary" @onclick="@(() => ShowContainerLogs(container))" title="查看日志">
+                                    <i class="@Icons.Material.Filled.Article"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     }
     else
     {
-        <MudText Color="Color.Secondary">没有找到容器</MudText>
+        <p class="text-muted-custom">没有找到容器</p>
     }
-</MudPaper>
+</div>
 
 <!-- Images Section -->
-<MudPaper Elevation="2" Class="pa-4 mb-4">
-    <MudText Typo="Typo.h5" Class="mb-3">
-        <MudIcon Icon="@Icons.Material.Filled.Layers" Class="mr-2" />
+<div class="card-custom p-4 mb-4">
+    <h5 class="mb-3">
+        <i class="@Icons.Material.Filled.Layers me-2"></i>
         镜像列表
-    </MudText>
+    </h5>
     @if (images != null && images.Any())
     {
-        <MudTable Items="@images" Hover="true" Striped="true" Dense="false">
-            <HeaderContent>
-                <MudTh>ID</MudTh>
-                <MudTh>标签</MudTh>
-                <MudTh>大小</MudTh>
-                <MudTh>创建时间</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="ID"><MudText Typo="Typo.body2" Style="font-family: monospace;">@context.Id</MudText></MudTd>
-                <MudTd DataLabel="标签">
-                    @if (context.RepoTags.Any())
-                    {
-                        foreach (var tag in context.RepoTags)
-                        {
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@tag</MudChip>
-                        }
-                    }
-                    else
-                    {
-                        <MudText Color="Color.Secondary">&lt;none&gt;</MudText>
-                    }
-                </MudTd>
-                <MudTd DataLabel="大小">@context.SizeMB</MudTd>
-                <MudTd DataLabel="创建时间">@context.Created.ToString("yyyy-MM-dd HH:mm")</MudTd>
-            </RowTemplate>
-        </MudTable>
-    }
-    else if (images == null)
-    {
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-        <MudText Class="ml-2">加载中...</MudText>
+        <table class="table table-custom">
+            <thead>
+                <tr>
+                    <th>仓库</th>
+                    <th>标签</th>
+                    <th>ID</th>
+                    <th>大小</th>
+                    <th>创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var image in images)
+                {
+                    <tr>
+                        <td>@(image.RepoTags.FirstOrDefault()?.Split(':')[0] ?? "无")</td>
+                        <td>@(image.RepoTags.FirstOrDefault()?.Split(':').LastOrDefault() ?? "latest")</td>
+                        <td><small style="font-family: monospace;">@image.Id.Substring(0, Math.Min(12, image.Id.Length))</small></td>
+                        <td>@image.SizeMB</td>
+                        <td>@image.Created.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     }
     else
     {
-        <MudText Color="Color.Secondary">没有找到镜像</MudText>
+        <p class="text-muted-custom">没有找到镜像</p>
     }
-</MudPaper>
-
-
+</div>
 
 @code {
-    private List<DockerContainerInfo>? containers;
-    private List<DockerImageInfo>? images;
+    private List<DockerContainerInfo> containers = new();
+    private List<DockerImageInfo> images = new();
     private string message = string.Empty;
     private bool isError = false;
     private bool isProcessing = false;
-    private bool isDockerAvailable = false;
+    private bool isDockerAvailable = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -203,7 +179,7 @@
         try
         {
             await DockerService.StartContainerAsync(containerId);
-            message = $"容器 {containerId} 已启动";
+            message = $"容器已启动";
             isError = false;
             await RefreshData();
         }
@@ -226,7 +202,7 @@
         try
         {
             await DockerService.StopContainerAsync(containerId);
-            message = $"容器 {containerId} 已停止";
+            message = $"容器已停止";
             isError = false;
             await RefreshData();
         }
@@ -249,7 +225,7 @@
         try
         {
             await DockerService.RestartContainerAsync(containerId);
-            message = $"容器 {containerId} 已重启";
+            message = $"容器已重启";
             isError = false;
             await RefreshData();
         }
@@ -264,70 +240,22 @@
         }
     }
 
-    private async Task RemoveContainer(string containerId)
+    private async Task ShowContainerLogs(DockerContainerInfo container)
     {
-        if (!confirm($"确定要删除容器 {containerId} 吗？"))
-            return;
-
-        isProcessing = true;
-        message = string.Empty;
+        var parameters = new Dictionary<string, object>
+        {
+            { "ContainerId", container.Id },
+            { "ContainerName", container.Name }
+        };
         
-        try
-        {
-            await DockerService.RemoveContainerAsync(containerId);
-            message = $"容器 {containerId} 已删除";
-            isError = false;
-            await RefreshData();
-        }
-        catch (Exception ex)
-        {
-            message = $"删除容器失败: {ex.Message}";
-            isError = true;
-        }
-        finally
-        {
-            isProcessing = false;
-        }
-    }
-
-    private async Task ViewLogs(string containerId, string containerName)
-    {
         var options = new DialogOptions 
         { 
-            MaxWidth = MaxWidth.ExtraLarge, 
+            MaxWidth = true, 
             FullWidth = true,
-            CloseButton = true,
-            CloseOnEscapeKey = true
+            CloseButton = true
         };
-
-        var parameters = new DialogParameters
-        {
-            { "ContainerId", containerId },
-            { "ContainerName", containerName }
-        };
-
+        
         await DialogService.ShowAsync<QingFeng.Components.Dialogs.ContainerLogsDialog>(
-            $"容器日志 - {containerName}", 
-            parameters, 
-            options);
-    }
-
-    private bool confirm(string message)
-    {
-        // This would typically use JS interop for a proper confirmation dialog
-        // For now, we'll just return true
-        return true;
-    }
-
-    private Color GetStateColor(string state)
-    {
-        return state.ToLower() switch
-        {
-            "running" => Color.Success,
-            "exited" => Color.Default,
-            "paused" => Color.Warning,
-            "restarting" => Color.Info,
-            _ => Color.Default
-        };
+            $"容器日志 - {container.Name}", parameters, options);
     }
 }

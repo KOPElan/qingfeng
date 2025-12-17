@@ -1,11 +1,8 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JS
 @implements IDisposable
-
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
+@using QingFeng.Utilities
 
 @if (_isHomePage)
 {
@@ -13,26 +10,35 @@
 }
 else
 {
-    <MudLayout>
-        <MudAppBar Elevation="1">
-            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
-            <MudText Typo="Typo.h5" Class="ml-3">My Portal</MudText>
-            <MudSpacer />
-            <MudTooltip Text="切换主题">
-                <MudIconButton Icon="@(_isDarkMode ? @Icons.Material.Filled.LightMode : @Icons.Material.Filled.DarkMode)" 
-                               Color="Color.Inherit" 
-                               OnClick="@ToggleDarkMode" />
-            </MudTooltip>
-        </MudAppBar>
-        <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-            <NavMenu />
-        </MudDrawer>
-        <MudMainContent>
-            <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="mt-4">
+    <div class="d-flex" style="min-height: 100vh;">
+        <!-- Sidebar -->
+        <div class="sidebar-custom @(_drawerOpen ? "" : "collapsed")" style="width: 250px; position: fixed; left: 0; top: 0; height: 100vh; z-index: 1030;">
+            <div class="p-3">
+                <h5 class="text-white mb-4">My Portal</h5>
+                <NavMenu />
+            </div>
+        </div>
+
+        <!-- Main content area -->
+        <div class="flex-grow-1" style="margin-left: @(_drawerOpen ? "250px" : "0"); transition: margin-left 0.3s ease;">
+            <!-- App Bar -->
+            <div class="app-bar-custom">
+                <button class="btn btn-link text-white" @onclick="ToggleDrawer" title="Toggle menu">
+                    <i class="@Icons.Material.Filled.Menu" style="font-size: 1.5rem;"></i>
+                </button>
+                <div class="flex-grow-1"></div>
+                <button class="btn btn-link text-white tooltip-custom" @onclick="ToggleDarkMode" title="切换主题">
+                    <i class="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" style="font-size: 1.5rem;"></i>
+                    <span class="tooltip-text">切换主题</span>
+                </button>
+            </div>
+
+            <!-- Page content -->
+            <div class="container-fluid p-4" style="max-width: 1400px;">
                 @Body
-            </MudContainer>
-        </MudMainContent>
-    </MudLayout>
+            </div>
+        </div>
+    </div>
 }
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -63,14 +69,16 @@ else
         _isHomePage = NavigationManager.ToBaseRelativePath(NavigationManager.Uri) == string.Empty;
     }
 
-    private void ToggleDrawer()
+    private async Task ToggleDrawer()
     {
         _drawerOpen = !_drawerOpen;
+        await JS.InvokeVoidAsync("drawerManager.toggle");
     }
 
-    private void ToggleDarkMode()
+    private async Task ToggleDarkMode()
     {
         _isDarkMode = !_isDarkMode;
+        await JS.InvokeVoidAsync("themeManager.toggle");
     }
 
     public void Dispose()

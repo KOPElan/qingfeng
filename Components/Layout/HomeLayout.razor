@@ -1,9 +1,5 @@
 @inherits LayoutComponentBase
-
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
+@inject IJSRuntime JS
 
 @Body
 
@@ -15,4 +11,12 @@
 
 @code {
     private bool _isDarkMode = true;
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("themeManager.initialize");
+        }
+    }
 }

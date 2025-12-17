@@ -1,8 +1,37 @@
-﻿<MudNavMenu>
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">首页</MudNavLink>
-    <MudNavLink Href="/system-monitor" Icon="@Icons.Material.Filled.Dashboard">系统监控</MudNavLink>
-    <MudNavLink Href="/disk-management" Icon="@Icons.Material.Filled.Storage">磁盘管理</MudNavLink>
-    <MudNavLink Href="/docker" Icon="@Icons.Material.Filled.ContentCopy">Docker管理</MudNavLink>
-    <MudNavLink Href="/file-manager" Icon="@Icons.Material.Filled.Folder">文件管理</MudNavLink>
-</MudNavMenu>
+@using QingFeng.Utilities
+
+<nav class="nav-menu-custom">
+    <ul class="nav flex-column">
+        <li class="nav-item-custom">
+            <NavLink href="/" Match="NavLinkMatch.All" class="nav-link-custom" ActiveClass="active">
+                <i class="@Icons.Material.Filled.Home"></i>
+                <span>首页</span>
+            </NavLink>
+        </li>
+        <li class="nav-item-custom">
+            <NavLink href="/system-monitor" class="nav-link-custom" ActiveClass="active">
+                <i class="@Icons.Material.Filled.Dashboard"></i>
+                <span>系统监控</span>
+            </NavLink>
+        </li>
+        <li class="nav-item-custom">
+            <NavLink href="/disk-management" class="nav-link-custom" ActiveClass="active">
+                <i class="@Icons.Material.Filled.Storage"></i>
+                <span>磁盘管理</span>
+            </NavLink>
+        </li>
+        <li class="nav-item-custom">
+            <NavLink href="/docker" class="nav-link-custom" ActiveClass="active">
+                <i class="@Icons.Material.Filled.ContentCopy"></i>
+                <span>Docker管理</span>
+            </NavLink>
+        </li>
+        <li class="nav-item-custom">
+            <NavLink href="/file-manager" class="nav-link-custom" ActiveClass="active">
+                <i class="@Icons.Material.Filled.Folder"></i>
+                <span>文件管理</span>
+            </NavLink>
+        </li>
+    </ul>
+</nav>
 

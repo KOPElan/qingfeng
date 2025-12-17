@@ -3,40 +3,39 @@
 @using Microsoft.AspNetCore.Components
 @inject IDockerService DockerService
 
-<MudDialog>
-    <TitleContent>
-        <MudText Typo="Typo.h6">
-            <MudIcon Icon="@Icons.Material.Filled.Article" Class="mr-2" />
+<div class="modal-content-custom">
+    <div class="modal-header-custom">
+        <h6>
+            <i class="@Icons.Material.Filled.Article"></i>
             容器日志 - @ContainerName
-        </MudText>
-    </TitleContent>
-    <DialogContent>
+        </h6>
+    </div>
+    <div class="modal-body-custom">
         @if (isLoadingLogs)
         {
             <div class="d-flex align-center justify-center pa-4">
-                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-                <MudText Class="ml-2">加载日志中...</MudText>
+                <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+                <p class="ml-2">加载日志中...</p>
             </div>
         }
         else if (!string.IsNullOrEmpty(containerLogs))
         {
-            <MudPaper Elevation="0" Class="pa-3" Style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
+            <div class="pa-3" style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
                 @containerLogs
-            </MudPaper>
+            </div>
         }
         else
         {
-            <MudText Color="Color.Secondary">没有日志数据</MudText>
+            <p>没有日志数据</p>
         }
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="RefreshLogs" Color="Color.Primary" Variant="Variant.Filled" Disabled="@isLoadingLogs">刷新</MudButton>
-        <MudButton OnClick="Close" Color="Color.Default">关闭</MudButton>
-    </DialogActions>
-</MudDialog>
+    </div>
+    <div class="modal-footer-custom">
+        <button type="button" class="btn btn-custom" @@onclick="RefreshLogs" disabled="@isLoadingLogs">刷新</button>
+        <button type="button" class="btn btn-custom" @@onclick="Close">关闭</button>
+    </div>
+</div>
 
 @code {
-    [CascadingParameter] public MudBlazor.IDialogReference? MudDialog { get; set; }
     [Parameter] public string? ContainerId { get; set; }
     [Parameter] public string? ContainerName { get; set; }
     
@@ -79,5 +78,5 @@
         await LoadLogs();
     }
 
-    private void Close() => MudDialog?.Close();
+    private void Close() { /* Dialog managed by parent component */ }
 }
