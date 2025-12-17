@@ -1,5 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
+@implements IDisposable
 
 <MudThemeProvider @bind-IsDarkMode="@_isDarkMode" />
 <MudPopoverProvider />
@@ -43,8 +44,26 @@ else
 @code {
     private bool _drawerOpen = true;
     private bool _isDarkMode = false;
+    private bool _isHomePage = false;
 
-    private bool IsHomePage => NavigationManager.ToBaseRelativePath(NavigationManager.Uri) == string.Empty;
+    private bool IsHomePage => _isHomePage;
+
+    protected override void OnInitialized()
+    {
+        UpdateIsHomePage();
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateIsHomePage();
+        StateHasChanged();
+    }
+
+    private void UpdateIsHomePage()
+    {
+        _isHomePage = NavigationManager.ToBaseRelativePath(NavigationManager.Uri) == string.Empty;
+    }
 
     private void ToggleDrawer()
     {
@@ -54,5 +73,10 @@ else
     private void ToggleDarkMode()
     {
         _isDarkMode = !_isDarkMode;
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
