@@ -22,10 +22,8 @@ public class SystemMonitorService : ISystemMonitorService
         };
     }
 
-    public async Task<CpuInfo> GetCpuInfoAsync()
+    public Task<CpuInfo> GetCpuInfoAsync()
     {
-        await Task.Delay(0); // Make it async
-        
         var cpuInfo = new CpuInfo
         {
             CoreCount = Environment.ProcessorCount,
@@ -52,13 +50,11 @@ public class SystemMonitorService : ISystemMonitorService
 
         cpuInfo.UsagePercent = Math.Round(_lastCpuUsage, 2);
 
-        return cpuInfo;
+        return Task.FromResult(cpuInfo);
     }
 
-    public async Task<MemoryInfo> GetMemoryInfoAsync()
+    public Task<MemoryInfo> GetMemoryInfoAsync()
     {
-        await Task.Delay(0); // Make it async
-        
         var memInfo = new MemoryInfo();
         
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -99,7 +95,7 @@ public class SystemMonitorService : ISystemMonitorService
             SetMemoryInfoFromGC(memInfo);
         }
 
-        return memInfo;
+        return Task.FromResult(memInfo);
     }
 
     private void SetMemoryInfoFromGC(MemoryInfo memInfo)
@@ -121,10 +117,8 @@ public class SystemMonitorService : ISystemMonitorService
         return 0;
     }
 
-    public async Task<List<DiskInfo>> GetDiskInfoAsync()
+    public Task<List<DiskInfo>> GetDiskInfoAsync()
     {
-        await Task.Delay(0); // Make it async
-        
         var disks = new List<DiskInfo>();
 
         foreach (var drive in DriveInfo.GetDrives())
@@ -167,13 +161,11 @@ public class SystemMonitorService : ISystemMonitorService
             }
         }
 
-        return disks;
+        return Task.FromResult(disks);
     }
 
-    public async Task<List<NetworkInfo>> GetNetworkInfoAsync()
+    public Task<List<NetworkInfo>> GetNetworkInfoAsync()
     {
-        await Task.Delay(0); // Make it async
-        
         var networks = new List<NetworkInfo>();
 
         foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
@@ -205,6 +197,6 @@ public class SystemMonitorService : ISystemMonitorService
             }
         }
 
-        return networks;
+        return Task.FromResult(networks);
     }
 }
