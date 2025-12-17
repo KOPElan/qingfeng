@@ -187,8 +187,18 @@
 
     private async Task RefreshData()
     {
-        containers = await DockerService.GetContainersAsync(true);
-        images = await DockerService.GetImagesAsync();
+        try
+        {
+            message = string.Empty;
+            containers = await DockerService.GetContainersAsync(true);
+            images = await DockerService.GetImagesAsync();
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            isError = true;
+            message = $"加载Docker数据失败: {ex.Message}";
+        }
     }
 
     private async Task StartContainer(string containerId)

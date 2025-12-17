@@ -12,6 +12,12 @@
     </TitleContent>
     <DialogContent>
         <div style="height: 70vh; overflow: hidden; display: flex; flex-direction: column;">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-2" Dense="true" CloseIconClicked="@(() => errorMessage = string.Empty)">
+                    @errorMessage
+                </MudAlert>
+            }
             <!-- Toolbar -->
             <div style="padding: 12px 0; border-bottom: 1px solid var(--mud-palette-divider); display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                 <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" 
@@ -150,6 +156,7 @@
     private bool isGridView = true;
     private long storageTotal = 0;
     private long storageAvailable = 0;
+    private string errorMessage = string.Empty;
     
     private Stack<string> navigationHistory = new Stack<string>();
     private Stack<string> forwardHistory = new Stack<string>();
@@ -157,17 +164,10 @@
     protected override async Task OnInitializedAsync()
     {
         // Start at user's home directory
-        if (OperatingSystem.IsWindows())
+        currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrEmpty(currentPath))
         {
-            currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        }
-        else
-        {
-            currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            if (string.IsNullOrEmpty(currentPath))
-            {
-                currentPath = "/";
-            }
+            currentPath = "/";
         }
         
         navigationHistory.Push(currentPath);
@@ -185,7 +185,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"加载文件列表失败: {ex.Message}");
+            errorMessage = $"加载文件列表失败: {ex.Message}";
         }
     }
 
@@ -201,6 +201,11 @@
             
             currentPath = path;
             await RefreshFiles();
+        }
+        else if (File.Exists(path))
+        {
+            // File navigation is not supported in this dialog
+            errorMessage = $"无法打开文件: {Path.GetFileName(path)}。此对话框仅支持浏览文件夹。";
         }
     }
 

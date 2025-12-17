@@ -233,7 +233,10 @@
         {
             var result = await DiskManagementService.MountDiskAsync(devicePath, mountPoint);
             message = result;
-            isError = !result.Contains("Successfully");
+            // Check for success by looking for "Successfully" or absence of "Failed"/"Error" keywords
+            isError = result.Contains("Failed", StringComparison.OrdinalIgnoreCase) || 
+                      result.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+                      !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
             
             if (!isError)
             {
@@ -269,7 +272,10 @@
         {
             var result = await DiskManagementService.UnmountDiskAsync(unmountPoint);
             message = result;
-            isError = !result.Contains("Successfully");
+            // Check for success by looking for "Successfully" or absence of "Failed"/"Error" keywords
+            isError = result.Contains("Failed", StringComparison.OrdinalIgnoreCase) || 
+                      result.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+                      !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
             
             if (!isError)
             {

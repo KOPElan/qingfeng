@@ -7,7 +7,7 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-@if (IsHomePage)
+@if (_isHomePage)
 {
     @Body
 }
@@ -16,7 +16,7 @@ else
     <MudLayout>
         <MudAppBar Elevation="1">
             <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
-            <MudText Typo="Typo.h5" Class="ml-3">My Potal</MudText>
+            <MudText Typo="Typo.h5" Class="ml-3">My Portal</MudText>
             <MudSpacer />
             <MudTooltip Text="切换主题">
                 <MudIconButton Icon="@(_isDarkMode ? @Icons.Material.Filled.LightMode : @Icons.Material.Filled.DarkMode)" 
@@ -45,8 +45,6 @@ else
     private bool _drawerOpen = true;
     private bool _isDarkMode = false;
     private bool _isHomePage = false;
-
-    private bool IsHomePage => _isHomePage;
 
     protected override void OnInitialized()
     {
