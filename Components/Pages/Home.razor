@@ -6,6 +6,7 @@
 @inject ISystemMonitorService SystemMonitorService
 @inject IDockerService DockerService
 @inject IHomeConfigService HomeConfigService
+@inject IDialogService DialogService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
@@ -147,22 +148,44 @@
             {
                 @foreach (var shortcut in PinnedShortcuts.Take(6))
                 {
-                    <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
-                        <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                            <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                    @if (IsInternalManagementPage(shortcut.Url))
+                    {
+                        <div class="dock-icon" @onclick="() => OpenInModal(shortcut)" style="cursor: pointer;">
+                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                            </div>
                         </div>
-                    </a>
+                    }
+                    else
+                    {
+                        <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
+                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                            </div>
+                        </a>
+                    }
                 }
             }
             else
             {
                 @foreach (var shortcut in defaultShortcuts.Where(s => s.IsPinned).Take(6))
                 {
-                    <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
-                        <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                            <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                    @if (IsInternalManagementPage(shortcut.Url))
+                    {
+                        <div class="dock-icon" @onclick="() => OpenInModal(shortcut)" style="cursor: pointer;">
+                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                            </div>
                         </div>
-                    </a>
+                    }
+                    else
+                    {
+                        <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
+                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                                <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
+                            </div>
+                        </a>
+                    }
                 }
             }
         </MudPaper>
@@ -617,5 +640,54 @@
             "etherpad" => "linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)",
             _ => "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
         };
+    }
+
+    private bool IsInternalManagementPage(string url)
+    {
+        return url switch
+        {
+            "/system-monitor" => true,
+            "/docker" => true,
+            "/disk-management" => true,
+            "/file-manager" => true,
+            _ => false
+        };
+    }
+
+    private async Task OpenInModal(ShortcutLink shortcut)
+    {
+        Console.WriteLine($"OpenInModal called for: {shortcut.Title} - {shortcut.Url}");
+        
+        var options = new DialogOptions 
+        { 
+            MaxWidth = MaxWidth.ExtraExtraLarge, 
+            FullWidth = true,
+            CloseButton = true,
+            FullScreen = true
+        };
+
+        switch (shortcut.Url)
+        {
+            case "/system-monitor":
+                Console.WriteLine("Opening System Monitor dialog");
+                await DialogService.ShowAsync<QingFeng.Components.Dialogs.SystemMonitorDialog>(shortcut.Title, options);
+                Console.WriteLine("System Monitor dialog opened");
+                break;
+            case "/docker":
+                // TODO: Implement Docker dialog
+                Console.WriteLine("Docker dialog not implemented yet");
+                break;
+            case "/disk-management":
+                // TODO: Implement Disk Management dialog
+                Console.WriteLine("Disk Management dialog not implemented yet");
+                break;
+            case "/file-manager":
+                // TODO: Implement File Manager dialog
+                Console.WriteLine("File Manager dialog not implemented yet");
+                break;
+            default:
+                Console.WriteLine($"Unknown URL: {shortcut.Url}");
+                break;
+        }
     }
 }
