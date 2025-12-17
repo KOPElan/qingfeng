@@ -12,4 +12,7 @@ public interface IFileManagerService
     Task CreateDirectoryAsync(string path);
     Task<bool> ExistsAsync(string path);
     string GetParentPath(string path);
+    Task<List<DriveItemInfo>> GetDrivesAsync();
+    Task<List<ShortcutItemInfo>> GetShortcutsAsync();
+    Task<(long total, long available)> GetStorageInfoAsync(string path);
 }
