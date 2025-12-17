@@ -2,6 +2,7 @@
 @using QingFeng.Services
 @using QingFeng.Models
 @inject IDockerService DockerService
+@inject IDialogService DialogService
 @rendermode InteractiveServer
 
 <PageTitle>Docker管理</PageTitle>
@@ -169,38 +170,7 @@
     }
 </MudPaper>
 
-<!-- Logs Dialog -->
-@if (showLogsDialog)
-{
-    <MudDialog Options="dialogOptions">
-        <TitleContent>
-            <MudText Typo="Typo.h6">
-                <MudIcon Icon="@Icons.Material.Filled.Article" Class="mr-2" />
-                容器日志 - @selectedContainerName
-            </MudText>
-        </TitleContent>
-        <DialogContent>
-            @if (isLoadingLogs)
-            {
-                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-                <MudText Class="ml-2">加载日志中...</MudText>
-            }
-            else if (!string.IsNullOrEmpty(containerLogs))
-            {
-                <MudPaper Elevation="0" Class="pa-3" Style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
-                    @containerLogs
-                </MudPaper>
-            }
-            else
-            {
-                <MudText Color="Color.Secondary">没有日志数据</MudText>
-            }
-        </DialogContent>
-        <DialogActions>
-            <MudButton OnClick="@(() => showLogsDialog = false)" Color="Color.Primary">关闭</MudButton>
-        </DialogActions>
-    </MudDialog>
-}
+
 
 @code {
     private List<DockerContainerInfo>? containers;
@@ -209,17 +179,6 @@
     private bool isError = false;
     private bool isProcessing = false;
     private bool isDockerAvailable = false;
-    private bool showLogsDialog = false;
-    private bool isLoadingLogs = false;
-    private string containerLogs = string.Empty;
-    private string selectedContainerName = string.Empty;
-    
-    private DialogOptions dialogOptions = new DialogOptions
-    {
-        MaxWidth = MaxWidth.Large,
-        FullWidth = true,
-        CloseOnEscapeKey = true
-    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -333,27 +292,24 @@
 
     private async Task ViewLogs(string containerId, string containerName)
     {
-        selectedContainerName = containerName;
-        showLogsDialog = true;
-        isLoadingLogs = true;
-        containerLogs = string.Empty;
-        
-        try
+        var options = new DialogOptions 
+        { 
+            MaxWidth = MaxWidth.ExtraLarge, 
+            FullWidth = true,
+            CloseButton = true,
+            CloseOnEscapeKey = true
+        };
+
+        var parameters = new DialogParameters
         {
-            containerLogs = await DockerService.GetContainerLogsAsync(containerId, 1000);
-            if (string.IsNullOrEmpty(containerLogs))
-            {
-                containerLogs = "没有日志数据";
-            }
-        }
-        catch (Exception ex)
-        {
-            containerLogs = $"加载日志失败: {ex.Message}";
-        }
-        finally
-        {
-            isLoadingLogs = false;
-        }
+            { "ContainerId", containerId },
+            { "ContainerName", containerName }
+        };
+
+        await DialogService.ShowAsync<QingFeng.Components.Dialogs.ContainerLogsDialog>(
+            $"容器日志 - {containerName}", 
+            parameters, 
+            options);
     }
 
     private bool confirm(string message)

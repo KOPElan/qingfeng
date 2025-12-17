@@ -151,7 +151,7 @@
                     @if (IsInternalManagementPage(shortcut.Url))
                     {
                         <div class="dock-icon" 
-                             @onclick="() => OpenInModal(shortcut)" 
+                             @onclick="async () => await OpenInModal(shortcut)" 
                              @onkeydown="(e) => HandleKeyDown(e, shortcut)"
                              tabindex="0" 
                              role="button" 
@@ -179,7 +179,7 @@
                     @if (IsInternalManagementPage(shortcut.Url))
                     {
                         <div class="dock-icon" 
-                             @onclick="() => OpenInModal(shortcut)" 
+                             @onclick="async () => await OpenInModal(shortcut)" 
                              @onkeydown="(e) => HandleKeyDown(e, shortcut)"
                              tabindex="0" 
                              role="button" 
@@ -702,11 +702,11 @@
         }
     }
 
-    private void HandleKeyDown(KeyboardEventArgs e, ShortcutLink shortcut)
+    private async Task HandleKeyDown(KeyboardEventArgs e, ShortcutLink shortcut)
     {
         if (e.Key == "Enter" || e.Key == " ")
         {
-            _ = OpenInModal(shortcut);
+            await OpenInModal(shortcut);
         }
     }
 

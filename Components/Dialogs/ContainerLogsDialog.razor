@@ -1,0 +1,83 @@
+@using QingFeng.Services
+@using QingFeng.Models
+@using Microsoft.AspNetCore.Components
+@inject IDockerService DockerService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Article" Class="mr-2" />
+            容器日志 - @ContainerName
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (isLoadingLogs)
+        {
+            <div class="d-flex align-center justify-center pa-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                <MudText Class="ml-2">加载日志中...</MudText>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(containerLogs))
+        {
+            <MudPaper Elevation="0" Class="pa-3" Style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
+                @containerLogs
+            </MudPaper>
+        }
+        else
+        {
+            <MudText Color="Color.Secondary">没有日志数据</MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="RefreshLogs" Color="Color.Primary" Variant="Variant.Filled" Disabled="@isLoadingLogs">刷新</MudButton>
+        <MudButton OnClick="Close" Color="Color.Default">关闭</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public MudBlazor.IDialogReference? MudDialog { get; set; }
+    [Parameter] public string? ContainerId { get; set; }
+    [Parameter] public string? ContainerName { get; set; }
+    
+    private bool isLoadingLogs = false;
+    private string containerLogs = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLogs();
+    }
+
+    private async Task LoadLogs()
+    {
+        if (string.IsNullOrEmpty(ContainerId))
+            return;
+
+        isLoadingLogs = true;
+        containerLogs = string.Empty;
+        
+        try
+        {
+            containerLogs = await DockerService.GetContainerLogsAsync(ContainerId, 1000);
+            if (string.IsNullOrEmpty(containerLogs))
+            {
+                containerLogs = "没有日志数据";
+            }
+        }
+        catch (Exception ex)
+        {
+            containerLogs = $"加载日志失败: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingLogs = false;
+        }
+    }
+
+    private async Task RefreshLogs()
+    {
+        await LoadLogs();
+    }
+
+    private void Close() => MudDialog?.Close();
+}
