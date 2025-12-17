@@ -169,7 +169,7 @@
     private int networkCount;
 
     // Fixed dock items
-    private List<ShortcutLink> DockItems => new()
+    private static readonly List<ShortcutLink> DockItems = new()
     {
         new ShortcutLink { Id = "internal-home", Title = "首页", Url = "/", Icon = Icons.Material.Filled.Home, Category = Constants.BuiltInCategory },
         new ShortcutLink { Id = "internal-settings", Title = "设置", Url = "/settings", Icon = Icons.Material.Filled.Settings, Category = Constants.BuiltInCategory },
@@ -206,26 +206,14 @@
 
     private System.Threading.Timer? _timer;
 
-    private string GreetingText => DateTime.Now.Hour switch
-    {
-        >= 6 and < 12 => "早上好，欢迎回来",
-        >= 12 and < 18 => "下午好，保持专注",
-        _ => "晚上好，注意休息"
-    };
-
     private string DiskUsedGb => systemInfo is null ? "0 GB" : $"{SumDisks(d => d.UsedBytes) / 1024d / 1024d / 1024d:F2} GB";
     private string DiskTotalGb => systemInfo is null ? "0 GB" : $"{SumDisks(d => d.TotalBytes) / 1024d / 1024d / 1024d:F2} GB";
     private double DiskUsagePercent => systemInfo is null || SumDisks(d => d.TotalBytes) <= 0 ? 0 : Math.Round(SumDisks(d => d.UsedBytes) / SumDisks(d => d.TotalBytes) * 100, 1);
-    private string ActiveInterfacesSummary => systemInfo?.Networks is null || systemInfo.Networks.Count == 0
-        ? "暂无网络信息"
-        : string.Join(" · ", systemInfo.Networks.Take(2).Select(n => n.Name));
 
     private IEnumerable<ShortcutLink> OrderedShortcuts => allShortcuts
         .OrderByDescending(l => l.IsPinned)
         .ThenBy(l => l.Category)
         .ThenBy(l => l.Title);
-
-    private List<ShortcutLink> PinnedShortcuts => allShortcuts.Where(s => s.IsPinned).Take(16).ToList();
 
     private bool _stateLoaded;
 
@@ -241,7 +229,14 @@
         // Update time every second
         _timer = new System.Threading.Timer(_ =>
         {
-            _ = InvokeAsync(StateHasChanged);
+            try
+            {
+                _ = InvokeAsync(StateHasChanged);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Timer error: {ex.Message}");
+            }
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
