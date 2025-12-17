@@ -239,9 +239,9 @@
         await RefreshData();
 
         // Update time every second
-        _timer = new System.Threading.Timer(async _ =>
+        _timer = new System.Threading.Timer(_ =>
         {
-            await InvokeAsync(StateHasChanged);
+            _ = InvokeAsync(StateHasChanged);
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
