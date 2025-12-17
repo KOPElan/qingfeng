@@ -1,6 +1,8 @@
 using QingFeng.Components;
 using QingFeng.Services;
+using QingFeng.Data;
 using MudBlazor.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,13 +13,27 @@ builder.Services.AddRazorComponents()
 // Add MudBlazor services
 builder.Services.AddMudServices();
 
+// Add SQLite database
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? "Data Source=qingfeng.db";
+builder.Services.AddDbContext<QingFengDbContext>(options =>
+    options.UseSqlite(connectionString));
+
 // Register custom services
 builder.Services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
 builder.Services.AddSingleton<IDockerService, DockerService>();
 builder.Services.AddScoped<IFileManagerService, FileManagerService>();
 builder.Services.AddSingleton<IDiskManagementService, DiskManagementService>();
+builder.Services.AddScoped<IHomeConfigService, HomeConfigService>();
 
 var app = builder.Build();
+
+// Initialize database
+using (var scope = app.Services.CreateScope())
+{
+    var homeConfigService = scope.ServiceProvider.GetRequiredService<IHomeConfigService>();
+    await homeConfigService.InitializeDefaultsAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

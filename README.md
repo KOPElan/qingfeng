@@ -6,6 +6,13 @@
 
 ## 功能特性
 
+- **个性化主页**：可定制的主页配置
+  - 添加、编辑、删除快捷方式
+  - 固定常用应用到 Dock
+  - 自定义布局配置
+  - SQLite 数据库持久化存储
+  - 自动从浏览器 localStorage 迁移数据
+
 - **系统监控**：实时监控系统资源信息
   - CPU使用率和核心数
   - 内存使用情况
@@ -21,6 +28,7 @@
   - 查看容器列表
   - 启动/停止/重启/删除容器
   - 查看镜像列表
+  - 从 Docker 容器快速创建快捷方式
 
 - **文件管理器**：浏览和管理文件系统
   - 浏览目录结构
@@ -31,7 +39,9 @@
 
 - .NET 10.0
 - Blazor Server
-- Bootstrap 5
+- MudBlazor UI 框架
+- Entity Framework Core
+- SQLite 数据库
 - Docker.DotNet
 - System.Diagnostics.PerformanceCounter
 
@@ -91,6 +101,22 @@ qingfeng/
 ```
 
 ## 配置说明
+
+### 数据库配置
+
+应用使用 SQLite 数据库存储主页配置和快捷方式。数据库文件默认位于应用根目录下的 `qingfeng.db`。
+
+可以通过在 `appsettings.json` 中配置连接字符串来自定义数据库位置：
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=/path/to/your/qingfeng.db"
+  }
+}
+```
+
+首次启动时，应用会自动创建数据库并初始化默认快捷方式。如果之前使用了浏览器 localStorage 存储的数据，应用会自动迁移到数据库中。
 
 ### Docker连接
 
