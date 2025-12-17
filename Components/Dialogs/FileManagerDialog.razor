@@ -76,39 +76,46 @@
                 {
                     @if (files != null && files.Any())
                     {
-                        <table class="table table-custom"><tbody>
-                            <thead><tr>
-                                <th>名称</th>
-                                <th>类型</th>
-                                <th>大小</th>
-                                <th>修改时间</th>
-                            </tr></thead>
-                            <tr>
-                                <td>
-                                    @if (context.IsDirectory)
-                                    {
-                                        <a @onclick="(() => NavigateTo(context.Path))">
-                                            <i class="@Icons.Material.Filled.Folder"></i>
-                                            @context.Name
-                                        </a>
-                                    }
-                                    else
-                                    {
-                                        <div class="d-flex flex-column gap-2" Row="true" AlignItems="AlignItems.Center">
-                                            <i class="@Icons.Material.Filled.InsertDriveFile"></i>
-                                            <p>@context.Name</p>
-                                        </div>
-                                    }
-                                </td>
-                                <td>
-                                    <span class="badge badge-custom Color="@(context.IsDirectory ? Color.Warning : Color.Info)">
-                                        @(context.IsDirectory ? "文件夹" : "文件")
-                                    </span>
-                                </td>
-                                <td>@context.SizeDisplay</td>
-                                <td>@context.LastModified.ToString("yyyy-MM-dd HH:mm")</td>
-                            </tr>
-                        </tbody></table>
+                        <table class="table table-custom">
+                            <thead>
+                                <tr>
+                                    <th>名称</th>
+                                    <th>类型</th>
+                                    <th>大小</th>
+                                    <th>修改时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var file in files)
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (file.IsDirectory)
+                                            {
+                                                <a @onclick="(() => NavigateTo(file.Path))" style="cursor: pointer;">
+                                                    <i class="@Icons.Material.Filled.Folder me-2"></i>
+                                                    @file.Name
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <div class="d-flex align-items-center">
+                                                    <i class="@Icons.Material.Filled.InsertDriveFile me-2"></i>
+                                                    <span>@file.Name</span>
+                                                </div>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="badge @(file.IsDirectory ? "badge-warning" : "badge-info")">
+                                                @(file.IsDirectory ? "文件夹" : "文件")
+                                            </span>
+                                        </td>
+                                        <td>@file.SizeDisplay</td>
+                                        <td>@file.LastModified.ToString("yyyy-MM-dd HH:mm")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     }
                     else if (files == null)
                     {

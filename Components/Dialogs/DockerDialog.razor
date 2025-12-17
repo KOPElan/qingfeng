@@ -6,179 +6,162 @@
 <div class="modal-content-custom">
     <div class="modal-header-custom">
         <h6>
-            <i class="@Icons.Material.Filled.Dns"></i>
+            <i class="@Icons.Material.Filled.Dns me-2"></i>
             @(Title ?? "Docker管理")
         </h6>
     </div>
     <div class="modal-body-custom">
-        <div style="height: 70vh; overflow-y: auto;">
-            <button type="button" class="btn btn-custom-primary" 
-                       @@onclick="RefreshData" 
-                       class="mb-4">
-                刷新
-            </button>
+        <button type="button" class="btn btn-custom-primary mb-3" @onclick="RefreshData">
+            <i class="@Icons.Material.Filled.Refresh me-2"></i>
+            刷新
+        </button>
 
-            @if (!string.IsNullOrEmpty(message))
-            {
-                <divalert-danger" : "alert-success")" 
-                          class="mb-4" 
-                          CloseIconClicked="@(() = class="alert @(isError ?"> message = string.Empty)">
-                    @message
-                </div>
-            }
+        @if (!string.IsNullOrEmpty(message))
+        {
+            <div class="alert @(isError ? "alert-danger" : "alert-success") mb-3">
+                @message
+                <button type="button" class="btn-close" @onclick="@(() => message = string.Empty)" aria-label="Close"></button>
+            </div>
+        }
 
-            @if (!isDockerAvailable)
-            {
-                <div class="alert" Severity="Severity.Warning" class="mb-4">
-                    <strong>警告：</strong> Docker服务不可用。请确保Docker已安装并正在运行。
-                </div>
-            }
-
-            <!-- Containers Section -->
-            <div class="pa-4 mb-4">
-                <h5 class="mb-3">
-                    <i class="@Icons.Material.Filled.Inventory"></i>
-                    容器列表
-                </h5>
-                @if (containers != null && containers.Any())
-                {
-                    <table class="table table-custom"><tbody>
-                        <thead><tr>
-                            <th>ID</th>
+        <!-- Containers Section -->
+        <h5 class="mb-3">
+            <i class="@Icons.Material.Filled.Inventory me-2"></i>
+            容器列表
+        </h5>
+        @if (containers != null && containers.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-custom table-sm">
+                    <thead>
+                        <tr>
                             <th>名称</th>
                             <th>镜像</th>
                             <th>状态</th>
-                            <th>端口</th>
                             <th>操作</th>
-                        </tr></thead>
-                        <tr>
-                            <td><p class="small" style="font-family: monospace;">@context.Id.Substring(0, 12)</p></td>
-                            <td>@context.Name</td>
-                            <td>@context.Image</td>
-                            <td>
-                                <span class="badge badge-custom Color="@GetStateColor(context.State)">
-                                    @context.State
-                                </span>
-                            </td>
-                            <td>
-                                @if (context.Ports.Any())
-                                {
-                                    <small class="text-muted-custom">@string.Join(", ", context.Ports.Take(2))</small>
-                                }
-                                else
-                                {
-                                    <p>-</p>
-                                }
-                            </td>
-                            <td>
-                                <div class="btn-group">
-                                    @if (context.State == "running")
-                                    {
-                                        <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.Stop" @onclick="(() => StopContainer(context.Id))" disabled="@isProcessing" />
-                                        <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.RestartAlt" @onclick="(() => RestartContainer(context.Id))" disabled="@isProcessing" />
-                                    }
-                                    else
-                                    {
-                                        <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.PlayArrow" @onclick="(() => StartContainer(context.Id))" disabled="@isProcessing" />
-                                    }
-                                    <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.Article" @onclick="(() => ViewLogs(context.Id, context.Name))" disabled="@isProcessing" />
-                                </div>
-                            </td>
                         </tr>
-                    </tbody></table>
-                }
-                else if (containers == null)
-                {
-                    <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-                    <p class="ml-2">加载中...</p>
-                }
-                else
-                {
-                    <p>没有找到容器</p>
-                }
+                    </thead>
+                    <tbody>
+                        @foreach (var container in containers)
+                        {
+                            <tr>
+                                <td>@container.Name</td>
+                                <td><small>@container.Image</small></td>
+                                <td>
+                                    <span class="badge @(container.State == "running" ? "badge-success" : "badge-custom")">
+                                        @container.State
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        @if (container.State == "running")
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-warning" @onclick="@(() => StopContainer(container.Id))" disabled="@isProcessing" title="停止">
+                                                <i class="@Icons.Material.Filled.Stop"></i>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-success" @onclick="@(() => StartContainer(container.Id))" disabled="@isProcessing" title="启动">
+                                                <i class="@Icons.Material.Filled.PlayArrow"></i>
+                                            </button>
+                                        }
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="@(() => ShowLogs(container))" title="日志">
+                                            <i class="@Icons.Material.Filled.Article"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
+        }
+        else if (isLoading)
+        {
+            <div class="d-flex align-items-center gap-2">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span>加载中...</span>
+            </div>
+        }
+        else
+        {
+            <p class="text-muted-custom">没有找到容器</p>
+        }
 
-            <!-- Images Section -->
-            <div class="pa-4 mb-4">
-                <h5 class="mb-3">
-                    <i class="@Icons.Material.Filled.Layers"></i>
-                    镜像列表
-                </h5>
-                @if (images != null && images.Any())
-                {
-                    <table class="table table-custom"><tbody>
-                        <thead><tr>
-                            <th>ID</th>
+        <!-- Images Section -->
+        <h5 class="mb-3 mt-4">
+            <i class="@Icons.Material.Filled.Layers me-2"></i>
+            镜像列表
+        </h5>
+        @if (images != null && images.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-custom table-sm">
+                    <thead>
+                        <tr>
+                            <th>仓库</th>
                             <th>标签</th>
                             <th>大小</th>
-                            <th>创建时间</th>
-                        </tr></thead>
-                        <tr>
-                            <td><p class="small" style="font-family: monospace;">@context.Id.Substring(0, 12)</p></td>
-                            <td>
-                                @if (context.RepoTags.Any())
-                                {
-                                    <span class="badge badge-custom>@context.RepoTags.First()</span>
-                                }
-                                else
-                                {
-                                    <p>&lt;none&gt;</p>
-                                }
-                            </td>
-                            <td>@context.SizeMB</td>
-                            <td>@context.Created.ToString("yyyy-MM-dd")</td>
                         </tr>
-                    </tbody></table>
-                }
-                else if (images == null)
-                {
-                    <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-                    <p class="ml-2">加载中...</p>
-                }
-                else
-                {
-                    <p>没有找到镜像</p>
-                }
+                    </thead>
+                    <tbody>
+                        @foreach (var image in images)
+                        {
+                            <tr>
+                                <td>@(image.RepoTags.FirstOrDefault()?.Split(':')[0] ?? "无")</td>
+                                <td>@(image.RepoTags.FirstOrDefault()?.Split(':').LastOrDefault() ?? "latest")</td>
+                                <td>@image.SizeMB</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
-        </div>
-    </div>
-    <div class="modal-footer-custom">
-        <button type="button" class="btn btn-custom" @@onclick="Close">关闭</button>
+        }
+        else if (isLoading)
+        {
+            <div class="d-flex align-items-center gap-2">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span>加载中...</span>
+            </div>
+        }
+        else
+        {
+            <p class="text-muted-custom">没有找到镜像</p>
+        }
     </div>
 </div>
 
 @code {
     [Parameter] public string? Title { get; set; }
     
-    private List<DockerContainerInfo>? containers;
-    private List<DockerImageInfo>? images;
+    private List<DockerContainerInfo> containers = new();
+    private List<DockerImageInfo> images = new();
     private string message = string.Empty;
     private bool isError = false;
+    private bool isLoading = false;
     private bool isProcessing = false;
-    private bool isDockerAvailable = false;
 
     protected override async Task OnInitializedAsync()
     {
-        isDockerAvailable = await DockerService.IsDockerAvailableAsync();
-        if (isDockerAvailable)
-        {
-            await RefreshData();
-        }
+        await RefreshData();
     }
 
     private async Task RefreshData()
     {
+        isLoading = true;
         try
         {
-            message = string.Empty;
             containers = await DockerService.GetContainersAsync(true);
             images = await DockerService.GetImagesAsync();
-            isError = false;
         }
-        catch (Exception ex)
+        finally
         {
-            isError = true;
-            message = $"加载Docker数据失败: {ex.Message}";
+            isLoading = false;
         }
     }
 
@@ -190,13 +173,13 @@
         try
         {
             await DockerService.StartContainerAsync(containerId);
-            message = $"容器已启动";
+            message = "容器已启动";
             isError = false;
             await RefreshData();
         }
         catch (Exception ex)
         {
-            message = $"启动容器失败: {ex.Message}";
+            message = $"启动失败: {ex.Message}";
             isError = true;
         }
         finally
@@ -213,13 +196,13 @@
         try
         {
             await DockerService.StopContainerAsync(containerId);
-            message = $"容器已停止";
+            message = "容器已停止";
             isError = false;
             await RefreshData();
         }
         catch (Exception ex)
         {
-            message = $"停止容器失败: {ex.Message}";
+            message = $"停止失败: {ex.Message}";
             isError = true;
         }
         finally
@@ -228,62 +211,22 @@
         }
     }
 
-    private async Task RestartContainer(string containerId)
+    private async Task ShowLogs(DockerContainerInfo container)
     {
-        isProcessing = true;
-        message = string.Empty;
+        var parameters = new Dictionary<string, object>
+        {
+            { "ContainerId", container.Id },
+            { "ContainerName", container.Name }
+        };
         
-        try
-        {
-            await DockerService.RestartContainerAsync(containerId);
-            message = $"容器已重启";
-            isError = false;
-            await RefreshData();
-        }
-        catch (Exception ex)
-        {
-            message = $"重启容器失败: {ex.Message}";
-            isError = true;
-        }
-        finally
-        {
-            isProcessing = false;
-        }
-    }
-
-    private async Task ViewLogs(string containerId, string containerName)
-    {
         var options = new DialogOptions 
         { 
-            MaxWidth = MaxWidth.ExtraLarge, 
+            MaxWidth = true, 
             FullWidth = true,
-            CloseButton = true,
-            CloseOnEscapeKey = true
+            CloseButton = true
         };
-
-        var parameters = new DialogParameters
-        {
-            { "ContainerId", containerId },
-            { "ContainerName", containerName }
-        };
-
+        
         await DialogService.ShowAsync<QingFeng.Components.Dialogs.ContainerLogsDialog>(
-            $"容器日志 - {containerName}", 
-            parameters, 
-            options);
+            $"容器日志 - {container.Name}", parameters, options);
     }
-
-    private Color GetStateColor(string state)
-    {
-        return state.ToLower() switch
-        {
-            "running" => Color.Success,
-            "exited" => Color.Default,
-            "paused" => Color.Warning,
-            "restarting" => Color.Info,
-            _ => Color.Default
-        };
-    }
-
-    private void Close() { /* Dialog managed by parent component */ }
 }

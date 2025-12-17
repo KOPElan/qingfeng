@@ -134,6 +134,17 @@ public static class Icons
             public const string EditNote = "bi bi-pencil-square";
             public const string CalendarToday = "bi bi-calendar-date";
             public const string Schedule = "bi bi-clock";
+            
+            // Additional icons for FileManager
+            public const string ViewList = "bi bi-list";
+            public const string ViewModule = "bi bi-grid-3x3";
+            public const string GridView = "bi bi-grid";
+            public const string PhotoLibrary = "bi bi-images";
+            public const string Movie = "bi bi-film";
+            public const string Backup = "bi bi-archive";
+            public const string VideoLibrary = "bi bi-camera-video";
+            public const string FolderShared = "bi bi-folder-symlink";
+            public const string Help = "bi bi-question-circle";
         }
     }
 }
