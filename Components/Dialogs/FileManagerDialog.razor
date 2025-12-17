@@ -1,0 +1,290 @@
+@using QingFeng.Services
+@using QingFeng.Models
+@using QingFeng.Utilities
+@inject IFileManagerService FileManagerService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Folder" Class="mr-2" />
+            @(Title ?? "文件管理器")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <div style="height: 70vh; overflow: hidden; display: flex; flex-direction: column;">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-2" Dense="true" CloseIconClicked="@(() => errorMessage = string.Empty)">
+                    @errorMessage
+                </MudAlert>
+            }
+            <!-- Toolbar -->
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--mud-palette-divider); display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" 
+                              Size="Size.Small" 
+                              OnClick="GoBack"
+                              Disabled="@(navigationHistory.Count <= 1)" />
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" 
+                              Size="Size.Small"
+                              OnClick="GoForward"
+                              Disabled="@(forwardHistory.Count == 0)" />
+                
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                    <MudText Typo="Typo.body2">Files</MudText>
+                    @foreach (var part in GetPathParts())
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                        <MudLink Typo="Typo.body2" OnClick="@(() => NavigateTo(part.Path))">@part.Name</MudLink>
+                    }
+                    @if (files != null)
+                    {
+                        <span style="font-size: 13px; color: var(--mud-palette-text-secondary); margin-left: 8px;">@files.Count 项</span>
+                    }
+                </div>
+                
+                <MudIconButton Icon="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)" 
+                              Size="Size.Small"
+                              OnClick="ToggleViewMode" />
+            </div>
+            
+            <!-- File Grid/List View -->
+            <div style="flex: 1; overflow-y: auto; padding: 16px;">
+                @if (isGridView)
+                {
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px;">
+                        @if (files != null && files.Any())
+                        {
+                            @foreach (var file in files.Where(f => f.Name != ".."))
+                            {
+                                <div style="display: flex; flex-direction: column; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer;" 
+                                     @onclick="@(() => NavigateTo(file.Path))">
+                                    @if (file.IsDirectory)
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.Folder" Style="font-size: 64px; color: #FFA726; margin-bottom: 8px;" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Style="font-size: 64px; color: #42A5F5; margin-bottom: 8px;" />
+                                    }
+                                    <div style="font-size: 12px; text-align: center; word-break: break-word;">@file.Name</div>
+                                </div>
+                            }
+                        }
+                        else if (files == null)
+                        {
+                            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                        }
+                    </div>
+                }
+                else
+                {
+                    @if (files != null && files.Any())
+                    {
+                        <MudTable Items="@files.Where(f => f.Name != "..")" Hover="true" Dense="true">
+                            <HeaderContent>
+                                <MudTh>名称</MudTh>
+                                <MudTh>类型</MudTh>
+                                <MudTh>大小</MudTh>
+                                <MudTh>修改时间</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="名称">
+                                    @if (context.IsDirectory)
+                                    {
+                                        <MudLink OnClick="@(() => NavigateTo(context.Path))">
+                                            <MudIcon Icon="@Icons.Material.Filled.Folder" Color="Color.Warning" Size="Size.Small" Class="mr-2" />
+                                            @context.Name
+                                        </MudLink>
+                                    }
+                                    else
+                                    {
+                                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                                            <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Color="Color.Info" Size="Size.Small" />
+                                            <MudText>@context.Name</MudText>
+                                        </MudStack>
+                                    }
+                                </MudTd>
+                                <MudTd DataLabel="类型">
+                                    <MudChip T="string" Size="Size.Small" 
+                                            Color="@(context.IsDirectory ? Color.Warning : Color.Info)" 
+                                            Variant="Variant.Outlined">
+                                        @(context.IsDirectory ? "文件夹" : "文件")
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd DataLabel="大小">@context.SizeDisplay</MudTd>
+                                <MudTd DataLabel="修改时间">@context.LastModified.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                    else if (files == null)
+                    {
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                        <MudText Class="ml-2">加载中...</MudText>
+                    }
+                    else
+                    {
+                        <MudText Color="Color.Secondary">此目录为空</MudText>
+                    }
+                }
+            </div>
+            
+            <!-- Status Bar -->
+            <div style="padding: 8px 0; border-top: 1px solid var(--mud-palette-divider); display: flex; justify-content: space-between; align-items: center; font-size: 13px; flex-shrink: 0;">
+                <div style="color: var(--mud-palette-text-secondary);">
+                    @GetSimplifiedPath()
+                </div>
+                <div style="color: var(--mud-palette-text-secondary);">
+                    @if (storageTotal > 0)
+                    {
+                        <span>@FileUtilities.FormatSize(storageAvailable) 可用/@FileUtilities.FormatSize(storageTotal)</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Color="Color.Default">关闭</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public MudBlazor.IDialogReference? MudDialog { get; set; }
+    [Parameter] public string? Title { get; set; }
+    
+    private List<FileItemInfo>? files;
+    private string currentPath = string.Empty;
+    private bool isGridView = true;
+    private long storageTotal = 0;
+    private long storageAvailable = 0;
+    private string errorMessage = string.Empty;
+    
+    private Stack<string> navigationHistory = new Stack<string>();
+    private Stack<string> forwardHistory = new Stack<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Start at user's home directory
+        currentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrEmpty(currentPath))
+        {
+            currentPath = "/";
+        }
+        
+        navigationHistory.Push(currentPath);
+        await RefreshFiles();
+    }
+
+    private async Task RefreshFiles()
+    {
+        try
+        {
+            files = await FileManagerService.GetFilesAsync(currentPath);
+            var storage = await FileManagerService.GetStorageInfoAsync(currentPath);
+            storageTotal = storage.total;
+            storageAvailable = storage.available;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"加载文件列表失败: {ex.Message}";
+        }
+    }
+
+    private async Task NavigateTo(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            if (currentPath != path)
+            {
+                navigationHistory.Push(currentPath);
+                forwardHistory.Clear();
+            }
+            
+            currentPath = path;
+            await RefreshFiles();
+        }
+        else if (File.Exists(path))
+        {
+            // File navigation is not supported in this dialog
+            errorMessage = $"无法打开文件: {Path.GetFileName(path)}。此对话框仅支持浏览文件夹。";
+        }
+    }
+
+    private async Task GoBack()
+    {
+        if (navigationHistory.Count > 1)
+        {
+            forwardHistory.Push(currentPath);
+            navigationHistory.Pop();
+            currentPath = navigationHistory.Peek();
+            await RefreshFiles();
+        }
+    }
+
+    private async Task GoForward()
+    {
+        if (forwardHistory.Count > 0)
+        {
+            navigationHistory.Push(currentPath);
+            currentPath = forwardHistory.Pop();
+            await RefreshFiles();
+        }
+    }
+
+    private void ToggleViewMode()
+    {
+        isGridView = !isGridView;
+    }
+
+    private List<(string Name, string Path)> GetPathParts()
+    {
+        var parts = new List<(string Name, string Path)>();
+        
+        if (string.IsNullOrEmpty(currentPath))
+            return parts;
+        
+        var path = currentPath;
+        var pathSegments = new List<string>();
+        
+        while (!string.IsNullOrEmpty(path))
+        {
+            var dirInfo = new DirectoryInfo(path);
+            if (dirInfo.Parent == null)
+            {
+                pathSegments.Insert(0, path);
+                break;
+            }
+            pathSegments.Insert(0, dirInfo.Name);
+            path = dirInfo.Parent.FullName;
+        }
+        
+        var currentBuild = "";
+        foreach (var segment in pathSegments)
+        {
+            if (string.IsNullOrEmpty(currentBuild))
+            {
+                currentBuild = segment;
+            }
+            else
+            {
+                currentBuild = Path.Combine(currentBuild, segment);
+            }
+            parts.Add((segment, currentBuild));
+        }
+        
+        return parts;
+    }
+
+    private string GetSimplifiedPath()
+    {
+        if (string.IsNullOrEmpty(currentPath))
+            return "/";
+        
+        var parts = currentPath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length <= 3)
+            return $"/ {string.Join(" / ", parts)}";
+        
+        return $"/ {parts[0]} / ... / {parts[parts.Length - 1]}";
+    }
+
+    private void Close() => MudDialog?.Close();
+}
