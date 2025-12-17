@@ -19,10 +19,8 @@ public class FileManagerService : IFileManagerService
         }
     }
 
-    public async Task<List<FileItemInfo>> GetFilesAsync(string path)
+    public Task<List<FileItemInfo>> GetFilesAsync(string path)
     {
-        await Task.Delay(0); // Make it async
-        
         var files = new List<FileItemInfo>();
         
         try
@@ -35,12 +33,12 @@ public class FileManagerService : IFileManagerService
             
             // Security check: ensure path is within allowed root
             if (!IsPathAllowed(fullPath))
-                return files;
+                return Task.FromResult(files);
 
             var directory = new DirectoryInfo(fullPath);
             
             if (!directory.Exists)
-                return files;
+                return Task.FromResult(files);
 
             // Add parent directory link if not at root
             if (directory.Parent != null)
@@ -99,7 +97,7 @@ public class FileManagerService : IFileManagerService
             // Return empty list on error
         }
 
-        return files;
+        return Task.FromResult(files);
     }
 
     public async Task<byte[]> ReadFileAsync(string path)

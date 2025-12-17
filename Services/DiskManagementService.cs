@@ -6,10 +6,8 @@ namespace QingFeng.Services;
 
 public class DiskManagementService : IDiskManagementService
 {
-    public async Task<List<DiskInfo>> GetAllDisksAsync()
+    public Task<List<DiskInfo>> GetAllDisksAsync()
     {
-        await Task.Delay(0);
-        
         var disks = new List<DiskInfo>();
 
         foreach (var drive in DriveInfo.GetDrives())
@@ -43,7 +41,7 @@ public class DiskManagementService : IDiskManagementService
             }
         }
 
-        return disks;
+        return Task.FromResult(disks);
     }
 
     public async Task<string> MountDiskAsync(string devicePath, string mountPoint)
@@ -59,11 +57,23 @@ public class DiskManagementService : IDiskManagementService
             return "Device path and mount point cannot be empty";
         }
 
-        // Basic validation to prevent path traversal and command injection
-        if (devicePath.Contains("&&") || devicePath.Contains(";") || devicePath.Contains("|") ||
-            mountPoint.Contains("&&") || mountPoint.Contains(";") || mountPoint.Contains("|"))
+        // Enhanced validation to prevent command injection
+        var invalidChars = new[] { "&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r" };
+        if (invalidChars.Any(c => devicePath.Contains(c) || mountPoint.Contains(c)))
         {
             return "Invalid characters in device path or mount point";
+        }
+
+        // Validate device path format (should start with /dev/)
+        if (!devicePath.StartsWith("/dev/", StringComparison.Ordinal))
+        {
+            return "Device path must start with /dev/";
+        }
+
+        // Validate mount point is an absolute path
+        if (!Path.IsPathRooted(mountPoint))
+        {
+            return "Mount point must be an absolute path";
         }
 
         try
@@ -122,10 +132,17 @@ public class DiskManagementService : IDiskManagementService
             return "Mount point cannot be empty";
         }
 
-        // Basic validation to prevent path traversal and command injection
-        if (mountPoint.Contains("&&") || mountPoint.Contains(";") || mountPoint.Contains("|"))
+        // Enhanced validation to prevent command injection
+        var invalidChars = new[] { "&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r" };
+        if (invalidChars.Any(c => mountPoint.Contains(c)))
         {
             return "Invalid characters in mount point";
+        }
+
+        // Validate mount point is an absolute path
+        if (!Path.IsPathRooted(mountPoint))
+        {
+            return "Mount point must be an absolute path";
         }
 
         try
