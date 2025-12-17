@@ -1,0 +1,89 @@
+@using QingFeng.Services
+@using Microsoft.AspNetCore.Components
+@inject IDialogService DialogService
+@implements IDisposable
+
+@foreach (var dialog in _dialogs)
+{
+    @if (dialog.IsOpen)
+    {
+        <div class="modal fade show" style="display: block;" tabindex="-1" role="dialog" aria-modal="true">
+            <div class="modal-dialog @GetModalClass(dialog.Options)" role="document">
+                <div class="modal-content bg-dark text-white">
+                    @if (dialog.Options?.CloseButton == true)
+                    {
+                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" style="z-index: 1;" @onclick="() => CloseDialog(dialog)" aria-label="Close"></button>
+                    }
+                    <DynamicComponent Type="@dialog.ComponentType" Parameters="@GetParameters(dialog)" />
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    }
+}
+
+@code {
+    private List<DialogReference> _dialogs = new();
+
+    protected override void OnInitialized()
+    {
+        if (DialogService is DialogService service)
+        {
+            service.OnDialogInstanceAdded += HandleDialogAdded;
+        }
+    }
+
+    private void HandleDialogAdded(DialogReference dialog)
+    {
+        _dialogs.Add(dialog);
+        StateHasChanged();
+    }
+
+    private void CloseDialog(DialogReference dialog)
+    {
+        if (DialogService is DialogService service)
+        {
+            service.Close(dialog);
+            StateHasChanged();
+        }
+    }
+
+    private Dictionary<string, object> GetParameters(DialogReference dialog)
+    {
+        var parameters = dialog.Parameters ?? new Dictionary<string, object>();
+        
+        // Add the title parameter if it's not already present
+        if (!parameters.ContainsKey("Title"))
+        {
+            parameters["Title"] = dialog.Title;
+        }
+
+        return parameters;
+    }
+
+    private string GetModalClass(DialogOptions? options)
+    {
+        if (options == null)
+            return "modal-dialog-centered";
+
+        var classes = new List<string>();
+        
+        if (options.FullScreen)
+            classes.Add("modal-fullscreen");
+        else if (options.MaxWidth)
+            classes.Add("modal-xl");
+        
+        classes.Add("modal-dialog-centered");
+        classes.Add("modal-dialog-scrollable");
+
+        return string.Join(" ", classes);
+    }
+
+    public void Dispose()
+    {
+        if (DialogService is DialogService service)
+        {
+            service.OnDialogInstanceAdded -= HandleDialogAdded;
+        }
+    }
+}

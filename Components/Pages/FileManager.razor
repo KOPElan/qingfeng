@@ -202,10 +202,12 @@
     <div class="main-content">
         <!-- Toolbar -->
         <div class="toolbar">
-            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowBack" 
-                          @@onclick="GoBack" disabled="@(navigationHistory.Count <= 1)" />
-            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowForward"
-                          @@onclick="GoForward" disabled="@(forwardHistory.Count == 0)" />
+            <button type="button" class="btn btn-link text-white" @onclick="GoBack" disabled="@(navigationHistory.Count <= 1)">
+                <i class="@Icons.Material.Filled.ArrowBack"></i>
+            </button>
+            <button type="button" class="btn btn-link text-white" @onclick="GoForward" disabled="@(forwardHistory.Count == 0)">
+                <i class="@Icons.Material.Filled.ArrowForward"></i>
+            </button>
             
             <div class="breadcrumb-container">
                 <div class="breadcrumb">
@@ -213,7 +215,7 @@
                     @foreach (var part in GetPathParts())
                     {
                         <i class="@Icons.Material.Filled.ChevronRight"></i>
-                        <a Typo="Typo.body2" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
+                        <a style="cursor: pointer;" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
                     }
                 </div>
                 @if (files != null)
@@ -222,15 +224,24 @@
                 }
             </div>
             
-            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.Help" />
-            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.VideoLibrary" />
-            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.FolderShared" />
+            <button type="button" class="btn btn-link text-white">
+                <i class="@Icons.Material.Filled.Help"></i>
+            </button>
+            <button type="button" class="btn btn-link text-white">
+                <i class="@Icons.Material.Filled.VideoLibrary"></i>
+            </button>
+            <button type="button" class="btn btn-link text-white">
+                <i class="@Icons.Material.Filled.FolderShared"></i>
+            </button>
             <button type="button" class="btn btn-custom-primary">
                 导入
             </button>
-            <button type="button" class="btn btn-link text-white" Icon="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"
-                          @@onclick="ToggleViewMode" />
-            <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.GridView" />
+            <button type="button" class="btn btn-link text-white" @onclick="ToggleViewMode">
+                <i class="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"></i>
+            </button>
+            <button type="button" class="btn btn-link text-white">
+                <i class="@Icons.Material.Filled.GridView"></i>
+            </button>
         </div>
         
         <!-- File Grid View -->
