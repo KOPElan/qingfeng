@@ -145,4 +145,25 @@ public class DockerService : IDockerService
             Force = true
         });
     }
+
+    public async Task<string> GetContainerLogsAsync(string containerId, int tailLines = 1000)
+    {
+        if (!_isAvailable || _client == null)
+            throw new InvalidOperationException("Docker is not available");
+
+        var logsParameters = new ContainerLogsParameters
+        {
+            ShowStdout = true,
+            ShowStderr = true,
+            Tail = tailLines.ToString()
+        };
+
+        using var multiplexedStream = await _client.Containers.GetContainerLogsAsync(containerId, false, logsParameters, CancellationToken.None);
+        using var memoryStream = new MemoryStream();
+        await multiplexedStream.CopyOutputToAsync(memoryStream, memoryStream, Stream.Null, CancellationToken.None);
+        
+        memoryStream.Position = 0;
+        using var reader = new StreamReader(memoryStream);
+        return await reader.ReadToEndAsync();
+    }
 }
