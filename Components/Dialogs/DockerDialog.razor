@@ -1,0 +1,298 @@
+@using QingFeng.Services
+@using QingFeng.Models
+@inject IDockerService DockerService
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Dns" Class="mr-2" />
+            @(Title ?? "Docker管理")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <div style="height: 70vh; overflow-y: auto;">
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       StartIcon="@Icons.Material.Filled.Refresh" 
+                       OnClick="RefreshData" 
+                       Class="mb-4">
+                刷新
+            </MudButton>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <MudAlert Severity="@(isError ? Severity.Error : Severity.Success)" 
+                          Class="mb-4" 
+                          CloseIconClicked="@(() => message = string.Empty)">
+                    @message
+                </MudAlert>
+            }
+
+            @if (!isDockerAvailable)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-4">
+                    <strong>警告：</strong> Docker服务不可用。请确保Docker已安装并正在运行。
+                </MudAlert>
+            }
+
+            <!-- Containers Section -->
+            <MudPaper Elevation="2" Class="pa-4 mb-4">
+                <MudText Typo="Typo.h5" Class="mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Inventory" Class="mr-2" />
+                    容器列表
+                </MudText>
+                @if (containers != null && containers.Any())
+                {
+                    <MudTable Items="@containers" Hover="true" Striped="true" Dense="true">
+                        <HeaderContent>
+                            <MudTh>ID</MudTh>
+                            <MudTh>名称</MudTh>
+                            <MudTh>镜像</MudTh>
+                            <MudTh>状态</MudTh>
+                            <MudTh>端口</MudTh>
+                            <MudTh>操作</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="ID"><MudText Typo="Typo.body2" Style="font-family: monospace;">@context.Id.Substring(0, 12)</MudText></MudTd>
+                            <MudTd DataLabel="名称">@context.Name</MudTd>
+                            <MudTd DataLabel="镜像">@context.Image</MudTd>
+                            <MudTd DataLabel="状态">
+                                <MudChip T="string" Size="Size.Small" Color="@GetStateColor(context.State)">
+                                    @context.State
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="端口">
+                                @if (context.Ports.Any())
+                                {
+                                    <MudText Typo="Typo.caption">@string.Join(", ", context.Ports.Take(2))</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>-</MudText>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="操作">
+                                <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+                                    @if (context.State == "running")
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Stop" 
+                                                      Color="Color.Warning" 
+                                                      OnClick="@(() => StopContainer(context.Id))"
+                                                      Disabled="@isProcessing"
+                                                      Size="Size.Small" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.RestartAlt" 
+                                                      Color="Color.Info" 
+                                                      OnClick="@(() => RestartContainer(context.Id))"
+                                                      Disabled="@isProcessing"
+                                                      Size="Size.Small" />
+                                    }
+                                    else
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" 
+                                                      Color="Color.Success" 
+                                                      OnClick="@(() => StartContainer(context.Id))"
+                                                      Disabled="@isProcessing"
+                                                      Size="Size.Small" />
+                                    }
+                                    <MudIconButton Icon="@Icons.Material.Filled.Article" 
+                                                  Color="Color.Primary" 
+                                                  OnClick="@(() => ViewLogs(context.Id, context.Name))"
+                                                  Disabled="@isProcessing"
+                                                  Size="Size.Small" />
+                                </MudButtonGroup>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+                else if (containers == null)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    <MudText Class="ml-2">加载中...</MudText>
+                }
+                else
+                {
+                    <MudText Color="Color.Secondary">没有找到容器</MudText>
+                }
+            </MudPaper>
+
+            <!-- Images Section -->
+            <MudPaper Elevation="2" Class="pa-4 mb-4">
+                <MudText Typo="Typo.h5" Class="mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Layers" Class="mr-2" />
+                    镜像列表
+                </MudText>
+                @if (images != null && images.Any())
+                {
+                    <MudTable Items="@images" Hover="true" Striped="true" Dense="true">
+                        <HeaderContent>
+                            <MudTh>ID</MudTh>
+                            <MudTh>标签</MudTh>
+                            <MudTh>大小</MudTh>
+                            <MudTh>创建时间</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="ID"><MudText Typo="Typo.body2" Style="font-family: monospace;">@context.Id.Substring(0, 12)</MudText></MudTd>
+                            <MudTd DataLabel="标签">
+                                @if (context.RepoTags.Any())
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@context.RepoTags.First()</MudChip>
+                                }
+                                else
+                                {
+                                    <MudText Color="Color.Secondary">&lt;none&gt;</MudText>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="大小">@context.SizeMB</MudTd>
+                            <MudTd DataLabel="创建时间">@context.Created.ToString("yyyy-MM-dd")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+                else if (images == null)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    <MudText Class="ml-2">加载中...</MudText>
+                }
+                else
+                {
+                    <MudText Color="Color.Secondary">没有找到镜像</MudText>
+                }
+            </MudPaper>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Color="Color.Default">关闭</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] public MudBlazor.IDialogReference? MudDialog { get; set; }
+    [Parameter] public string? Title { get; set; }
+    
+    private List<DockerContainerInfo>? containers;
+    private List<DockerImageInfo>? images;
+    private string message = string.Empty;
+    private bool isError = false;
+    private bool isProcessing = false;
+    private bool isDockerAvailable = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isDockerAvailable = await DockerService.IsDockerAvailableAsync();
+        if (isDockerAvailable)
+        {
+            await RefreshData();
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        containers = await DockerService.GetContainersAsync(true);
+        images = await DockerService.GetImagesAsync();
+    }
+
+    private async Task StartContainer(string containerId)
+    {
+        isProcessing = true;
+        message = string.Empty;
+        
+        try
+        {
+            await DockerService.StartContainerAsync(containerId);
+            message = $"容器已启动";
+            isError = false;
+            await RefreshData();
+        }
+        catch (Exception ex)
+        {
+            message = $"启动容器失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task StopContainer(string containerId)
+    {
+        isProcessing = true;
+        message = string.Empty;
+        
+        try
+        {
+            await DockerService.StopContainerAsync(containerId);
+            message = $"容器已停止";
+            isError = false;
+            await RefreshData();
+        }
+        catch (Exception ex)
+        {
+            message = $"停止容器失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RestartContainer(string containerId)
+    {
+        isProcessing = true;
+        message = string.Empty;
+        
+        try
+        {
+            await DockerService.RestartContainerAsync(containerId);
+            message = $"容器已重启";
+            isError = false;
+            await RefreshData();
+        }
+        catch (Exception ex)
+        {
+            message = $"重启容器失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task ViewLogs(string containerId, string containerName)
+    {
+        var options = new DialogOptions 
+        { 
+            MaxWidth = MaxWidth.ExtraLarge, 
+            FullWidth = true,
+            CloseButton = true,
+            CloseOnEscapeKey = true
+        };
+
+        var parameters = new DialogParameters
+        {
+            { "ContainerId", containerId },
+            { "ContainerName", containerName }
+        };
+
+        await DialogService.ShowAsync<QingFeng.Components.Dialogs.ContainerLogsDialog>(
+            $"容器日志 - {containerName}", 
+            parameters, 
+            options);
+    }
+
+    private Color GetStateColor(string state)
+    {
+        return state.ToLower() switch
+        {
+            "running" => Color.Success,
+            "exited" => Color.Default,
+            "paused" => Color.Warning,
+            "restarting" => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private void Close() => MudDialog?.Close();
+}
