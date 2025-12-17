@@ -1,7 +1,6 @@
 using QingFeng.Components;
 using QingFeng.Services;
 using QingFeng.Data;
-using MudBlazor.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,9 +8,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-
-// Add MudBlazor services
-builder.Services.AddMudServices();
 
 // Add SQLite database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
@@ -25,6 +21,7 @@ builder.Services.AddSingleton<IDockerService, DockerService>();
 builder.Services.AddScoped<IFileManagerService, FileManagerService>();
 builder.Services.AddSingleton<IDiskManagementService, DiskManagementService>();
 builder.Services.AddScoped<IHomeConfigService, HomeConfigService>();
+builder.Services.AddScoped<IDialogService, DialogService>();
 
 var app = builder.Build();
 
