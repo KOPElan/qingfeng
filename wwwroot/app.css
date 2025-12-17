@@ -63,9 +63,13 @@ h1:focus {
 .homepage-container {
     min-height: 100vh;
     margin: -1rem -1.5rem;
-    background: linear-gradient(180deg, #1a1f3a 0%, #2d1b4e 25%, #4a2c5e 50%, #3d2d5f 75%, #1e1b3d 100%);
+    background: #e8e8e8;
     position: relative;
     overflow: hidden;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
 }
 
 .homepage-container::before {
@@ -73,176 +77,112 @@ h1:focus {
     position: absolute;
     inset: 0;
     background: 
-        radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.03) 0%, transparent 1%),
-        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.02) 0%, transparent 1%),
-        radial-gradient(circle at 40% 70%, rgba(255, 255, 255, 0.02) 0%, transparent 1%),
-        radial-gradient(circle at 90% 80%, rgba(255, 255, 255, 0.03) 0%, transparent 1%),
-        radial-gradient(circle at 10% 90%, rgba(255, 255, 255, 0.02) 0%, transparent 1%);
+        radial-gradient(circle at 20% 30%, rgba(200, 200, 200, 0.3) 0%, transparent 1%),
+        radial-gradient(circle at 80% 20%, rgba(200, 200, 200, 0.2) 0%, transparent 1%),
+        radial-gradient(circle at 40% 70%, rgba(200, 200, 200, 0.2) 0%, transparent 1%);
     background-size: 100% 100%;
     pointer-events: none;
 }
 
-.hero-section {
-    padding: 80px 40px 40px;
+/* Date and Time Section */
+.datetime-section {
     text-align: center;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 20px;
+}
+
+.time-display {
+    font-size: 4rem;
+    font-weight: 300;
+    color: #333;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.date-display {
+    font-size: 1.2rem;
+    color: #666;
+    margin: 10px 0 0 0;
+}
+
+/* Status Components Section */
+.status-section {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
     position: relative;
     z-index: 1;
 }
 
-.hero-icon {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 20px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
+.status-card {
+    background: #b8b8b8;
+    border-radius: 12px;
+    padding: 30px;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.status-card-header {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
-    backdrop-filter: blur(10px);
+    color: #333;
 }
 
-.hero-greeting {
-    color: #fff;
-    font-weight: 400;
-    margin-bottom: 40px;
-}
-
-.hero-content {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 20px;
-    max-width: 1200px;
-    margin: 0 auto 40px;
-    align-items: start;
-}
-
-.hero-panel {
-    background: rgba(0, 0, 0, 0.3) !important;
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 16px !important;
-    padding: 20px;
-    color: #fff;
-}
-
-.recents-panel {
-    width: 280px;
-}
-
-.panel-header {
-    color: #94a3b8;
-    margin-bottom: 16px;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.recent-items {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.recent-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px;
-    border-radius: 8px;
-    transition: background 0.2s;
-}
-
-.recent-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.recent-icon {
-    font-size: 28px;
-}
-
-.recent-info {
-    flex: 1;
-    text-align: left;
-}
-
-.stats-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 200px;
-}
-
-.stat-card-new {
-    background: rgba(0, 0, 0, 0.3) !important;
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 16px !important;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    color: #fff;
-    min-height: 120px;
-    justify-content: center;
-}
-
-.stat-icon {
-    font-size: 32px !important;
-    color: #fff;
-}
-
-.stat-content {
+.status-card-body h3 {
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: #333;
+    margin: 0 0 10px 0;
     text-align: center;
 }
 
-.activity-panel {
-    width: 280px;
-    position: relative;
+.status-card-body p {
+    margin: 0;
+    text-align: center;
 }
 
-.activity-items {
+.status-metrics {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
-.activity-item {
+.metric-item {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 10px;
-    padding: 8px;
+    font-size: 0.9rem;
 }
 
-.activity-count {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
+.metric-label {
+    color: #555;
 }
 
+.metric-value {
+    color: #333;
+    font-weight: 500;
+}
+
+/* App Shortcuts Section */
 .apps-section {
     max-width: 1000px;
-    margin: 0 auto 40px;
-    padding: 0 40px;
-}
-
-.apps-header {
-    display: flex;
-    justify-content: space-around;
-    margin-bottom: 30px;
-}
-
-.section-label {
-    color: #94a3b8;
-    font-size: 0.875rem;
+    margin: 20px auto;
+    position: relative;
+    z-index: 1;
 }
 
 .apps-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 30px 20px;
-    margin-bottom: 30px;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 25px 15px;
+    padding: 0 20px;
 }
 
 .app-item {
@@ -259,69 +199,42 @@ h1:focus {
 }
 
 .app-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 20px;
+    width: 70px;
+    height: 70px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
     margin-bottom: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: #999;
 }
 
 .app-title {
-    color: #fff;
+    color: #333;
     text-align: center;
+    font-size: 0.85rem;
 }
 
-.carousel-dots {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-}
-
-.dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
-}
-
-.dot.active {
-    background: rgba(255, 255, 255, 0.8);
-}
-
-.search-section {
-    max-width: 600px;
-    margin: 0 auto 40px;
-    padding: 0 40px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.search-input {
-    flex: 1;
-}
-
+/* Permanent Dock */
 .bottom-dock {
     position: fixed;
-    bottom: 20px;
+    bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
 }
 
 .dock-panel {
-    background: rgba(0, 0, 0, 0.4) !important;
-    backdrop-filter: blur(30px);
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 20px !important;
-    padding: 12px 16px;
+    background: #5dbfbc !important;
+    border-radius: 16px !important;
+    padding: 16px 24px;
     display: flex;
-    gap: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+    gap: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+    align-items: center;
+    justify-content: center;
 }
 
 .dock-icon {
@@ -334,14 +247,15 @@ h1:focus {
 }
 
 .dock-icon-bg {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    background: #999 !important;
 }
 
 .home-grid {
@@ -512,26 +426,23 @@ h1:focus {
 
 /* Responsive adjustments for homepage */
 @media (max-width: 1024px) {
-    .hero-content {
+    .status-section {
         grid-template-columns: 1fr;
-        gap: 20px;
-    }
-    
-    .recents-panel,
-    .activity-panel {
-        width: 100%;
-        max-width: 500px;
-        margin: 0 auto;
+        gap: 15px;
     }
     
     .apps-grid {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(6, 1fr);
+    }
+
+    .homepage-container {
+        padding: 30px 20px;
     }
 }
 
 @media (max-width: 768px) {
     .apps-grid {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 20px 15px;
     }
     
@@ -540,16 +451,29 @@ h1:focus {
         height: 60px;
     }
     
-    .hero-section {
-        padding: 60px 20px 20px;
+    .time-display {
+        font-size: 3rem;
+    }
+
+    .date-display {
+        font-size: 1rem;
+    }
+
+    .homepage-container {
+        padding: 20px 15px;
     }
     
     .bottom-dock {
-        bottom: 10px;
+        bottom: 15px;
     }
     
     .dock-icon-bg {
-        width: 48px;
-        height: 48px;
+        width: 50px;
+        height: 50px;
+    }
+
+    .dock-panel {
+        padding: 12px 16px;
+        gap: 12px;
     }
 }
