@@ -33,7 +33,7 @@
                     @foreach (var part in GetPathParts())
                     {
                         <i class="@Icons.Material.Filled.ChevronRight"></i>
-                        <a style="cursor: pointer;" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
+                        <a class="clickable" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
                     }
                     @if (files != null)
                     {
@@ -153,6 +153,7 @@
 
 @code {
     [Parameter] public string? Title { get; set; }
+    [Parameter] public EventCallback OnCloseDialog { get; set; }
     
     private List<FileItemInfo>? files;
     private string currentPath = string.Empty;
@@ -289,5 +290,11 @@
         return $"/ {parts[0]} / ... / {parts[parts.Length - 1]}";
     }
 
-    private void Close() { /* Dialog managed by parent component */ }
+    private async Task Close()
+    {
+        if (OnCloseDialog.HasDelegate)
+        {
+            await OnCloseDialog.InvokeAsync();
+        }
+    }
 }

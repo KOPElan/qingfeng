@@ -553,3 +553,9 @@ h1:focus {
         height: 48px;
     }
 }
+
+/* Utility classes */
+.clickable, .cursor-pointer {
+    cursor: pointer;
+}
+}

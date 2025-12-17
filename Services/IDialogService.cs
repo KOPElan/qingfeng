@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using System.Collections.Concurrent;
 
 namespace QingFeng.Services;
 
@@ -24,6 +25,7 @@ public class DialogReference
     public Type ComponentType { get; set; } = null!;
     public string Title { get; set; } = string.Empty;
     public Dictionary<string, object>? Parameters { get; set; }
+    public Dictionary<string, object>? CachedParameters { get; set; }
     public DialogOptions? Options { get; set; }
     public TaskCompletionSource<object?> ResultCompletion { get; } = new();
     public bool IsOpen { get; set; } = true;
@@ -32,7 +34,8 @@ public class DialogReference
 public class DialogService : IDialogService
 {
     private readonly ILogger<DialogService> _logger;
-    private readonly List<DialogReference> _dialogs = new();
+    private readonly ConcurrentBag<DialogReference> _dialogs = new();
+    private readonly object _eventLock = new();
     public event Action? OnDialogsChanged;
 
     public DialogService(ILogger<DialogService> logger)
@@ -53,21 +56,28 @@ public class DialogService : IDialogService
         };
 
         _dialogs.Add(dialogReference);
-        OnDialogsChanged?.Invoke();
+        
+        lock (_eventLock)
+        {
+            OnDialogsChanged?.Invoke();
+        }
         
         return dialogReference.ResultCompletion.Task;
     }
 
     public IReadOnlyList<DialogReference> GetDialogs()
     {
-        return _dialogs.AsReadOnly();
+        return _dialogs.Where(d => d.IsOpen).ToList().AsReadOnly();
     }
 
     public void Close(DialogReference dialog)
     {
         dialog.IsOpen = false;
         dialog.ResultCompletion.TrySetResult(null);
-        _dialogs.Remove(dialog);
-        OnDialogsChanged?.Invoke();
+        
+        lock (_eventLock)
+        {
+            OnDialogsChanged?.Invoke();
+        }
     }
 }

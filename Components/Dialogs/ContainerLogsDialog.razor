@@ -38,6 +38,7 @@
 @code {
     [Parameter] public string? ContainerId { get; set; }
     [Parameter] public string? ContainerName { get; set; }
+    [Parameter] public EventCallback OnCloseDialog { get; set; }
     
     private bool isLoadingLogs = false;
     private string containerLogs = string.Empty;
@@ -78,5 +79,11 @@
         await LoadLogs();
     }
 
-    private void Close() { /* Dialog managed by parent component */ }
+    private async Task Close()
+    {
+        if (OnCloseDialog.HasDelegate)
+        {
+            await OnCloseDialog.InvokeAsync();
+        }
+    }
 }

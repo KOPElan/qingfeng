@@ -123,6 +123,7 @@
 
 @code {
     [Parameter] public string? Title { get; set; }
+    [Parameter] public EventCallback OnCloseDialog { get; set; }
     
     private SystemResourceInfo? systemInfo;
     private System.Threading.Timer? _timer;
@@ -154,7 +155,13 @@
         }
     }
 
-    private void Close() { /* Dialog managed by parent component */ }
+    private async Task Close()
+    {
+        if (OnCloseDialog.HasDelegate)
+        {
+            await OnCloseDialog.InvokeAsync();
+        }
+    }
 
     public void Dispose()
     {

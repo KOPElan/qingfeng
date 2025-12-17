@@ -215,7 +215,7 @@
                     @foreach (var part in GetPathParts())
                     {
                         <i class="@Icons.Material.Filled.ChevronRight"></i>
-                        <a style="cursor: pointer;" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
+                        <a class="clickable" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
                     }
                 </div>
                 @if (files != null)

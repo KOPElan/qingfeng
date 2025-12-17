@@ -1,26 +1,44 @@
 @using QingFeng.Services
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
 @inject IDialogService DialogService
 @implements IDisposable
 @rendermode InteractiveServer
 
-@foreach (var dialog in DialogService.GetDialogs())
+@{
+    var openDialogs = DialogService.GetDialogs().Where(d => d.IsOpen).ToList();
+    var hasDialogs = openDialogs.Any();
+}
+
+@foreach (var dialog in openDialogs)
 {
-    @if (dialog.IsOpen)
-    {
-        <div class="modal fade show" style="display: block;" tabindex="-1" role="dialog" aria-modal="true">
-            <div class="modal-dialog @GetModalClass(dialog.Options)" role="document">
-                <div class="modal-content bg-dark text-white">
-                    @if (dialog.Options?.CloseButton == true)
-                    {
-                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" style="z-index: 1;" @onclick="() => CloseDialog(dialog)" aria-label="Close"></button>
-                    }
+    var dialogId = $"dialog-{dialog.Id}";
+    var titleId = $"dialog-title-{dialog.Id}";
+    
+    <div class="modal fade show" 
+         style="display: block; z-index: @(1050 + openDialogs.IndexOf(dialog) * 10);" 
+         tabindex="-1" 
+         role="dialog" 
+         aria-modal="true"
+         aria-labelledby="@titleId"
+         @onkeydown="@(e => HandleKeyDown(e, dialog))">
+        <div class="modal-dialog @GetModalClass(dialog.Options)" role="document">
+            <div class="modal-content bg-dark text-white">
+                @if (dialog.Options?.CloseButton == true)
+                {
+                    <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" style="z-index: 1;" @onclick="() => CloseDialog(dialog)" aria-label="Close"></button>
+                }
+                <div id="@titleId">
                     <DynamicComponent Type="@dialog.ComponentType" Parameters="@GetParameters(dialog)" />
                 </div>
             </div>
         </div>
-        <div class="modal-backdrop fade show"></div>
-    }
+    </div>
+}
+
+@if (hasDialogs)
+{
+    <div class="modal-backdrop fade show" style="z-index: 1040;" aria-hidden="true"></div>
 }
 
 @code {
@@ -29,9 +47,28 @@
         DialogService.OnDialogsChanged += HandleDialogsChanged;
     }
 
-    private async void HandleDialogsChanged()
+    private void HandleDialogsChanged()
     {
-        await InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                await Task.CompletedTask;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating dialog state: {ex.Message}");
+            }
+        });
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e, DialogReference dialog)
+    {
+        if (e.Key == "Escape")
+        {
+            CloseDialog(dialog);
+        }
     }
 
     private void CloseDialog(DialogReference dialog)
@@ -41,15 +78,23 @@
 
     private Dictionary<string, object> GetParameters(DialogReference dialog)
     {
-        // Create a new dictionary to avoid mutating the original parameters
+        // Cache parameters to avoid repeated dictionary allocations
+        if (dialog.CachedParameters != null)
+        {
+            return dialog.CachedParameters;
+        }
+
         var parameters = new Dictionary<string, object>(dialog.Parameters ?? new Dictionary<string, object>());
         
-        // Add the title parameter if it's not already present
         if (!parameters.ContainsKey("Title"))
         {
             parameters["Title"] = dialog.Title;
         }
-
+        
+        // Add close callback for dialogs to use
+        parameters["OnCloseDialog"] = EventCallback.Factory.Create(this, () => CloseDialog(dialog));
+        
+        dialog.CachedParameters = parameters;
         return parameters;
     }
 
