@@ -29,9 +29,9 @@
         DialogService.OnDialogsChanged += HandleDialogsChanged;
     }
 
-    private void HandleDialogsChanged()
+    private async void HandleDialogsChanged()
     {
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
     private void CloseDialog(DialogReference dialog)
@@ -41,7 +41,8 @@
 
     private Dictionary<string, object> GetParameters(DialogReference dialog)
     {
-        var parameters = dialog.Parameters ?? new Dictionary<string, object>();
+        // Create a new dictionary to avoid mutating the original parameters
+        var parameters = new Dictionary<string, object>(dialog.Parameters ?? new Dictionary<string, object>());
         
         // Add the title parameter if it's not already present
         if (!parameters.ContainsKey("Title"))

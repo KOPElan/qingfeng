@@ -67,6 +67,7 @@ public class DialogService : IDialogService
     {
         dialog.IsOpen = false;
         dialog.ResultCompletion.TrySetResult(null);
+        _dialogs.Remove(dialog);
         OnDialogsChanged?.Invoke();
     }
 }
