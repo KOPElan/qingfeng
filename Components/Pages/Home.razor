@@ -150,7 +150,13 @@
                 {
                     @if (IsInternalManagementPage(shortcut.Url))
                     {
-                        <div class="dock-icon" @onclick="() => OpenInModal(shortcut)" style="cursor: pointer;">
+                        <div class="dock-icon" 
+                             @onclick="() => OpenInModal(shortcut)" 
+                             @onkeydown="(e) => HandleKeyDown(e, shortcut)"
+                             tabindex="0" 
+                             role="button" 
+                             aria-label="@shortcut.Title"
+                             style="cursor: pointer;">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
                                 <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
                             </div>
@@ -158,7 +164,7 @@
                     }
                     else
                     {
-                        <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
+                        <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
                                 <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
                             </div>
@@ -172,7 +178,13 @@
                 {
                     @if (IsInternalManagementPage(shortcut.Url))
                     {
-                        <div class="dock-icon" @onclick="() => OpenInModal(shortcut)" style="cursor: pointer;">
+                        <div class="dock-icon" 
+                             @onclick="() => OpenInModal(shortcut)" 
+                             @onkeydown="(e) => HandleKeyDown(e, shortcut)"
+                             tabindex="0" 
+                             role="button" 
+                             aria-label="@shortcut.Title"
+                             style="cursor: pointer;">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
                                 <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
                             </div>
@@ -180,7 +192,7 @@
                     }
                     else
                     {
-                        <a href="@shortcut.Url" class="dock-icon" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
+                        <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
                                 <MudIcon Icon="@ResolveIcon(shortcut.Icon)" Size="Size.Medium" />
                             </div>
@@ -537,6 +549,14 @@
         if (!CanSubmit)
             return;
 
+        // Validate URL to prevent XSS
+        var sanitizedUrl = SanitizeUrl(draftShortcut.Url);
+        if (sanitizedUrl == "#")
+        {
+            // Invalid URL, don't save
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(draftShortcut.Id))
         {
             draftShortcut.Id = Guid.NewGuid().ToString("N");
@@ -546,7 +566,7 @@
         {
             Id = draftShortcut.Id,
             Title = draftShortcut.Title,
-            Url = draftShortcut.Url,
+            Url = sanitizedUrl,
             Icon = string.IsNullOrWhiteSpace(draftShortcut.Icon) ? Icons.Material.Filled.Link : draftShortcut.Icon,
             Description = draftShortcut.Description,
             Category = string.IsNullOrWhiteSpace(draftShortcut.Category) ? "自定义" : draftShortcut.Category,
@@ -644,20 +664,14 @@
 
     private bool IsInternalManagementPage(string url)
     {
-        return url switch
-        {
-            "/system-monitor" => true,
-            "/docker" => true,
-            "/disk-management" => true,
-            "/file-manager" => true,
-            _ => false
-        };
+        return url == Constants.InternalPages.SystemMonitor ||
+               url == Constants.InternalPages.Docker ||
+               url == Constants.InternalPages.DiskManagement ||
+               url == Constants.InternalPages.FileManager;
     }
 
     private async Task OpenInModal(ShortcutLink shortcut)
     {
-        Console.WriteLine($"OpenInModal called for: {shortcut.Title} - {shortcut.Url}");
-        
         var options = new DialogOptions 
         { 
             MaxWidth = MaxWidth.ExtraExtraLarge, 
@@ -666,28 +680,57 @@
             FullScreen = true
         };
 
+        var parameters = new DialogParameters
+        {
+            { "Title", shortcut.Title }
+        };
+
         switch (shortcut.Url)
         {
-            case "/system-monitor":
-                Console.WriteLine("Opening System Monitor dialog");
-                await DialogService.ShowAsync<QingFeng.Components.Dialogs.SystemMonitorDialog>(shortcut.Title, options);
-                Console.WriteLine("System Monitor dialog opened");
+            case var url when url == Constants.InternalPages.SystemMonitor:
+                await DialogService.ShowAsync<QingFeng.Components.Dialogs.SystemMonitorDialog>(shortcut.Title, parameters, options);
                 break;
-            case "/docker":
+            case var url when url == Constants.InternalPages.Docker:
                 // TODO: Implement Docker dialog
-                Console.WriteLine("Docker dialog not implemented yet");
                 break;
-            case "/disk-management":
+            case var url when url == Constants.InternalPages.DiskManagement:
                 // TODO: Implement Disk Management dialog
-                Console.WriteLine("Disk Management dialog not implemented yet");
                 break;
-            case "/file-manager":
+            case var url when url == Constants.InternalPages.FileManager:
                 // TODO: Implement File Manager dialog
-                Console.WriteLine("File Manager dialog not implemented yet");
-                break;
-            default:
-                Console.WriteLine($"Unknown URL: {shortcut.Url}");
                 break;
         }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e, ShortcutLink shortcut)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            _ = OpenInModal(shortcut);
+        }
+    }
+
+    private bool IsExternalUrl(string url)
+    {
+        return url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+               url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string SanitizeUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return "#";
+
+        // Allow only http, https, and relative URLs
+        var lowerUrl = url.Trim().ToLowerInvariant();
+        if (lowerUrl.StartsWith("javascript:") ||
+            lowerUrl.StartsWith("data:") ||
+            lowerUrl.StartsWith("vbscript:") ||
+            lowerUrl.StartsWith("file:"))
+        {
+            return "#";
+        }
+
+        return url;
     }
 }
