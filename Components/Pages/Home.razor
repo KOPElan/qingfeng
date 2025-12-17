@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @using QingFeng.Services
 @using QingFeng.Models
 @using System.Text.Json
@@ -14,34 +14,34 @@
 <div class="homepage-container">
     <div class="hero-section">
         <div class="hero-icon">
-            <i class="@Icons.Material.Filled.WbSunny"></i>
+            <i class="@Icons.Material.Filled.WbSunny" style="font-size: 3rem;"></i>
         </div>
         <h3 class="hero-greeting">@GreetingText</h3>
         
         <div class="hero-content">
             <!-- Recents Panel -->
-            <div class="hero-panel recents-panel">
-                <p class="fw-semibold" class="panel-header">Recents</p>
+            <div class="hero-panel recents-panel card-custom">
+                <p class="panel-header fw-semibold">Recents</p>
                 <div class="recent-items">
                     <div class="recent-item">
-                        <i class="@Icons.Material.Filled.AudioFile"></i>
+                        <i class="@Icons.Material.Filled.AudioFile recent-icon" style="color: #c084fc;"></i>
                         <div class="recent-info">
-                            <p class="small">Vida La Vida</p>
-                            <small class="text-muted-custom" class="text-muted">MP3</small>
+                            <p class="small mb-0">Vida La Vida</p>
+                            <small class="text-muted-custom">MP3</small>
                         </div>
                     </div>
                     <div class="recent-item">
-                        <i class="@Icons.Material.Filled.Description"></i>
+                        <i class="@Icons.Material.Filled.Description recent-icon" style="color: #60a5fa;"></i>
                         <div class="recent-info">
-                            <p class="small">Home 2 Write-up Draft</p>
-                            <small class="text-muted-custom" class="text-muted">TXT</small>
+                            <p class="small mb-0">Home 2 Write-up Draft</p>
+                            <small class="text-muted-custom">TXT</small>
                         </div>
                     </div>
                     <div class="recent-item">
-                        <i class="@Icons.Material.Filled.TableChart"></i>
+                        <i class="@Icons.Material.Filled.TableChart recent-icon" style="color: #34d399;"></i>
                         <div class="recent-info">
-                            <p class="small">3rd Quarter Financials</p>
-                            <small class="text-muted-custom" class="text-muted">XLSX</small>
+                            <p class="small mb-0">3rd Quarter Financials</p>
+                            <small class="text-muted-custom">XLSX</small>
                         </div>
                     </div>
                 </div>
@@ -55,48 +55,48 @@
                 }
                 else
                 {
-                    <div class="stat-card-new">
-                        <i class="@Icons.Material.Filled.Speed"></i>
+                    <div class="stat-card-new card-custom">
+                        <i class="@Icons.Material.Filled.Speed stat-icon"></i>
                         <div class="stat-content">
-                            <small class="text-muted-custom" class="text-muted">CPU</small>
-                            <h6>@systemInfo.Cpu.UsagePercent.ToString("F1")%</h6>
+                            <small class="text-muted-custom">CPU</small>
+                            <h6 class="mb-0">@systemInfo.Cpu.UsagePercent.ToString("F1")%</h6>
                         </div>
                     </div>
-                    <div class="stat-card-new">
-                        <i class="@Icons.Material.Filled.Storage"></i>
+                    <div class="stat-card-new card-custom">
+                        <i class="@Icons.Material.Filled.Storage stat-icon"></i>
                         <div class="stat-content">
-                            <small class="text-muted-custom" class="text-muted">Free</small>
-                            <h6>@DiskTotalGb</h6>
+                            <small class="text-muted-custom">Free</small>
+                            <h6 class="mb-0">@DiskTotalGb</h6>
                         </div>
                     </div>
-                    <div class="stat-card-new">
-                        <i class="@Icons.Material.Filled.Memory"></i>
+                    <div class="stat-card-new card-custom">
+                        <i class="@Icons.Material.Filled.Memory stat-icon"></i>
                         <div class="stat-content">
-                            <small class="text-muted-custom" class="text-muted">Memory</small>
-                            <h6>@systemInfo.Memory.UsedGB</h6>
+                            <small class="text-muted-custom">Memory</small>
+                            <h6 class="mb-0">@systemInfo.Memory.UsedGB</h6>
                         </div>
                     </div>
                 }
             </div>
 
             <!-- Activity Panel -->
-            <div class="hero-panel activity-panel">
+            <div class="hero-panel activity-panel card-custom">
                 <div class="activity-items">
                     <div class="activity-item">
-                        <i class="@Icons.Material.Filled.TrendingUp"></i>
-                        <p class="small">Following update</p>
+                        <i class="@Icons.Material.Filled.TrendingUp" style="color: #fbbf24; font-size: 1.2rem;"></i>
+                        <p class="small mb-0">Following update</p>
                     </div>
                     <div class="activity-item">
-                        <i class="@Icons.Material.Filled.ThumbUp"></i>
-                        <p class="small">Reaction</p>
+                        <i class="@Icons.Material.Filled.ThumbUp" style="color: #fb923c; font-size: 1.2rem;"></i>
+                        <p class="small mb-0">Reaction</p>
                     </div>
                     <div class="activity-item">
-                        <i class="@Icons.Material.Filled.Person"></i>
-                        <p class="small">Profile update</p>
+                        <i class="@Icons.Material.Filled.Person" style="color: #94a3b8; font-size: 1.2rem;"></i>
+                        <p class="small mb-0">Profile update</p>
                     </div>
                     <div class="activity-item">
-                        <i class="@Icons.Material.Filled.Chat"></i>
-                        <p class="small" class="text-muted">Reaction</p>
+                        <i class="@Icons.Material.Filled.Chat" style="color: #94a3b8; font-size: 1.2rem;"></i>
+                        <p class="small text-muted mb-0">Reaction</p>
                     </div>
                 </div>
                 <div class="activity-count">
@@ -109,9 +109,9 @@
     <!-- App Grid Section -->
     <div class="apps-section">
         <div class="apps-header">
-            <p class="fw-semibold" class="section-label">Files</p>
-            <p class="fw-semibold" class="section-label">Settings</p>
-            <p class="fw-semibold" class="section-label">Nostr Relay</p>
+            <p class="section-label fw-semibold">Files</p>
+            <p class="section-label fw-semibold">Settings</p>
+            <p class="section-label fw-semibold">Nostr Relay</p>
         </div>
         
         <div class="apps-grid">
@@ -119,9 +119,9 @@
             {
                 <a href="@shortcut.Url" class="app-item" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
                     <div class="app-icon" style="background: @GetAppColor(shortcut.Id);">
-                        <i class="@ResolveIcon(shortcut.Icon)"></i>
+                        <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 2rem;"></i>
                     </div>
-                    <small class="text-muted-custom" class="app-title">@shortcut.Title</small>
+                    <small class="app-title">@shortcut.Title</small>
                 </a>
             }
         </div>
@@ -134,15 +134,13 @@
 
     <!-- Search Bar -->
     <div class="search-section">
-        <input type="text" class="form-control-custom" placeholder="Search" 
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                      class="search-input"  />
-        <small class="text-muted-custom" class="text-muted">⌘K</small>
+        <input type="text" class="form-control-custom search-input" placeholder="Search" />
+        <small class="text-muted-custom">⌘K</small>
     </div>
 
     <!-- Dock -->
     <div class="bottom-dock">
-        <div class="dock-panel">
+        <div class="dock-panel card-custom">
             @if (PinnedShortcuts.Count > 0)
             {
                 @foreach (var shortcut in PinnedShortcuts.Take(6))
@@ -157,7 +155,7 @@
                              aria-label="@shortcut.Title"
                              style="cursor: pointer;">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <i class="@ResolveIcon(shortcut.Icon)"></i>
+                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                             </div>
                         </div>
                     }
@@ -165,7 +163,7 @@
                     {
                         <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <i class="@ResolveIcon(shortcut.Icon)"></i>
+                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                             </div>
                         </a>
                     }
@@ -185,7 +183,7 @@
                              aria-label="@shortcut.Title"
                              style="cursor: pointer;">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <i class="@ResolveIcon(shortcut.Icon)"></i>
+                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                             </div>
                         </div>
                     }
@@ -193,7 +191,7 @@
                     {
                         <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
                             <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <i class="@ResolveIcon(shortcut.Icon)"></i>
+                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                             </div>
                         </a>
                     }
@@ -494,13 +492,13 @@
     {
         var options = new DialogOptions 
         { 
-            MaxWidth = MaxWidth.ExtraExtraLarge, 
+            MaxWidth = true, 
             FullWidth = true,
             CloseButton = true,
             FullScreen = true
         };
 
-        var parameters = new DialogParameters
+        var parameters = new Dictionary<string, object>
         {
             { "Title", shortcut.Title }
         };
