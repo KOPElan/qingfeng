@@ -233,10 +233,7 @@
         {
             var result = await DiskManagementService.MountDiskAsync(devicePath, mountPoint);
             message = result;
-            // Check for success by looking for "Successfully" or absence of "Failed"/"Error" keywords
-            isError = result.Contains("Failed", StringComparison.OrdinalIgnoreCase) || 
-                      result.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
-                      !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
+            isError = IsOperationError(result);
             
             if (!isError)
             {
@@ -272,10 +269,7 @@
         {
             var result = await DiskManagementService.UnmountDiskAsync(unmountPoint);
             message = result;
-            // Check for success by looking for "Successfully" or absence of "Failed"/"Error" keywords
-            isError = result.Contains("Failed", StringComparison.OrdinalIgnoreCase) || 
-                      result.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
-                      !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
+            isError = IsOperationError(result);
             
             if (!isError)
             {
@@ -299,6 +293,13 @@
         if (usagePercent >= 90) return Color.Error;
         if (usagePercent >= 75) return Color.Warning;
         return Color.Success;
+    }
+
+    private bool IsOperationError(string result)
+    {
+        return result.Contains("Failed", StringComparison.OrdinalIgnoreCase) || 
+               result.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+               !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
     }
 
     private void Close() => MudDialog?.Close();
