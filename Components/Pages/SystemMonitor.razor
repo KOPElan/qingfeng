@@ -7,19 +7,19 @@
 
 <PageTitle>系统监控</PageTitle>
 
-<h3 Class="mb-4">系统监控</h3>
+<h3 class="mb-4">系统监控</h3>
 
 <button type="button" class="btn btn-custom-primary" 
-           OnClick="RefreshData" 
-           Class="mb-4">
+           @@onclick="RefreshData" 
+           class="mb-4">
     刷新
 </button>
 
 @if (systemInfo != null)
 {
     <!-- CPU Information -->
-    <div Class="pa-4 mb-4">
-        <h5 Class="mb-3">
+    <div class="pa-4 mb-4">
+        <h5 class="mb-3">
             <i class="@Icons.Material.Filled.Speed"></i>
             CPU信息
         </h5>
@@ -29,7 +29,7 @@
                 <p><strong>架构：</strong>@systemInfo.Cpu.ProcessorName</p>
             </div>
             <div class="col-md-6">
-                <p Class="mb-2"><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</p>
+                <p class="mb-2"><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</p>
                 <MudProgressLinear 
                                    Value="@systemInfo.Cpu.UsagePercent">
                     <p Typo="Typo.body1">@systemInfo.Cpu.UsagePercent%</p>
@@ -39,8 +39,8 @@
     </div>
 
     <!-- Memory Information -->
-    <div Class="pa-4 mb-4">
-        <h5 Class="mb-3">
+    <div class="pa-4 mb-4">
+        <h5 class="mb-3">
             <i class="@Icons.Material.Filled.Memory"></i>
             内存信息
         </h5>
@@ -51,7 +51,7 @@
                 <p><strong>可用：</strong>@systemInfo.Memory.AvailableGB</p>
             </div>
             <div class="col-md-6">
-                <p Class="mb-2"><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</p>
+                <p class="mb-2"><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</p>
                 <MudProgressLinear 
                                    Value="@systemInfo.Memory.UsagePercent">
                     <p Typo="Typo.body1">@systemInfo.Memory.UsagePercent%</p>
@@ -61,8 +61,8 @@
     </div>
 
     <!-- Disk Information -->
-    <div Class="pa-4 mb-4">
-        <h5 Class="mb-3">
+    <div class="pa-4 mb-4">
+        <h5 class="mb-3">
             <i class="@Icons.Material.Filled.Storage"></i>
             磁盘信息
         </h5>
@@ -108,8 +108,8 @@
     </div>
 
     <!-- Network Information -->
-    <div Class="pa-4 mb-4">
-        <h5 Class="mb-3">
+    <div class="pa-4 mb-4">
+        <h5 class="mb-3">
             <i class="@Icons.Material.Filled.NetworkCheck"></i>
             网络信息
         </h5>
@@ -159,7 +159,7 @@
 else
 {
     <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-    <p Class="ml-2">加载中...</p>
+    <p class="ml-2">加载中...</p>
 }
 
 @code {

@@ -15,12 +15,12 @@
         {
             <div class="d-flex align-center justify-center pa-4">
                 <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-                <p Class="ml-2">加载日志中...</p>
+                <p class="ml-2">加载日志中...</p>
             </div>
         }
         else if (!string.IsNullOrEmpty(containerLogs))
         {
-            <div Class="pa-3" Style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
+            <div class="pa-3" style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
                 @containerLogs
             </div>
         }
@@ -30,13 +30,12 @@
         }
     </div>
     <div class="modal-footer-custom">
-        <button type="button" class="btn btn-custom" OnClick="RefreshLogs" disabled="@isLoadingLogs">刷新</button>
-        <button type="button" class="btn btn-custom" OnClick="Close">关闭</button>
+        <button type="button" class="btn btn-custom" @@onclick="RefreshLogs" disabled="@isLoadingLogs">刷新</button>
+        <button type="button" class="btn btn-custom" @@onclick="Close">关闭</button>
     </div>
 </div>
 
 @code {
-    [CascadingParameter] public MudBlazor.IDialogReference? MudDialog { get; set; }
     [Parameter] public string? ContainerId { get; set; }
     [Parameter] public string? ContainerName { get; set; }
     
@@ -79,5 +78,5 @@
         await LoadLogs();
     }
 
-    private void Close() => MudDialog?.Close();
+    private void Close() { /* Dialog managed by parent component */ }
 }

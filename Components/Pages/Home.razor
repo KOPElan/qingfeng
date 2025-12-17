@@ -16,32 +16,32 @@
         <div class="hero-icon">
             <i class="@Icons.Material.Filled.WbSunny"></i>
         </div>
-        <h3 Class="hero-greeting">@GreetingText</h3>
+        <h3 class="hero-greeting">@GreetingText</h3>
         
         <div class="hero-content">
             <!-- Recents Panel -->
-            <div Class="hero-panel recents-panel">
-                <p class="fw-semibold" Class="panel-header">Recents</p>
+            <div class="hero-panel recents-panel">
+                <p class="fw-semibold" class="panel-header">Recents</p>
                 <div class="recent-items">
                     <div class="recent-item">
                         <i class="@Icons.Material.Filled.AudioFile"></i>
                         <div class="recent-info">
                             <p class="small">Vida La Vida</p>
-                            <small class="text-muted-custom" Class="text-muted">MP3</small>
+                            <small class="text-muted-custom" class="text-muted">MP3</small>
                         </div>
                     </div>
                     <div class="recent-item">
                         <i class="@Icons.Material.Filled.Description"></i>
                         <div class="recent-info">
                             <p class="small">Home 2 Write-up Draft</p>
-                            <small class="text-muted-custom" Class="text-muted">TXT</small>
+                            <small class="text-muted-custom" class="text-muted">TXT</small>
                         </div>
                     </div>
                     <div class="recent-item">
                         <i class="@Icons.Material.Filled.TableChart"></i>
                         <div class="recent-info">
                             <p class="small">3rd Quarter Financials</p>
-                            <small class="text-muted-custom" Class="text-muted">XLSX</small>
+                            <small class="text-muted-custom" class="text-muted">XLSX</small>
                         </div>
                     </div>
                 </div>
@@ -55,24 +55,24 @@
                 }
                 else
                 {
-                    <div Class="stat-card-new">
+                    <div class="stat-card-new">
                         <i class="@Icons.Material.Filled.Speed"></i>
                         <div class="stat-content">
-                            <small class="text-muted-custom" Class="text-muted">CPU</small>
+                            <small class="text-muted-custom" class="text-muted">CPU</small>
                             <h6>@systemInfo.Cpu.UsagePercent.ToString("F1")%</h6>
                         </div>
                     </div>
-                    <div Class="stat-card-new">
+                    <div class="stat-card-new">
                         <i class="@Icons.Material.Filled.Storage"></i>
                         <div class="stat-content">
-                            <small class="text-muted-custom" Class="text-muted">Free</small>
+                            <small class="text-muted-custom" class="text-muted">Free</small>
                             <h6>@DiskTotalGb</h6>
                         </div>
                     </div>
-                    <div Class="stat-card-new">
+                    <div class="stat-card-new">
                         <i class="@Icons.Material.Filled.Memory"></i>
                         <div class="stat-content">
-                            <small class="text-muted-custom" Class="text-muted">Memory</small>
+                            <small class="text-muted-custom" class="text-muted">Memory</small>
                             <h6>@systemInfo.Memory.UsedGB</h6>
                         </div>
                     </div>
@@ -80,7 +80,7 @@
             </div>
 
             <!-- Activity Panel -->
-            <div Class="hero-panel activity-panel">
+            <div class="hero-panel activity-panel">
                 <div class="activity-items">
                     <div class="activity-item">
                         <i class="@Icons.Material.Filled.TrendingUp"></i>
@@ -96,11 +96,11 @@
                     </div>
                     <div class="activity-item">
                         <i class="@Icons.Material.Filled.Chat"></i>
-                        <p class="small" Class="text-muted">Reaction</p>
+                        <p class="small" class="text-muted">Reaction</p>
                     </div>
                 </div>
                 <div class="activity-count">
-                    <h4 Class="text-muted" Style="opacity: 0.3;">128</h4>
+                    <h4 class="text-muted" style="opacity: 0.3;">128</h4>
                 </div>
             </div>
         </div>
@@ -109,9 +109,9 @@
     <!-- App Grid Section -->
     <div class="apps-section">
         <div class="apps-header">
-            <p class="fw-semibold" Class="section-label">Files</p>
-            <p class="fw-semibold" Class="section-label">Settings</p>
-            <p class="fw-semibold" Class="section-label">Nostr Relay</p>
+            <p class="fw-semibold" class="section-label">Files</p>
+            <p class="fw-semibold" class="section-label">Settings</p>
+            <p class="fw-semibold" class="section-label">Nostr Relay</p>
         </div>
         
         <div class="apps-grid">
@@ -121,7 +121,7 @@
                     <div class="app-icon" style="background: @GetAppColor(shortcut.Id);">
                         <i class="@ResolveIcon(shortcut.Icon)"></i>
                     </div>
-                    <small class="text-muted-custom" Class="app-title">@shortcut.Title</small>
+                    <small class="text-muted-custom" class="app-title">@shortcut.Title</small>
                 </a>
             }
         </div>
@@ -136,13 +136,13 @@
     <div class="search-section">
         <input type="text" class="form-control-custom" placeholder="Search" 
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                      Class="search-input"  />
-        <small class="text-muted-custom" Class="text-muted">⌘K</small>
+                      class="search-input"  />
+        <small class="text-muted-custom" class="text-muted">⌘K</small>
     </div>
 
     <!-- Dock -->
     <div class="bottom-dock">
-        <div Class="dock-panel">
+        <div class="dock-panel">
             @if (PinnedShortcuts.Count > 0)
             {
                 @foreach (var shortcut in PinnedShortcuts.Take(6))

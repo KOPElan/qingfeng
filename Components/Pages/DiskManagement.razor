@@ -6,26 +6,26 @@
 
 <PageTitle>磁盘管理</PageTitle>
 
-<h3 Class="mb-4">磁盘管理</h3>
+<h3 class="mb-4">磁盘管理</h3>
 
 <button type="button" class="btn btn-custom-primary" 
-           OnClick="RefreshData" 
-           Class="mb-4">
+           @@onclick="RefreshData" 
+           class="mb-4">
     刷新
 </button>
 
 @if (!string.IsNullOrEmpty(message))
 {
-    <div class="alert" class="@(isError ? "alert-danger" : "alert-success")" 
-              Class="mb-4" 
-              CloseIconClicked="@(() => message = string.Empty)">
+    <divalert-danger" : "alert-success")" 
+              class="mb-4" 
+              CloseIconClicked="@(() = class="alert @(isError ?"> message = string.Empty)">
         @message
     </div>
 }
 
 <!-- Disk List -->
-<div Class="pa-4 mb-4">
-    <h5 Class="mb-3">
+<div class="pa-4 mb-4">
+    <h5 class="mb-3">
         <i class="@Icons.Material.Filled.Storage"></i>
         磁盘列表
     </h5>
@@ -72,7 +72,7 @@
     else if (disks == null)
     {
         <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-        <p Class="ml-2">加载中...</p>
+        <p class="ml-2">加载中...</p>
     }
     else
     {
@@ -83,21 +83,21 @@
 <!-- Mount/Unmount Section -->
 <div class="row">
     <div class="col-md-6">
-        <div Class="pa-4 mb-4">
-            <h5 Class="mb-3">
+        <div class="pa-4 mb-4">
+            <h5 class="mb-3">
                 <i class="@Icons.Material.Filled.AddCircle"></i>
                 挂载磁盘
             </h5>
             <pField @@bind-value="devicePath" 
                          Label="设备路径" placeholder="/dev/sdb1"
                          HelperText="例如：/dev/sdb1"
-                         Class="mb-3" />
+                         class="mb-3" />
             <MudTextField @@bind-value="mountPoint" 
                          Label="挂载点" placeholder="/mnt/disk1"
                          HelperText="例如：/mnt/disk1"
-                         Class="mb-3" />
+                         class="mb-3" />
             <button type="button" class="btn btn-custom-primary" 
-                      OnClick="MountDisk" disabled="@isMounting">
+                      @@onclick="MountDisk" disabled="@isMounting">
                 @if (isMounting)
                 {
                     <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
@@ -112,17 +112,17 @@
     </div>
 
     <div class="col-md-6">
-        <div Class="pa-4 mb-4">
-            <h5 Class="mb-3">
+        <div class="pa-4 mb-4">
+            <h5 class="mb-3">
                 <i class="@Icons.Material.Filled.RemoveCircle"></i>
                 卸载磁盘
             </h5>
             <MudTextField @@bind-value="unmountPoint" 
                          Label="挂载点" placeholder="/mnt/disk1"
                          HelperText="输入要卸载的挂载点"
-                         Class="mb-3" />
+                         class="mb-3" />
             <button type="button" class="btn btn-custom-primary" 
-                      OnClick="UnmountDisk" disabled="@isUnmounting">
+                      @@onclick="UnmountDisk" disabled="@isUnmounting">
                 @if (isUnmounting)
                 {
                     <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
@@ -138,8 +138,8 @@
 </div>
 
 <!-- Shares Section -->
-<div Class="pa-4 mb-4">
-    <h5 Class="mb-3">
+<div class="pa-4 mb-4">
+    <h5 class="mb-3">
         <i class="@Icons.Material.Filled.Share"></i>
         共享列表
     </h5>
@@ -158,7 +158,7 @@
     else if (shares == null)
     {
         <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-        <p Class="ml-2">加载中...</p>
+        <p class="ml-2">加载中...</p>
     }
     else
     {
@@ -259,10 +259,4 @@
         }
     }
 
-    private Color GetProgressColor(double usagePercent)
-    {
-        if (usagePercent >= 90) return Color.Error;
-        if (usagePercent >= 75) return Color.Warning;
-        return Color.Success;
-    }
 }

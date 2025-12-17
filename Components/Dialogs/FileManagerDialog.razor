@@ -14,16 +14,16 @@
         <div style="height: 70vh; overflow: hidden; display: flex; flex-direction: column;">
             @if (!string.IsNullOrEmpty(errorMessage))
             {
-                <div class="alert" Severity="Severity.Error" Class="mb-2" CloseIconClicked="@(() => errorMessage = string.Empty)">
+                <div class="alert" Severity="Severity.Error" class="mb-2" CloseIconClicked="@(() => errorMessage = string.Empty)">
                     @errorMessage
                 </div>
             }
             <!-- Toolbar -->
             <div style="padding: 12px 0; border-bottom: 1px solid var(--mud-palette-divider); display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                 <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowBack" 
-                              OnClick="GoBack" disabled="@(navigationHistory.Count <= 1)" />
+                              @@onclick="GoBack" disabled="@(navigationHistory.Count <= 1)" />
                 <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowForward"
-                              OnClick="GoForward" disabled="@(forwardHistory.Count == 0)" />
+                              @@onclick="GoForward" disabled="@(forwardHistory.Count == 0)" />
                 
                 <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
                     <p class="small">Files</p>
@@ -39,7 +39,7 @@
                 </div>
                 
                 <button type="button" class="btn btn-link text-white" Icon="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"
-                              OnClick="ToggleViewMode" />
+                              @@onclick="ToggleViewMode" />
             </div>
             
             <!-- File Grid/List View -->
@@ -112,7 +112,7 @@
                     else if (files == null)
                     {
                         <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-                        <p Class="ml-2">加载中...</p>
+                        <p class="ml-2">加载中...</p>
                     }
                     else
                     {
@@ -136,12 +136,11 @@
         </div>
     </div>
     <div class="modal-footer-custom">
-        <button type="button" class="btn btn-custom" OnClick="Close">关闭</button>
+        <button type="button" class="btn btn-custom" @@onclick="Close">关闭</button>
     </div>
 </div>
 
 @code {
-    [CascadingParameter] public MudBlazor.IDialogReference? MudDialog { get; set; }
     [Parameter] public string? Title { get; set; }
     
     private List<FileItemInfo>? files;
@@ -279,5 +278,5 @@
         return $"/ {parts[0]} / ... / {parts[parts.Length - 1]}";
     }
 
-    private void Close() => MudDialog?.Close();
+    private void Close() { /* Dialog managed by parent component */ }
 }

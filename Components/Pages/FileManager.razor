@@ -203,9 +203,9 @@
         <!-- Toolbar -->
         <div class="toolbar">
             <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowBack" 
-                          OnClick="GoBack" disabled="@(navigationHistory.Count <= 1)" />
+                          @@onclick="GoBack" disabled="@(navigationHistory.Count <= 1)" />
             <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowForward"
-                          OnClick="GoForward" disabled="@(forwardHistory.Count == 0)" />
+                          @@onclick="GoForward" disabled="@(forwardHistory.Count == 0)" />
             
             <div class="breadcrumb-container">
                 <div class="breadcrumb">
@@ -229,7 +229,7 @@
                 导入
             </button>
             <button type="button" class="btn btn-link text-white" Icon="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"
-                          OnClick="ToggleViewMode" />
+                          @@onclick="ToggleViewMode" />
             <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.GridView" />
         </div>
         
@@ -315,7 +315,7 @@
                 else if (files == null)
                 {
                     <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-                    <p Class="ml-2">加载中...</p>
+                    <p class="ml-2">加载中...</p>
                 }
                 else
                 {

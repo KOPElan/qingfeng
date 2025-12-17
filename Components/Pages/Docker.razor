@@ -7,33 +7,33 @@
 
 <PageTitle>Docker管理</PageTitle>
 
-<h3 Class="mb-4">Docker管理</h3>
+<h3 class="mb-4">Docker管理</h3>
 
 <button type="button" class="btn btn-custom-primary" 
-           OnClick="RefreshData" 
-           Class="mb-4">
+           @@onclick="RefreshData" 
+           class="mb-4">
     刷新
 </button>
 
 @if (!string.IsNullOrEmpty(message))
 {
-    <div class="alert" class="@(isError ? "alert-danger" : "alert-success")" 
-              Class="mb-4" 
-              CloseIconClicked="@(() => message = string.Empty)">
+    <divalert-danger" : "alert-success")" 
+              class="mb-4" 
+              CloseIconClicked="@(() = class="alert @(isError ?"> message = string.Empty)">
         @message
     </div>
 }
 
 @if (!isDockerAvailable)
 {
-    <div class="alert" Severity="Severity.Warning" Class="mb-4">
+    <div class="alert" Severity="Severity.Warning" class="mb-4">
         <strong>警告：</strong> Docker服务不可用。请确保Docker已安装并正在运行。
     </div>
 }
 
 <!-- Containers Section -->
-<div Class="pa-4 mb-4">
-    <h5 Class="mb-3">
+<div class="pa-4 mb-4">
+    <h5 class="mb-3">
         <i class="@Icons.Material.Filled.Inventory"></i>
         容器列表
     </h5>
@@ -50,7 +50,7 @@
                 <th>操作</th>
             </tr></thead>
             <tr>
-                <td><p class="small" Style="font-family: monospace;">@context.Id</p></td>
+                <td><p class="small" style="font-family: monospace;">@context.Id</p></td>
                 <td>@context.Name</td>
                 <td>@context.Image</td>
                 <td>
@@ -94,7 +94,7 @@
     else if (containers == null)
     {
         <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-        <p Class="ml-2">加载中...</p>
+        <p class="ml-2">加载中...</p>
     }
     else
     {
@@ -103,8 +103,8 @@
 </div>
 
 <!-- Images Section -->
-<div Class="pa-4 mb-4">
-    <h5 Class="mb-3">
+<div class="pa-4 mb-4">
+    <h5 class="mb-3">
         <i class="@Icons.Material.Filled.Layers"></i>
         镜像列表
     </h5>
@@ -118,7 +118,7 @@
                 <th>创建时间</th>
             </tr></thead>
             <tr>
-                <td><p class="small" Style="font-family: monospace;">@context.Id</p></td>
+                <td><p class="small" style="font-family: monospace;">@context.Id</p></td>
                 <td>
                     @if (context.RepoTags.Any())
                     {
@@ -140,7 +140,7 @@
     else if (images == null)
     {
         <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-        <p Class="ml-2">加载中...</p>
+        <p class="ml-2">加载中...</p>
     }
     else
     {

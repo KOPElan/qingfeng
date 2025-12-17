@@ -16,8 +16,8 @@
             @if (systemInfo != null)
             {
                 <!-- CPU Information -->
-                <div Class="pa-4 mb-4">
-                    <h5 Class="mb-3">
+                <div class="pa-4 mb-4">
+                    <h5 class="mb-3">
                         <i class="@Icons.Material.Filled.Speed"></i>
                         CPU信息
                     </h5>
@@ -27,7 +27,7 @@
                             <p><strong>架构：</strong>@systemInfo.Cpu.ProcessorName</p>
                         </div>
                         <div class="col-md-6">
-                            <p Class="mb-2"><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</p>
+                            <p class="mb-2"><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</p>
                             <MudProgressLinear 
                                                Value="@systemInfo.Cpu.UsagePercent">
                                 <p Typo="Typo.body1">@systemInfo.Cpu.UsagePercent%</p>
@@ -37,8 +37,8 @@
                 </div>
 
                 <!-- Memory Information -->
-                <div Class="pa-4 mb-4">
-                    <h5 Class="mb-3">
+                <div class="pa-4 mb-4">
+                    <h5 class="mb-3">
                         <i class="@Icons.Material.Filled.Memory"></i>
                         内存信息
                     </h5>
@@ -49,7 +49,7 @@
                             <p><strong>可用：</strong>@systemInfo.Memory.AvailableGB GB</p>
                         </div>
                         <div class="col-md-6">
-                            <p Class="mb-2"><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</p>
+                            <p class="mb-2"><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</p>
                             <MudProgressLinear 
                                                Value="@systemInfo.Memory.UsagePercent">
                                 <p Typo="Typo.body1">@systemInfo.Memory.UsagePercent%</p>
@@ -59,8 +59,8 @@
                 </div>
 
                 <!-- Disk Information -->
-                <div Class="pa-4 mb-4">
-                    <h5 Class="mb-3">
+                <div class="pa-4 mb-4">
+                    <h5 class="mb-3">
                         <i class="@Icons.Material.Filled.Storage"></i>
                         磁盘信息
                     </h5>
@@ -68,14 +68,14 @@
                     {
                         foreach (var disk in systemInfo.Disks)
                         {
-                            <div Class="pa-3 mb-3">
+                            <div class="pa-3 mb-3">
                                 <h6>@disk.Name</h6>
                                 <p><strong>挂载点：</strong>@disk.MountPoint</p>
                                 <p><strong>文件系统：</strong>@disk.FileSystem</p>
                                 <p><strong>总容量：</strong>@disk.TotalGB</p>
                                 <p><strong>已使用：</strong>@disk.UsedGB</p>
                                 <p><strong>可用：</strong>@disk.AvailableGB</p>
-                                <p Class="mb-2"><strong>使用率：</strong>@disk.UsagePercent%</p>
+                                <p class="mb-2"><strong>使用率：</strong>@disk.UsagePercent%</p>
                                 <MudProgressLinear 
                                                    Value="@disk.UsagePercent" />
                             </div>
@@ -84,8 +84,8 @@
                 </div>
 
                 <!-- Network Information -->
-                <div Class="pa-4 mb-4">
-                    <h5 Class="mb-3">
+                <div class="pa-4 mb-4">
+                    <h5 class="mb-3">
                         <i class="@Icons.Material.Filled.NetworkCheck"></i>
                         网络信息
                     </h5>
@@ -93,7 +93,7 @@
                     {
                         foreach (var network in systemInfo.Networks)
                         {
-                            <div Class="pa-3 mb-3">
+                            <div class="pa-3 mb-3">
                                 <h6>@network.Name</h6>
                                 <p><strong>描述：</strong>@network.Description</p>
                                 <p><strong>状态：</strong>@network.Status</p>
@@ -111,13 +111,12 @@
         </div>
     </div>
     <div class="modal-footer-custom">
-        <button type="button" class="btn btn-custom" OnClick="RefreshData">刷新</button>
-        <button type="button" class="btn btn-custom" OnClick="Close">关闭</button>
+        <button type="button" class="btn btn-custom" @@onclick="RefreshData">刷新</button>
+        <button type="button" class="btn btn-custom" @@onclick="Close">关闭</button>
     </div>
 </div>
 
 @code {
-    [CascadingParameter] public MudBlazor.IDialogReference? MudDialog { get; set; }
     [Parameter] public string? Title { get; set; }
     
     private SystemResourceInfo? systemInfo;
@@ -150,7 +149,7 @@
         }
     }
 
-    private void Close() => MudDialog?.Close();
+    private void Close() { /* Dialog managed by parent component */ }
 
     public void Dispose()
     {
