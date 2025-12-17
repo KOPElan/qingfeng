@@ -11,4 +11,5 @@ public interface IDockerService
     Task RestartContainerAsync(string containerId);
     Task RemoveContainerAsync(string containerId);
     Task<bool> IsDockerAvailableAsync();
+    Task<string> GetContainerLogsAsync(string containerId, int tailLines = 1000);
 }

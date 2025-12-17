@@ -97,6 +97,11 @@
                                           Disabled="@isProcessing"
                                           Size="Size.Small" />
                         }
+                        <MudIconButton Icon="@Icons.Material.Filled.Article" 
+                                      Color="Color.Primary" 
+                                      OnClick="@(() => ViewLogs(context.Id, context.Name))"
+                                      Disabled="@isProcessing"
+                                      Size="Size.Small" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" 
                                       Color="Color.Error" 
                                       OnClick="@(() => RemoveContainer(context.Id))"
@@ -164,6 +169,39 @@
     }
 </MudPaper>
 
+<!-- Logs Dialog -->
+@if (showLogsDialog)
+{
+    <MudDialog Options="dialogOptions">
+        <TitleContent>
+            <MudText Typo="Typo.h6">
+                <MudIcon Icon="@Icons.Material.Filled.Article" Class="mr-2" />
+                容器日志 - @selectedContainerName
+            </MudText>
+        </TitleContent>
+        <DialogContent>
+            @if (isLoadingLogs)
+            {
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                <MudText Class="ml-2">加载日志中...</MudText>
+            }
+            else if (!string.IsNullOrEmpty(containerLogs))
+            {
+                <MudPaper Elevation="0" Class="pa-3" Style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;">
+                    @containerLogs
+                </MudPaper>
+            }
+            else
+            {
+                <MudText Color="Color.Secondary">没有日志数据</MudText>
+            }
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="@(() => showLogsDialog = false)" Color="Color.Primary">关闭</MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
 @code {
     private List<DockerContainerInfo>? containers;
     private List<DockerImageInfo>? images;
@@ -171,6 +209,17 @@
     private bool isError = false;
     private bool isProcessing = false;
     private bool isDockerAvailable = false;
+    private bool showLogsDialog = false;
+    private bool isLoadingLogs = false;
+    private string containerLogs = string.Empty;
+    private string selectedContainerName = string.Empty;
+    
+    private DialogOptions dialogOptions = new DialogOptions
+    {
+        MaxWidth = MaxWidth.Large,
+        FullWidth = true,
+        CloseOnEscapeKey = true
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -279,6 +328,31 @@
         finally
         {
             isProcessing = false;
+        }
+    }
+
+    private async Task ViewLogs(string containerId, string containerName)
+    {
+        selectedContainerName = containerName;
+        showLogsDialog = true;
+        isLoadingLogs = true;
+        containerLogs = string.Empty;
+        
+        try
+        {
+            containerLogs = await DockerService.GetContainerLogsAsync(containerId, 1000);
+            if (string.IsNullOrEmpty(containerLogs))
+            {
+                containerLogs = "没有日志数据";
+            }
+        }
+        catch (Exception ex)
+        {
+            containerLogs = $"加载日志失败: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingLogs = false;
         }
     }
 
