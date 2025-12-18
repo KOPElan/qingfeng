@@ -1,208 +1,124 @@
 @page "/"
 @using QingFeng.Services
 @using QingFeng.Models
-@using System.Text.Json
 @inject ISystemMonitorService SystemMonitorService
-@inject IDockerService DockerService
-@inject IHomeConfigService HomeConfigService
-@inject IDialogService DialogService
-@inject IJSRuntime JS
+@inject IApplicationService ApplicationService
+@inject ISystemSettingService SystemSettingService
+@inject NavigationManager NavigationManager
 @implements IDisposable
 @rendermode InteractiveServer
 
 <PageTitle>清风 - 个人门户</PageTitle>
 
-<div class="modern-homepage-container">
-    <!-- Background Gradient Blobs -->
+<div class="home-portal-container">
+    <!-- Background Gradient -->
     <div class="gradient-bg">
         <div class="gradient-blob gradient-blob-1"></div>
         <div class="gradient-blob gradient-blob-2"></div>
         <div class="gradient-blob gradient-blob-3"></div>
     </div>
 
-    <div class="layout-container">
+    <div class="home-content">
         <!-- Header -->
-        <header class="modern-header">
+        <header class="home-header">
             <div class="header-brand">
-                <div class="brand-icon">
-                    <span class="material-symbols-outlined">dns</span>
-                </div>
-                <h2 class="brand-title">个人门户</h2>
+                <i class="bi bi-house-door-fill" style="font-size: 24px; color: #60a5fa;"></i>
+                <span class="brand-title">HOME PORTAL</span>
             </div>
-            <div class="header-actions">
-                <button class="header-btn" title="设置" aria-label="设置">
-                    <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
-                </button>
-                <button class="header-btn" title="通知" aria-label="通知">
-                    <span class="material-symbols-outlined" style="font-size: 20px;">notifications</span>
-                    <span class="notification-dot"></span>
-                </button>
-            </div>
+            <button class="settings-btn" @onclick="NavigateToSettings" title="设置">
+                <i class="bi bi-gear-fill"></i>
+            </button>
         </header>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <div class="content-wrapper">
-                <!-- Welcome Section -->
-                <div class="welcome-section">
-                    <div class="welcome-text">
-                        <p class="welcome-title">欢迎回来, 管理员</p>
-                        <div class="welcome-date">
-                            <span class="material-symbols-outlined" style="font-size: 20px;">calendar_today</span>
-                            <p>@CurrentDate</p>
-                        </div>
-                    </div>
-                    <div class="weather-widget">
-                        <span class="material-symbols-outlined icon-filled weather-icon" style="font-size: 28px;">sunny</span>
-                        <div class="weather-info">
-                            <span class="weather-temp">24°C</span>
-                            <span class="weather-desc">晴朗</span>
-                        </div>
+        <!-- Clock and Date -->
+        <div class="clock-section">
+            <div class="time-display">@CurrentTime</div>
+            <div class="date-display">@CurrentDateString</div>
+        </div>
+
+        <!-- Status Cards Row -->
+        <div class="status-cards-row">
+            <!-- Weather Card -->
+            <div class="status-card weather-card">
+                <div class="card-content">
+                    <span class="card-label">天气</span>
+                    <div class="weather-display">
+                        <span class="temperature">@Temperature</span>
+                        <span class="weather-condition">@WeatherCondition</span>
                     </div>
                 </div>
+                <i class="bi bi-cloud-sun-fill weather-icon"></i>
+            </div>
 
-                <!-- Search Bar -->
-                <div class="search-container">
-                    <label class="search-wrapper">
-                        <div class="search-input-wrapper">
-                            <div class="search-icon">
-                                <span class="material-symbols-outlined">search</span>
-                            </div>
-                            <input class="search-input" placeholder="搜索应用或网络..." />
-                            <div class="search-button-container">
-                                <button class="search-button">搜索</button>
-                            </div>
-                        </div>
-                    </label>
-                </div>
-
-                <!-- System Status -->
-                <div>
-                    <h3 class="section-title">
-                        <span class="material-symbols-outlined section-icon">monitoring</span>
-                        系统状态
-                    </h3>
-                    <div class="status-grid">
-                        <div class="status-card">
-                            <div class="status-icon-wrapper">
-                                <span class="material-symbols-outlined">developer_board</span>
-                            </div>
-                            <div class="status-content">
-                                <h2 class="status-label">CPU 使用率</h2>
-                                <div class="progress-bar-container">
-                                    <div class="progress-bar" style="width: @(systemInfo?.Cpu.UsagePercent ?? 0)%"></div>
-                                </div>
-                                <p class="status-value">@(systemInfo?.Cpu.UsagePercent.ToString("F1") ?? "0")%</p>
-                            </div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-icon-wrapper">
-                                <span class="material-symbols-outlined">memory</span>
-                            </div>
-                            <div class="status-content">
-                                <h2 class="status-label">内存</h2>
-                                <div class="progress-bar-container">
-                                    <div class="progress-bar" style="width: @MemoryUsagePercent%"></div>
-                                </div>
-                                <p class="status-value">@(systemInfo?.Memory.UsedGB ?? "0 GB") / @(systemInfo?.Memory.TotalGB ?? "0 GB")</p>
-                            </div>
-                        </div>
-                        <div class="status-card">
-                            <div class="status-icon-wrapper">
-                                <span class="material-symbols-outlined">schedule</span>
-                            </div>
-                            <div class="status-content">
-                                <h2 class="status-label">运行时间</h2>
-                                <p class="status-uptime">@UptimeDays <span class="status-uptime-unit">天</span></p>
-                            </div>
-                        </div>
+            <!-- CPU Card -->
+            <div class="status-card cpu-card">
+                <div class="card-content">
+                    <i class="bi bi-cpu-fill card-icon"></i>
+                    <span class="card-label">CPU</span>
+                    <div class="progress-container">
+                        <div class="progress-bar cpu-progress" style="width: @CpuUsage%"></div>
                     </div>
+                    <span class="card-value">@CpuUsage%</span>
                 </div>
+            </div>
 
-                <!-- Common Apps -->
-                <div class="apps-section">
-                    <div class="apps-header">
-                        <h2 class="apps-title">
-                            <span class="material-symbols-outlined section-icon">apps</span>
-                            常用应用
-                        </h2>
-                        <button class="view-all-btn" aria-label="查看全部应用">查看全部</button>
+            <!-- Network Card -->
+            <div class="status-card network-card">
+                <div class="card-content-network">
+                    <div class="network-item">
+                        <i class="bi bi-arrow-down"></i>
+                        <span class="network-label">下载</span>
+                        <span class="network-value">@DownloadSpeed</span>
                     </div>
-                    <div class="apps-grid">
-                        @foreach (var shortcut in OrderedShortcuts.Take(7))
-                        {
-                            @if (IsInternalManagementPage(shortcut.Url))
-                            {
-                                <div class="app-card" @onclick="async () => await OpenInModal(shortcut)" @onkeydown="async (e) => await HandleCardKeyDown(e, shortcut)" role="button" tabindex="0" aria-label="@shortcut.Title">
-                                    <div class="app-status-dot"></div>
-                                    <div class="app-icon-wrapper" style="background: @GetAppColor(shortcut.Id);">
-                                        <span class="material-symbols-outlined" style="font-size: 30px;">@GetMaterialIcon(shortcut.Icon)</span>
-                                    </div>
-                                    <span class="app-name">@shortcut.Title</span>
-                                    <span class="app-category">@shortcut.Category</span>
-                                </div>
-                            }
-                            else
-                            {
-                                <a href="@SanitizeUrl(shortcut.Url)" class="app-card" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
-                                    <div class="app-status-dot"></div>
-                                    <div class="app-icon-wrapper" style="background: @GetAppColor(shortcut.Id);">
-                                        <span class="material-symbols-outlined" style="font-size: 30px;">@GetMaterialIcon(shortcut.Icon)</span>
-                                    </div>
-                                    <span class="app-name">@shortcut.Title</span>
-                                    <span class="app-category">@shortcut.Category</span>
-                                </a>
-                            }
-                        }
-                        <button class="app-card add-app-card" aria-label="添加新应用">
-                            <div class="add-app-icon">
-                                <span class="material-symbols-outlined" style="font-size: 30px;">add</span>
-                            </div>
-                            <span class="app-name">添加应用</span>
-                            <span class="app-category invisible-placeholder">New</span>
-                        </button>
+                    <div class="network-item">
+                        <i class="bi bi-arrow-up"></i>
+                        <span class="network-label">上传</span>
+                        <span class="network-value">@UploadSpeed</span>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
 
-        <!-- Footer -->
-        <footer class="modern-footer">
-            <p>© @DateTime.Now.Year 个人家庭实验室门户. Designed for efficiency.</p>
-        </footer>
-    </div>
+        <div class="status-cards-row">
+            <!-- RAM Card -->
+            <div class="status-card ram-card">
+                <div class="card-content">
+                    <i class="bi bi-memory card-icon"></i>
+                    <span class="card-label">RAM</span>
+                    <div class="progress-container">
+                        <div class="progress-bar ram-progress" style="width: @RamUsage%"></div>
+                    </div>
+                    <span class="card-value">@RamUsage%</span>
+                </div>
+            </div>
+        </div>
 
-    <!-- Bottom Dock -->
-    <div class="bottom-dock">
-        <div class="dock-container">
-            <a href="/" class="dock-item">
-                <div class="dock-icon-bg" style="background: var(--dock-gradient-dashboard);">
-                    <span class="material-symbols-outlined" style="font-size: 28px; color: rgb(55 65 81);">dashboard</span>
-                </div>
-                <span class="dock-tooltip">概览</span>
-                <div class="dock-indicator"></div>
-            </a>
-            <div class="dock-item" @onclick="OpenDockerModal" @onkeydown="async (e) => await HandleDockItemKeyDown(e, OpenDockerModal)" role="button" tabindex="0" aria-label="终端">
-                <div class="dock-icon-bg" style="background: var(--dock-gradient-terminal);">
-                    <span class="material-symbols-outlined" style="font-size: 28px; color: white;">terminal</span>
-                </div>
-                <span class="dock-tooltip">终端</span>
-                <div class="dock-indicator inactive"></div>
+        <!-- Application Center -->
+        <div class="apps-section">
+            <div class="apps-header">
+                <i class="bi bi-grid-3x3-gap-fill"></i>
+                <span class="apps-title">应用中心</span>
             </div>
-            <div class="dock-divider"></div>
-            <div class="dock-item" @onclick="OpenFileManagerModal" @onkeydown="async (e) => await HandleDockItemKeyDown(e, OpenFileManagerModal)" role="button" tabindex="0" aria-label="文件管理">
-                <div class="dock-icon-bg" style="background: var(--dock-gradient-files);">
-                    <span class="material-symbols-outlined" style="font-size: 28px; color: white;">folder_open</span>
+            <div class="apps-grid">
+                @foreach (var app in applications)
+                {
+                    <div class="app-item" @onclick="() => OpenApplication(app)">
+                        <div class="app-status @(app.IsOnline ? "online" : "offline")"></div>
+                        <div class="app-icon" style="background: @app.IconColor;">
+                            <i class="bi @app.Icon"></i>
+                        </div>
+                        <span class="app-title">@app.Title</span>
+                        <span class="app-category">@app.Category</span>
+                    </div>
+                }
+                
+                <!-- Add App Button -->
+                <div class="app-item add-app-btn" @onclick="NavigateToAppManagement">
+                    <div class="add-app-icon">
+                        <i class="bi bi-plus-lg"></i>
+                    </div>
+                    <span class="app-title">Add App</span>
                 </div>
-                <span class="dock-tooltip">文件</span>
-                <div class="dock-indicator inactive"></div>
-            </div>
-            <div class="dock-item" @onclick="OpenSystemMonitorModal" @onkeydown="async (e) => await HandleDockItemKeyDown(e, OpenSystemMonitorModal)" role="button" tabindex="0" aria-label="系统监控">
-                <div class="dock-icon-bg" style="background: var(--dock-gradient-settings);">
-                    <span class="material-symbols-outlined" style="font-size: 28px; color: rgb(55 65 81);">tune</span>
-                </div>
-                <span class="dock-tooltip">设置</span>
-                <div class="dock-indicator inactive"></div>
             </div>
         </div>
     </div>
@@ -210,498 +126,110 @@
 
 @code {
     private SystemResourceInfo? systemInfo;
-    private List<DockerContainerInfo> dockerContainers = new();
-    private List<ShortcutLink> allShortcuts = new();
-    private List<ShortcutLink> customShortcuts = new();
-    private readonly List<ShortcutLink> defaultShortcuts = new()
-    {
-        new ShortcutLink { Id = "internal-home", Title = "主页", Url = "/", Icon = Icons.Material.Filled.Home, Description = "清风入口", Category = Constants.BuiltInCategory, IsPinned = true },
-        new ShortcutLink { Id = "internal-monitor", Title = "系统监控", Url = "/system-monitor", Icon = Icons.Material.Filled.DashboardCustomize, Description = "CPU / 内存 / 磁盘", Category = Constants.BuiltInCategory, IsPinned = true },
-        new ShortcutLink { Id = "internal-docker", Title = "Docker 管理", Url = "/docker", Icon = Icons.Material.Filled.Dns, Description = "容器与镜像", Category = Constants.BuiltInCategory },
-        new ShortcutLink { Id = "internal-disk", Title = "磁盘管理", Url = "/disk-management", Icon = Icons.Material.Filled.Storage, Description = "卷与存储", Category = Constants.BuiltInCategory },
-        new ShortcutLink { Id = "internal-files", Title = "文件管理", Url = "/file-manager", Icon = Icons.Material.Filled.Folder, Description = "浏览文件", Category = Constants.BuiltInCategory },
-        new ShortcutLink { Id = "ha", Title = "Home Assistant", Url = "http://homeassistant.local:8123", Icon = Icons.Material.Filled.Home, Description = "智能家居面板", Category = "自托管", IsPinned = true },
-        new ShortcutLink { Id = "pihole", Title = "Pi-hole", Url = "http://pi.hole/admin", Icon = Icons.Material.Filled.Security, Description = "网络广告拦截", Category = "自托管" },
-        new ShortcutLink { Id = "plex", Title = "Plex", Url = "http://localhost:32400/web", Icon = Icons.Material.Filled.Tv, Description = "媒体中心", Category = "影音" },
-        new ShortcutLink { Id = "jellyfin", Title = "Jellyfin", Url = "http://localhost:8096", Icon = Icons.Material.Filled.PlayCircleFilled, Description = "家庭影院", Category = "影音" },
-        new ShortcutLink { Id = "transmission", Title = "Transmission", Url = "http://localhost:9091", Icon = Icons.Material.Filled.SwapVert, Description = "下载任务", Category = "工具" },
-        new ShortcutLink { Id = "adguard", Title = "AdGuard Home", Url = "http://localhost:3000", Icon = "Icons.Material.Filled.VerifiedUser", Description = "DNS 过滤", Category = "自托管" },
-        new ShortcutLink { Id = "tailscale", Title = "Tailscale", Url = "https://login.tailscale.com/admin", Icon = Icons.Material.Filled.VpnLock, Description = "内网穿透", Category = "网络" },
-        new ShortcutLink { Id = "etherpad", Title = "Etherpad", Url = "http://localhost:9001", Icon = Icons.Material.Filled.EditNote, Description = "协作笔记", Category = "协作" }
-    };
-
-    private ShortcutLink draftShortcut = new()
-    {
-        Id = Guid.NewGuid().ToString("N"),
-        Icon = Icons.Material.Filled.Link,
-        IsPinned = true
-    };
-    private int diskCount;
-    private int networkCount;
-
-    // Fixed dock items
-    private static readonly List<ShortcutLink> DockItems = new()
-    {
-        new ShortcutLink { Id = "internal-home", Title = "首页", Url = "/", Icon = Icons.Material.Filled.Home, Category = Constants.BuiltInCategory },
-        new ShortcutLink { Id = "internal-settings", Title = "设置", Url = "/settings", Icon = Icons.Material.Filled.Settings, Category = Constants.BuiltInCategory },
-        new ShortcutLink { Id = "internal-files", Title = "文件管理器", Url = "/file-manager", Icon = Icons.Material.Filled.Folder, Category = Constants.BuiltInCategory },
-        new ShortcutLink { Id = "internal-docker", Title = "Docker管理", Url = "/docker", Icon = Icons.Material.Filled.Dns, Category = Constants.BuiltInCategory }
-    };
-
-    private DateTime _currentDateCache = DateTime.MinValue;
-    private string? _currentDateFormatted;
-
+    private List<Application> applications = new();
+    private Timer? refreshTimer;
+    
+    // Display properties
     private string CurrentTime => DateTime.Now.ToString("HH:mm");
-    private string CurrentDate
-    {
-        get
-        {
-            var today = DateTime.Today;
-            if (_currentDateCache != today || string.IsNullOrEmpty(_currentDateFormatted))
-            {
-                _currentDateCache = today;
-                _currentDateFormatted = FormatDate(today);
-            }
+    private string CurrentDateString => DateTime.Now.ToString("yyyy年MM月dd日 星期") + GetDayOfWeek();
+    private string Temperature = "18°C";
+    private string WeatherCondition = "晴朗";
+    private double CpuUsage => systemInfo?.Cpu.UsagePercent ?? 0;
+    private double RamUsage => CalculateRamUsage();
+    private string DownloadSpeed = "24MB/s";
+    private string UploadSpeed = "12MB/s";
 
-            return _currentDateFormatted!;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+        
+        // Set up auto-refresh timer (every 5 seconds)
+        refreshTimer = new Timer(async _ => await InvokeAsync(async () =>
+        {
+            await LoadDataAsync();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            // Load system info
+            systemInfo = await SystemMonitorService.GetSystemResourceInfoAsync();
+            
+            // Load applications (limit to 11, leaving space for Add button)
+            applications = (await ApplicationService.GetAllApplicationsAsync()).Take(11).ToList();
+            
+            // Load network stats
+            if (systemInfo?.Networks != null && systemInfo.Networks.Any())
+            {
+                var primaryInterface = systemInfo.Networks.First();
+                DownloadSpeed = FormatSpeed(primaryInterface.BytesReceived);
+                UploadSpeed = FormatSpeed(primaryInterface.BytesSent);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
         }
     }
 
-    private static string FormatDate(DateTime date)
+    private double CalculateRamUsage()
     {
-        var dayOfWeek = date.DayOfWeek switch
+        if (systemInfo?.Memory == null) return 0;
+        
+        if (double.TryParse(systemInfo.Memory.TotalGB, out var total) &&
+            double.TryParse(systemInfo.Memory.UsedGB, out var used))
         {
-            DayOfWeek.Sunday => "星期日",
-            DayOfWeek.Monday => "星期一",
-            DayOfWeek.Tuesday => "星期二",
-            DayOfWeek.Wednesday => "星期三",
-            DayOfWeek.Thursday => "星期四",
-            DayOfWeek.Friday => "星期五",
-            DayOfWeek.Saturday => "星期六",
+            return total > 0 ? (used / total) * 100 : 0;
+        }
+        
+        return 0;
+    }
+
+    private string FormatSpeed(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes}B/s";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024}KB/s";
+        return $"{bytes / (1024 * 1024)}MB/s";
+    }
+
+    private string GetDayOfWeek()
+    {
+        return DateTime.Now.DayOfWeek switch
+        {
+            DayOfWeek.Monday => "一",
+            DayOfWeek.Tuesday => "二",
+            DayOfWeek.Wednesday => "三",
+            DayOfWeek.Thursday => "四",
+            DayOfWeek.Friday => "五",
+            DayOfWeek.Saturday => "六",
+            DayOfWeek.Sunday => "日",
             _ => ""
         };
-        return $"{date.Year}年{date.Month}月{date.Day}日 {dayOfWeek}";
     }
-    private static readonly JsonSerializerOptions StorageOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
 
-    private System.Threading.Timer? _timer;
-
-    private string DiskUsedGb => systemInfo is null ? "0 GB" : $"{SumDisks(d => d.UsedBytes) / 1024d / 1024d / 1024d:F2} GB";
-    private string DiskTotalGb => systemInfo is null ? "0 GB" : $"{SumDisks(d => d.TotalBytes) / 1024d / 1024d / 1024d:F2} GB";
-    private double DiskUsagePercent => systemInfo is null || SumDisks(d => d.TotalBytes) <= 0 ? 0 : Math.Round(SumDisks(d => d.UsedBytes) / SumDisks(d => d.TotalBytes) * 100, 1);
-    
-    private double MemoryUsagePercent
+    private void OpenApplication(Application app)
     {
-        get
+        if (!string.IsNullOrEmpty(app.Url))
         {
-            if (systemInfo?.Memory == null) return 0;
-            var used = double.TryParse(systemInfo.Memory.UsedGB.Replace(" GB", ""), out var u) ? u : 0;
-            var total = double.TryParse(systemInfo.Memory.TotalGB.Replace(" GB", ""), out var t) ? t : 0;
-            return total > 0 ? Math.Round((used / total) * 100, 1) : 0;
-        }
-    }
-    
-    private int UptimeDays
-    {
-        get
-        {
-            try
-            {
-                var uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
-                return (int)uptime.TotalDays;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to calculate uptime days: {ex.Message}");
-                return 0;
-            }
+            NavigationManager.NavigateTo(app.Url, true);
         }
     }
 
-    private IEnumerable<ShortcutLink> OrderedShortcuts => allShortcuts
-        .OrderByDescending(l => l.IsPinned)
-        .ThenBy(l => l.Category)
-        .ThenBy(l => l.Title);
-
-    private bool _stateLoaded;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private void NavigateToSettings()
     {
-        if (!firstRender || _stateLoaded)
-            return;
+        NavigationManager.NavigateTo("/settings");
+    }
 
-        _stateLoaded = true;
-        await LoadStateAsync();
-        await RefreshData();
-
-        // Update time every second
-        _timer = new System.Threading.Timer(_ =>
-        {
-            try
-            {
-                _ = InvokeAsync(StateHasChanged);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Timer error: {ex.Message}");
-            }
-        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    private void NavigateToAppManagement()
+    {
+        NavigationManager.NavigateTo("/app-management");
     }
 
     public void Dispose()
     {
-        _timer?.Dispose();
-    }
-
-    private async Task RefreshData()
-    {
-        systemInfo = await SystemMonitorService.GetSystemResourceInfoAsync();
-        diskCount = systemInfo?.Disks?.Count ?? 0;
-        networkCount = systemInfo?.Networks?.Count ?? 0;
-        dockerContainers = await DockerService.GetContainersAsync(false);
-        StateHasChanged();
-    }
-
-    private async Task LoadStateAsync()
-    {
-        try
-        {
-            // Try to migrate from localStorage if database is empty
-            await MigrateFromLocalStorageAsync();
-
-            // Load all shortcuts from database
-            allShortcuts = await HomeConfigService.GetAllShortcutsAsync();
-            customShortcuts = allShortcuts.Where(s => !s.Category.StartsWith(Constants.BuiltInCategory)).ToList();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading state: {ex.Message}");
-            // Fallback to default shortcuts
-            allShortcuts = defaultShortcuts.ToList();
-            customShortcuts = new List<ShortcutLink>();
-        }
-    }
-
-    private async Task MigrateFromLocalStorageAsync()
-    {
-        try
-        {
-            // Check if we've already migrated
-            var migrated = await HomeConfigService.GetConfigAsync("localStorage_migrated");
-            if (migrated == "true")
-                return;
-
-            // Get data from localStorage
-            var pinnedJson = await JS.InvokeAsync<string?>("localStorage.getItem", "qingfeng-pinned-shortcuts");
-            var customJson = await JS.InvokeAsync<string?>("localStorage.getItem", "qingfeng-custom-shortcuts");
-
-            if (!string.IsNullOrWhiteSpace(pinnedJson))
-            {
-                var pinnedIds = JsonSerializer.Deserialize<HashSet<string>>(pinnedJson, StorageOptions);
-                if (pinnedIds != null)
-                {
-                    // Update pinned states in database
-                    foreach (var id in pinnedIds)
-                    {
-                        try
-                        {
-                            await HomeConfigService.TogglePinAsync(id);
-                        }
-                        catch { /* Continue on error */ }
-                    }
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(customJson))
-            {
-                var customShortcuts = JsonSerializer.Deserialize<List<ShortcutLink>>(customJson, StorageOptions);
-                if (customShortcuts != null)
-                {
-                    // Save custom shortcuts to database
-                    foreach (var shortcut in customShortcuts)
-                    {
-                        try
-                        {
-                            await HomeConfigService.SaveShortcutAsync(shortcut);
-                        }
-                        catch { /* Continue on error */ }
-                    }
-                }
-            }
-
-            // Mark as migrated
-            await HomeConfigService.SetConfigAsync("localStorage_migrated", "true");
-
-            // Optionally clear localStorage
-            await JS.InvokeVoidAsync("localStorage.removeItem", "qingfeng-pinned-shortcuts");
-            await JS.InvokeVoidAsync("localStorage.removeItem", "qingfeng-custom-shortcuts");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Migration error: {ex.Message}");
-        }
-    }
-
-    private bool CanSubmit => !string.IsNullOrWhiteSpace(draftShortcut.Title) && !string.IsNullOrWhiteSpace(draftShortcut.Url);
-
-    private async Task AddShortcut()
-    {
-        if (!CanSubmit)
-            return;
-
-        // Validate URL to prevent XSS
-        var sanitizedUrl = SanitizeUrl(draftShortcut.Url);
-        if (sanitizedUrl == "#")
-        {
-            // Invalid URL, don't save
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(draftShortcut.Id))
-        {
-            draftShortcut.Id = Guid.NewGuid().ToString("N");
-        }
-
-        var newShortcut = new ShortcutLink
-        {
-            Id = draftShortcut.Id,
-            Title = draftShortcut.Title,
-            Url = sanitizedUrl,
-            Icon = string.IsNullOrWhiteSpace(draftShortcut.Icon) ? Icons.Material.Filled.Link : draftShortcut.Icon,
-            Description = draftShortcut.Description,
-            Category = string.IsNullOrWhiteSpace(draftShortcut.Category) ? "自定义" : draftShortcut.Category,
-            IsPinned = draftShortcut.IsPinned,
-            IsDocker = draftShortcut.IsDocker
-        };
-
-        await HomeConfigService.SaveShortcutAsync(newShortcut);
-
-        draftShortcut = new ShortcutLink
-        {
-            Id = Guid.NewGuid().ToString("N"),
-            Icon = Icons.Material.Filled.Link,
-            IsPinned = true
-        };
-
-        await LoadStateAsync();
-    }
-
-    private async Task TogglePin(ShortcutLink shortcut)
-    {
-        await HomeConfigService.TogglePinAsync(shortcut.Id);
-        await LoadStateAsync();
-    }
-
-    private void PrefillFromContainer(DockerContainerInfo container, string? guessUrl)
-    {
-        draftShortcut = new ShortcutLink
-        {
-            Id = Guid.NewGuid().ToString("N"),
-            Title = container.Name,
-            Url = string.IsNullOrWhiteSpace(guessUrl) ? string.Empty : guessUrl,
-            Icon = Icons.Material.Filled.SettingsEthernet,
-            Description = container.Image,
-            Category = "Docker",
-            IsPinned = true,
-            IsDocker = true
-        };
-    }
-
-    private bool IsCustom(ShortcutLink shortcut) => !shortcut.Category.StartsWith(Constants.BuiltInCategory);
-
-    private async Task RemoveShortcut(ShortcutLink shortcut)
-    {
-        if (!IsCustom(shortcut))
-            return;
-
-        await HomeConfigService.DeleteShortcutAsync(shortcut.Id);
-        await LoadStateAsync();
-    }
-
-    private string GuessContainerUrl(DockerContainerInfo container)
-    {
-        var portString = container.Ports.FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(portString))
-            return string.Empty;
-
-        var parts = portString.Split(':', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0 || !int.TryParse(parts[0], out var publicPort))
-            return string.Empty;
-
-        return $"http://localhost:{publicPort}";
-    }
-
-    private double SumDisks(Func<DiskInfo, long> selector)
-    {
-        return systemInfo?.Disks?.Where(d => d.IsReady).Select(selector).Sum() ?? 0;
-    }
-
-    private string ResolveIcon(string icon)
-    {
-        return string.IsNullOrWhiteSpace(icon) ? Icons.Material.Filled.Link : icon;
-    }
-
-    private string GetAppColor(string id)
-    {
-        return id switch
-        {
-            "internal-home" => "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            "internal-monitor" => "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-            "internal-docker" => "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-            "internal-disk" => "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
-            "internal-files" => "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-            "ha" => "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)",
-            "pihole" => "linear-gradient(180deg, #ec4899 0%, #be185d 100%)",
-            "plex" => "linear-gradient(180deg, #f59e0b 0%, #ea580c 100%)",
-            "jellyfin" => "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
-            "transmission" => "linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%)",
-            "adguard" => "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
-            "tailscale" => "linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)",
-            "etherpad" => "linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)",
-            _ => "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-        };
-    }
-    
-    private string GetMaterialIcon(string icon)
-    {
-        // Convert MudBlazor Icons to Material Symbols
-        if (string.IsNullOrWhiteSpace(icon)) return "link";
-        
-        // Extract icon name from MudBlazor format (e.g., "Icons.Material.Filled.Home" => "Home")
-        var trimmedIcon = icon.Trim();
-        var lastDotIndex = trimmedIcon.LastIndexOf('.');
-        var iconName = lastDotIndex >= 0 && lastDotIndex < trimmedIcon.Length - 1
-            ? trimmedIcon.Substring(lastDotIndex + 1)
-            : trimmedIcon;
-        
-        return iconName switch
-        {
-            "Home" => "home",
-            "Dashboard" or "DashboardCustomize" => "dashboard",
-            "Dns" => "dns",
-            "Storage" => "storage",
-            "Folder" => "folder",
-            "Tv" => "movie",
-            "Security" => "shield",
-            "PlayCircle" or "PlayCircleFilled" => "play_circle",
-            "SwapVert" => "swap_vert",
-            "VerifiedUser" => "verified_user",
-            "VpnLock" => "vpn_lock",
-            "EditNote" => "edit_note",
-            "Settings" => "settings",
-            "NetworkCheck" => "network_check",
-            "ContentCopy" => "content_copy",
-            "Link" => "link",
-            "Cloud" => "cloud",
-            "WbSunny" => "sunny",
-            _ => "apps"
-        };
-    }
-
-    private bool IsInternalManagementPage(string url)
-    {
-        return url == Constants.InternalPages.SystemMonitor ||
-               url == Constants.InternalPages.Docker ||
-               url == Constants.InternalPages.DiskManagement ||
-               url == Constants.InternalPages.FileManager;
-    }
-
-    private async Task OpenInModal(ShortcutLink shortcut)
-    {
-        var options = new DialogOptions 
-        { 
-            MaxWidth = true, 
-            FullWidth = true,
-            CloseButton = true,
-            FullScreen = true
-        };
-
-        var parameters = new Dictionary<string, object>
-        {
-            { "Title", shortcut.Title }
-        };
-
-        switch (shortcut.Url)
-        {
-            case var url when url == Constants.InternalPages.SystemMonitor:
-                await DialogService.ShowAsync<QingFeng.Components.Dialogs.SystemMonitorDialog>(shortcut.Title, parameters, options);
-                break;
-            case var url when url == Constants.InternalPages.Docker:
-                await DialogService.ShowAsync<QingFeng.Components.Dialogs.DockerDialog>(shortcut.Title, parameters, options);
-                break;
-            case var url when url == Constants.InternalPages.DiskManagement:
-                await DialogService.ShowAsync<QingFeng.Components.Dialogs.DiskManagementDialog>(shortcut.Title, parameters, options);
-                break;
-            case var url when url == Constants.InternalPages.FileManager:
-                await DialogService.ShowAsync<QingFeng.Components.Dialogs.FileManagerDialog>(shortcut.Title, parameters, options);
-                break;
-        }
-    }
-
-    private async Task HandleKeyDown(KeyboardEventArgs e, ShortcutLink shortcut)
-    {
-        if (e.Key == "Enter" || e.Key == " ")
-        {
-            await OpenInModal(shortcut);
-        }
-    }
-
-    private bool IsExternalUrl(string url)
-    {
-        return url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-               url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private string SanitizeUrl(string url)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-            return "#";
-
-        // Allow only http, https, and relative URLs
-        var lowerUrl = url.Trim().ToLowerInvariant();
-        if (lowerUrl.StartsWith("javascript:") ||
-            lowerUrl.StartsWith("data:") ||
-            lowerUrl.StartsWith("vbscript:") ||
-            lowerUrl.StartsWith("file:"))
-        {
-            return "#";
-        }
-
-        return url;
-    }
-    
-    private async Task OpenDockerModal()
-    {
-        await OpenInModal(new ShortcutLink { Url = Constants.InternalPages.Docker, Title = "Docker管理" });
-    }
-    
-    private async Task OpenFileManagerModal()
-    {
-        await OpenInModal(new ShortcutLink { Url = Constants.InternalPages.FileManager, Title = "文件管理" });
-    }
-    
-    private async Task OpenSystemMonitorModal()
-    {
-        await OpenInModal(new ShortcutLink { Url = Constants.InternalPages.SystemMonitor, Title = "系统监控" });
-    }
-    
-    private async Task HandleCardKeyDown(KeyboardEventArgs e, ShortcutLink shortcut)
-    {
-        if (e.Key == "Enter" || e.Key == " ")
-        {
-            await OpenInModal(shortcut);
-        }
-    }
-    
-    private async Task HandleDockItemKeyDown(KeyboardEventArgs e, Func<Task> action)
-    {
-        if (e.Key == "Enter" || e.Key == " ")
-        {
-            await action();
-        }
+        refreshTimer?.Dispose();
     }
 }

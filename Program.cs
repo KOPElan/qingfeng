@@ -20,7 +20,9 @@ builder.Services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
 builder.Services.AddSingleton<IDockerService, DockerService>();
 builder.Services.AddScoped<IFileManagerService, FileManagerService>();
 builder.Services.AddSingleton<IDiskManagementService, DiskManagementService>();
-builder.Services.AddScoped<IHomeConfigService, HomeConfigService>();
+builder.Services.AddScoped<IDockItemService, DockItemService>();
+builder.Services.AddScoped<IApplicationService, ApplicationService>();
+builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddSingleton<IDialogService, DialogService>();
 
 var app = builder.Build();
@@ -28,8 +30,17 @@ var app = builder.Build();
 // Initialize database
 using (var scope = app.Services.CreateScope())
 {
-    var homeConfigService = scope.ServiceProvider.GetRequiredService<IHomeConfigService>();
-    await homeConfigService.InitializeDefaultsAsync();
+    var dbContext = scope.ServiceProvider.GetRequiredService<QingFengDbContext>();
+    await dbContext.Database.EnsureCreatedAsync();
+    
+    var dockItemService = scope.ServiceProvider.GetRequiredService<IDockItemService>();
+    await dockItemService.InitializeDefaultDockItemsAsync();
+    
+    var applicationService = scope.ServiceProvider.GetRequiredService<IApplicationService>();
+    await applicationService.InitializeDefaultApplicationsAsync();
+    
+    var systemSettingService = scope.ServiceProvider.GetRequiredService<ISystemSettingService>();
+    await systemSettingService.InitializeDefaultSettingsAsync();
 }
 
 // Configure the HTTP request pipeline.
