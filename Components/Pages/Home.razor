@@ -182,7 +182,7 @@
                 <span class="dock-tooltip">概览</span>
                 <div class="dock-indicator"></div>
             </a>
-            <div class="dock-item" @onclick="OpenDockerModal" @onkeydown="HandleDockKeyDown" role="button" tabindex="0" aria-label="终端">
+            <div class="dock-item" @onclick="OpenDockerModal" @onkeydown="async (e) => await HandleDockItemKeyDown(e, OpenDockerModal)" role="button" tabindex="0" aria-label="终端">
                 <div class="dock-icon-bg" style="background: var(--dock-gradient-terminal);">
                     <span class="material-symbols-outlined" style="font-size: 28px; color: white;">terminal</span>
                 </div>
@@ -190,14 +190,14 @@
                 <div class="dock-indicator inactive"></div>
             </div>
             <div class="dock-divider"></div>
-            <div class="dock-item" @onclick="OpenFileManagerModal" @onkeydown="HandleDockKeyDown" role="button" tabindex="0" aria-label="文件管理">
+            <div class="dock-item" @onclick="OpenFileManagerModal" @onkeydown="async (e) => await HandleDockItemKeyDown(e, OpenFileManagerModal)" role="button" tabindex="0" aria-label="文件管理">
                 <div class="dock-icon-bg" style="background: var(--dock-gradient-files);">
                     <span class="material-symbols-outlined" style="font-size: 28px; color: white;">folder_open</span>
                 </div>
                 <span class="dock-tooltip">文件</span>
                 <div class="dock-indicator inactive"></div>
             </div>
-            <div class="dock-item" @onclick="OpenSystemMonitorModal" @onkeydown="HandleDockKeyDown" role="button" tabindex="0" aria-label="系统监控">
+            <div class="dock-item" @onclick="OpenSystemMonitorModal" @onkeydown="async (e) => await HandleDockItemKeyDown(e, OpenSystemMonitorModal)" role="button" tabindex="0" aria-label="系统监控">
                 <div class="dock-icon-bg" style="background: var(--dock-gradient-settings);">
                     <span class="material-symbols-outlined" style="font-size: 28px; color: rgb(55 65 81);">tune</span>
                 </div>
@@ -697,12 +697,11 @@
         }
     }
     
-    private async Task HandleDockKeyDown(KeyboardEventArgs e)
+    private async Task HandleDockItemKeyDown(KeyboardEventArgs e, Func<Task> action)
     {
         if (e.Key == "Enter" || e.Key == " ")
         {
-            // The onclick handler will be triggered automatically
-            await Task.CompletedTask;
+            await action();
         }
     }
 }
