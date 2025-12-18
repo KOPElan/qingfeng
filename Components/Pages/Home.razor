@@ -177,27 +177,40 @@
         new ShortcutLink { Id = "internal-docker", Title = "Docker管理", Url = "/docker", Icon = Icons.Material.Filled.Dns, Category = Constants.BuiltInCategory }
     };
 
+    private DateTime _currentDateCache = DateTime.MinValue;
+    private string? _currentDateFormatted;
+
     private string CurrentTime => DateTime.Now.ToString("HH:mm");
     private string CurrentDate
     {
         get
         {
-            var now = DateTime.Now;
-            var dayOfWeek = now.DayOfWeek switch
+            var today = DateTime.Today;
+            if (_currentDateCache != today || string.IsNullOrEmpty(_currentDateFormatted))
             {
-                DayOfWeek.Sunday => "星期日",
-                DayOfWeek.Monday => "星期一",
-                DayOfWeek.Tuesday => "星期二",
-                DayOfWeek.Wednesday => "星期三",
-                DayOfWeek.Thursday => "星期四",
-                DayOfWeek.Friday => "星期五",
-                DayOfWeek.Saturday => "星期六",
-                _ => ""
-            };
-            return $"{now.Year}年{now.Month}月{now.Day}日 {dayOfWeek}";
+                _currentDateCache = today;
+                _currentDateFormatted = FormatDate(today);
+            }
+
+            return _currentDateFormatted!;
         }
     }
 
+    private static string FormatDate(DateTime date)
+    {
+        var dayOfWeek = date.DayOfWeek switch
+        {
+            DayOfWeek.Sunday => "星期日",
+            DayOfWeek.Monday => "星期一",
+            DayOfWeek.Tuesday => "星期二",
+            DayOfWeek.Wednesday => "星期三",
+            DayOfWeek.Thursday => "星期四",
+            DayOfWeek.Friday => "星期五",
+            DayOfWeek.Saturday => "星期六",
+            _ => ""
+        };
+        return $"{date.Year}年{date.Month}月{date.Day}日 {dayOfWeek}";
+    }
     private static readonly JsonSerializerOptions StorageOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
