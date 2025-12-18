@@ -179,13 +179,8 @@
     {
         if (systemInfo?.Memory == null) return 0;
         
-        if (double.TryParse(systemInfo.Memory.TotalGB, out var total) &&
-            double.TryParse(systemInfo.Memory.UsedGB, out var used))
-        {
-            return total > 0 ? (used / total) * 100 : 0;
-        }
-        
-        return 0;
+        // Use the UsagePercent property directly instead of parsing strings
+        return systemInfo.Memory.UsagePercent;
     }
 
     private string FormatSpeed(long bytes)

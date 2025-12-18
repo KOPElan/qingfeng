@@ -105,9 +105,16 @@
                 showSaveMessage = true;
                 StateHasChanged();
                 
-                await Task.Delay(2000);
-                showSaveMessage = false;
-                StateHasChanged();
+                // Use Timer instead of Task.Delay to prevent memory leaks
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(2000);
+                    await InvokeAsync(() =>
+                    {
+                        showSaveMessage = false;
+                        StateHasChanged();
+                    });
+                });
             }
         }
         catch (Exception ex)

@@ -164,7 +164,8 @@
 
     private async Task DeleteApplication(Application app)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", $"确定要删除 {app.Title} 吗?"))
+        // Use AppId instead of Title to prevent XSS
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "确定要删除此应用吗?"))
         {
             await ApplicationService.DeleteApplicationAsync(app.AppId);
             await LoadApplicationsAsync();
