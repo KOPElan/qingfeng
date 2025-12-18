@@ -7,115 +7,93 @@
 @inject IHomeConfigService HomeConfigService
 @inject IDialogService DialogService
 @inject IJSRuntime JS
+@implements IDisposable
 @rendermode InteractiveServer
 
 <PageTitle>清风 - 个人主页</PageTitle>
 
 <div class="homepage-container">
-    <div class="hero-section">
-        <div class="hero-icon">
-            <i class="@Icons.Material.Filled.WbSunny" style="font-size: 3rem;"></i>
-        </div>
-        <h3 class="hero-greeting">@GreetingText</h3>
-        
-        <div class="hero-content">
-            <!-- Recents Panel -->
-            <div class="hero-panel recents-panel card-custom">
-                <p class="panel-header fw-semibold">Recents</p>
-                <div class="recent-items">
-                    <div class="recent-item">
-                        <i class="@Icons.Material.Filled.AudioFile recent-icon" style="color: #c084fc;"></i>
-                        <div class="recent-info">
-                            <p class="small mb-0">Vida La Vida</p>
-                            <small class="text-muted-custom">MP3</small>
-                        </div>
-                    </div>
-                    <div class="recent-item">
-                        <i class="@Icons.Material.Filled.Description recent-icon" style="color: #60a5fa;"></i>
-                        <div class="recent-info">
-                            <p class="small mb-0">Home 2 Write-up Draft</p>
-                            <small class="text-muted-custom">TXT</small>
-                        </div>
-                    </div>
-                    <div class="recent-item">
-                        <i class="@Icons.Material.Filled.TableChart recent-icon" style="color: #34d399;"></i>
-                        <div class="recent-info">
-                            <p class="small mb-0">3rd Quarter Financials</p>
-                            <small class="text-muted-custom">XLSX</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- Date and Time Section -->
+    <div class="datetime-section">
+        <h1 class="time-display">@CurrentTime</h1>
+        <p class="date-display">@CurrentDate</p>
+    </div>
 
-            <!-- System Stats Cards -->
-            <div class="stats-cards">
+    <!-- Status Components Section -->
+    <div class="status-section">
+        <!-- Weather Component -->
+        <div class="status-card weather-card">
+            <div class="status-card-header">
+                <i class="@Icons.Material.Filled.WbSunny" style="font-size: 2rem;"></i>
+            </div>
+            <div class="status-card-body">
+                <h3>天气组件</h3>
+                <p class="text-muted-custom">天气信息待接入</p>
+            </div>
+        </div>
+
+        <!-- System Monitor Component -->
+        <div class="status-card system-card">
+            <div class="status-card-header">
+                <i class="@Icons.Material.Filled.DashboardCustomize" style="font-size: 2rem;"></i>
+            </div>
+            <div class="status-card-body">
+                <h3>系统监控组件</h3>
                 @if (systemInfo is null)
                 {
-                    <div class="skeleton" style="height: 140px; width: 100%;"></div>
+                    <p class="text-muted-custom">加载中...</p>
                 }
                 else
                 {
-                    <div class="stat-card-new card-custom">
-                        <i class="@Icons.Material.Filled.Speed stat-icon"></i>
-                        <div class="stat-content">
-                            <small class="text-muted-custom">CPU</small>
-                            <h6 class="mb-0">@systemInfo.Cpu.UsagePercent.ToString("F1")%</h6>
+                    <div class="status-metrics">
+                        <div class="metric-item">
+                            <span class="metric-label">CPU</span>
+                            <span class="metric-value">@systemInfo.Cpu.UsagePercent.ToString("F1")%</span>
                         </div>
-                    </div>
-                    <div class="stat-card-new card-custom">
-                        <i class="@Icons.Material.Filled.Storage stat-icon"></i>
-                        <div class="stat-content">
-                            <small class="text-muted-custom">Free</small>
-                            <h6 class="mb-0">@DiskTotalGb</h6>
+                        <div class="metric-item">
+                            <span class="metric-label">内存</span>
+                            <span class="metric-value">@systemInfo.Memory.UsedGB</span>
                         </div>
-                    </div>
-                    <div class="stat-card-new card-custom">
-                        <i class="@Icons.Material.Filled.Memory stat-icon"></i>
-                        <div class="stat-content">
-                            <small class="text-muted-custom">Memory</small>
-                            <h6 class="mb-0">@systemInfo.Memory.UsedGB</h6>
+                        <div class="metric-item">
+                            <span class="metric-label">磁盘</span>
+                            <span class="metric-value">@DiskUsagePercent.ToString("F1")%</span>
                         </div>
                     </div>
                 }
             </div>
+        </div>
 
-            <!-- Activity Panel -->
-            <div class="hero-panel activity-panel card-custom">
-                <div class="activity-items">
-                    <div class="activity-item">
-                        <i class="@Icons.Material.Filled.TrendingUp" style="color: #fbbf24; font-size: 1.2rem;"></i>
-                        <p class="small mb-0">Following update</p>
+        <!-- Network Monitor Component -->
+        <div class="status-card network-card">
+            <div class="status-card-header">
+                <i class="@Icons.Material.Filled.NetworkCheck" style="font-size: 2rem;"></i>
+            </div>
+            <div class="status-card-body">
+                <h3>网络监控组件</h3>
+                @if (systemInfo?.Networks is null || systemInfo.Networks.Count == 0)
+                {
+                    <p class="text-muted-custom">无网络信息</p>
+                }
+                else
+                {
+                    <div class="status-metrics">
+                        @foreach (var network in systemInfo.Networks.Take(2))
+                        {
+                            <div class="metric-item">
+                                <span class="metric-label">@network.Name</span>
+                                <span class="metric-value">@network.Status</span>
+                            </div>
+                        }
                     </div>
-                    <div class="activity-item">
-                        <i class="@Icons.Material.Filled.ThumbUp" style="color: #fb923c; font-size: 1.2rem;"></i>
-                        <p class="small mb-0">Reaction</p>
-                    </div>
-                    <div class="activity-item">
-                        <i class="@Icons.Material.Filled.Person" style="color: #94a3b8; font-size: 1.2rem;"></i>
-                        <p class="small mb-0">Profile update</p>
-                    </div>
-                    <div class="activity-item">
-                        <i class="@Icons.Material.Filled.Chat" style="color: #94a3b8; font-size: 1.2rem;"></i>
-                        <p class="small text-muted mb-0">Reaction</p>
-                    </div>
-                </div>
-                <div class="activity-count">
-                    <h4 class="text-muted" style="opacity: 0.3;">128</h4>
-                </div>
+                }
             </div>
         </div>
     </div>
 
-    <!-- App Grid Section -->
+    <!-- App Shortcuts Section -->
     <div class="apps-section">
-        <div class="apps-header">
-            <p class="section-label fw-semibold">Files</p>
-            <p class="section-label fw-semibold">Settings</p>
-            <p class="section-label fw-semibold">Nostr Relay</p>
-        </div>
-        
         <div class="apps-grid">
-            @foreach (var shortcut in OrderedShortcuts.Take(12))
+            @foreach (var shortcut in OrderedShortcuts.Take(8))
             {
                 <a href="@shortcut.Url" class="app-item" target="@(shortcut.Url.StartsWith("http") ? "_blank" : "_self")" rel="noreferrer">
                     <div class="app-icon" style="background: @GetAppColor(shortcut.Id);">
@@ -125,76 +103,34 @@
                 </a>
             }
         </div>
-
-        <div class="carousel-dots">
-            <div class="dot active"></div>
-            <div class="dot"></div>
-        </div>
     </div>
 
-    <!-- Search Bar -->
-    <div class="search-section">
-        <input type="text" class="form-control-custom search-input" placeholder="Search" />
-        <small class="text-muted-custom">⌘K</small>
-    </div>
-
-    <!-- Dock -->
+    <!-- Permanent Dock -->
     <div class="bottom-dock">
-        <div class="dock-panel card-custom">
-            @if (PinnedShortcuts.Count > 0)
+        <div class="dock-panel">
+            @foreach (var shortcut in DockItems)
             {
-                @foreach (var shortcut in PinnedShortcuts.Take(6))
+                @if (IsInternalManagementPage(shortcut.Url))
                 {
-                    @if (IsInternalManagementPage(shortcut.Url))
-                    {
-                        <div class="dock-icon" 
-                             @onclick="async () => await OpenInModal(shortcut)" 
-                             @onkeydown="(e) => HandleKeyDown(e, shortcut)"
-                             tabindex="0" 
-                             role="button" 
-                             aria-label="@shortcut.Title"
-                             style="cursor: pointer;">
-                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
-                            </div>
+                    <div class="dock-icon" 
+                         @onclick="async () => await OpenInModal(shortcut)" 
+                         @onkeydown="(e) => HandleKeyDown(e, shortcut)"
+                         tabindex="0" 
+                         role="button" 
+                         aria-label="@shortcut.Title"
+                         style="cursor: pointer;">
+                        <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                            <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                         </div>
-                    }
-                    else
-                    {
-                        <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
-                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
-                            </div>
-                        </a>
-                    }
+                    </div>
                 }
-            }
-            else
-            {
-                @foreach (var shortcut in defaultShortcuts.Where(s => s.IsPinned).Take(6))
+                else
                 {
-                    @if (IsInternalManagementPage(shortcut.Url))
-                    {
-                        <div class="dock-icon" 
-                             @onclick="async () => await OpenInModal(shortcut)" 
-                             @onkeydown="(e) => HandleKeyDown(e, shortcut)"
-                             tabindex="0" 
-                             role="button" 
-                             aria-label="@shortcut.Title"
-                             style="cursor: pointer;">
-                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
-                            </div>
+                    <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
+                        <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
+                            <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
                         </div>
-                    }
-                    else
-                    {
-                        <a href="@SanitizeUrl(shortcut.Url)" class="dock-icon" target="@(IsExternalUrl(shortcut.Url) ? "_blank" : "_self")" rel="noreferrer">
-                            <div class="dock-icon-bg" style="background: @GetAppColor(shortcut.Id);">
-                                <i class="@ResolveIcon(shortcut.Icon)" style="font-size: 1.5rem;"></i>
-                            </div>
-                        </a>
-                    }
+                    </a>
                 }
             }
         </div>
@@ -232,32 +168,65 @@
     private int diskCount;
     private int networkCount;
 
+    // Fixed dock items
+    private static readonly List<ShortcutLink> DockItems = new()
+    {
+        new ShortcutLink { Id = "internal-home", Title = "首页", Url = "/", Icon = Icons.Material.Filled.Home, Category = Constants.BuiltInCategory },
+        new ShortcutLink { Id = "internal-settings", Title = "设置", Url = "/settings", Icon = Icons.Material.Filled.Settings, Category = Constants.BuiltInCategory },
+        new ShortcutLink { Id = "internal-files", Title = "文件管理器", Url = "/file-manager", Icon = Icons.Material.Filled.Folder, Category = Constants.BuiltInCategory },
+        new ShortcutLink { Id = "internal-docker", Title = "Docker管理", Url = "/docker", Icon = Icons.Material.Filled.Dns, Category = Constants.BuiltInCategory }
+    };
+
+    private DateTime _currentDateCache = DateTime.MinValue;
+    private string? _currentDateFormatted;
+
+    private string CurrentTime => DateTime.Now.ToString("HH:mm");
+    private string CurrentDate
+    {
+        get
+        {
+            var today = DateTime.Today;
+            if (_currentDateCache != today || string.IsNullOrEmpty(_currentDateFormatted))
+            {
+                _currentDateCache = today;
+                _currentDateFormatted = FormatDate(today);
+            }
+
+            return _currentDateFormatted!;
+        }
+    }
+
+    private static string FormatDate(DateTime date)
+    {
+        var dayOfWeek = date.DayOfWeek switch
+        {
+            DayOfWeek.Sunday => "星期日",
+            DayOfWeek.Monday => "星期一",
+            DayOfWeek.Tuesday => "星期二",
+            DayOfWeek.Wednesday => "星期三",
+            DayOfWeek.Thursday => "星期四",
+            DayOfWeek.Friday => "星期五",
+            DayOfWeek.Saturday => "星期六",
+            _ => ""
+        };
+        return $"{date.Year}年{date.Month}月{date.Day}日 {dayOfWeek}";
+    }
     private static readonly JsonSerializerOptions StorageOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = false
     };
 
-    private string GreetingText => DateTime.Now.Hour switch
-    {
-        >= 6 and < 12 => "早上好，欢迎回来",
-        >= 12 and < 18 => "下午好，保持专注",
-        _ => "晚上好，注意休息"
-    };
+    private System.Threading.Timer? _timer;
 
     private string DiskUsedGb => systemInfo is null ? "0 GB" : $"{SumDisks(d => d.UsedBytes) / 1024d / 1024d / 1024d:F2} GB";
     private string DiskTotalGb => systemInfo is null ? "0 GB" : $"{SumDisks(d => d.TotalBytes) / 1024d / 1024d / 1024d:F2} GB";
     private double DiskUsagePercent => systemInfo is null || SumDisks(d => d.TotalBytes) <= 0 ? 0 : Math.Round(SumDisks(d => d.UsedBytes) / SumDisks(d => d.TotalBytes) * 100, 1);
-    private string ActiveInterfacesSummary => systemInfo?.Networks is null || systemInfo.Networks.Count == 0
-        ? "暂无网络信息"
-        : string.Join(" · ", systemInfo.Networks.Take(2).Select(n => n.Name));
 
     private IEnumerable<ShortcutLink> OrderedShortcuts => allShortcuts
         .OrderByDescending(l => l.IsPinned)
         .ThenBy(l => l.Category)
         .ThenBy(l => l.Title);
-
-    private List<ShortcutLink> PinnedShortcuts => allShortcuts.Where(s => s.IsPinned).Take(16).ToList();
 
     private bool _stateLoaded;
 
@@ -269,6 +238,24 @@
         _stateLoaded = true;
         await LoadStateAsync();
         await RefreshData();
+
+        // Update time every second
+        _timer = new System.Threading.Timer(_ =>
+        {
+            try
+            {
+                _ = InvokeAsync(StateHasChanged);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Timer error: {ex.Message}");
+            }
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
     }
 
     private async Task RefreshData()

@@ -12,6 +12,7 @@
     --card-hover-bg: rgba(255, 255, 255, 0.08);
     --text-muted: rgba(255, 255, 255, 0.6);
     --border-color: rgba(255, 255, 255, 0.1);
+    --icon-bg-gray: #999;
 }
 
 /* Card components */
