@@ -28,10 +28,10 @@ else
                     <h2 class="brand-title">个人门户</h2>
                 </div>
                 <div class="header-actions">
-                    <button class="header-btn" @onclick="ToggleDarkMode" title="切换主题">
+                    <button class="header-btn" @onclick="ToggleDarkMode" title="切换主题" aria-label="切换主题">
                         <span class="material-symbols-outlined" style="font-size: 20px;">@(_isDarkMode ? "light_mode" : "dark_mode")</span>
                     </button>
-                    <button class="header-btn" title="设置">
+                    <button class="header-btn" title="设置" aria-label="设置">
                         <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
                     </button>
                 </div>
@@ -85,7 +85,8 @@ else
     private async Task ToggleDarkMode()
     {
         _isDarkMode = !_isDarkMode;
-        // TODO: Implement theme toggle
+        // Theme toggle functionality to be implemented in future release
+        // Track progress at: https://github.com/KOPElan/qingfeng/issues (create issue for theme support)
         await Task.CompletedTask;
     }
 

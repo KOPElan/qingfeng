@@ -5,14 +5,14 @@
 <div class="bottom-dock">
     <div class="dock-container">
         <NavLink href="/" Match="NavLinkMatch.All" class="dock-item">
-            <div class="dock-icon-bg" style="background: linear-gradient(180deg, rgb(249 250 251) 0%, rgb(229 231 235) 100%);">
+            <div class="dock-icon-bg" style="background: var(--dock-gradient-dashboard);">
                 <span class="material-symbols-outlined" style="font-size: 28px; color: rgb(55 65 81);">dashboard</span>
             </div>
             <span class="dock-tooltip">概览</span>
             <div class="dock-indicator @(IsActive("/") ? "" : "inactive")"></div>
         </NavLink>
         <NavLink href="/docker" class="dock-item">
-            <div class="dock-icon-bg" style="background: linear-gradient(180deg, rgb(31 41 55) 0%, rgb(0 0 0) 100%);">
+            <div class="dock-icon-bg" style="background: var(--dock-gradient-terminal);">
                 <span class="material-symbols-outlined" style="font-size: 28px; color: white;">terminal</span>
             </div>
             <span class="dock-tooltip">Docker</span>
@@ -20,14 +20,14 @@
         </NavLink>
         <div class="dock-divider"></div>
         <NavLink href="/file-manager" class="dock-item">
-            <div class="dock-icon-bg" style="background: linear-gradient(180deg, rgb(59 130 246) 0%, rgb(29 78 216) 100%);">
+            <div class="dock-icon-bg" style="background: var(--dock-gradient-files);">
                 <span class="material-symbols-outlined" style="font-size: 28px; color: white;">folder_open</span>
             </div>
             <span class="dock-tooltip">文件</span>
             <div class="dock-indicator @(IsActive("/file-manager") ? "" : "inactive")"></div>
         </NavLink>
         <NavLink href="/system-monitor" class="dock-item">
-            <div class="dock-icon-bg" style="background: linear-gradient(180deg, rgb(229 231 235) 0%, rgb(156 163 175) 100%);">
+            <div class="dock-icon-bg" style="background: var(--dock-gradient-settings);">
                 <span class="material-symbols-outlined" style="font-size: 28px; color: rgb(55 65 81);">tune</span>
             </div>
             <span class="dock-tooltip">系统监控</span>

@@ -30,10 +30,10 @@
                 <h2 class="brand-title">个人门户</h2>
             </div>
             <div class="header-actions">
-                <button class="header-btn" title="设置">
+                <button class="header-btn" title="设置" aria-label="设置">
                     <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
                 </button>
-                <button class="header-btn" title="通知">
+                <button class="header-btn" title="通知" aria-label="通知">
                     <span class="material-symbols-outlined" style="font-size: 20px;">notifications</span>
                     <span class="notification-dot"></span>
                 </button>
@@ -126,14 +126,14 @@
                             <span class="material-symbols-outlined section-icon">apps</span>
                             常用应用
                         </h2>
-                        <button class="view-all-btn">查看全部</button>
+                        <button class="view-all-btn" aria-label="查看全部应用">查看全部</button>
                     </div>
                     <div class="apps-grid">
                         @foreach (var shortcut in OrderedShortcuts.Take(7))
                         {
                             @if (IsInternalManagementPage(shortcut.Url))
                             {
-                                <div class="app-card" @onclick="async () => await OpenInModal(shortcut)" role="button" tabindex="0">
+                                <div class="app-card" @onclick="async () => await OpenInModal(shortcut)" @onkeydown="async (e) => await HandleCardKeyDown(e, shortcut)" role="button" tabindex="0" aria-label="@shortcut.Title">
                                     <div class="app-status-dot"></div>
                                     <div class="app-icon-wrapper" style="background: @GetAppColor(shortcut.Id);">
                                         <span class="material-symbols-outlined" style="font-size: 30px;">@GetMaterialIcon(shortcut.Icon)</span>
@@ -154,12 +154,12 @@
                                 </a>
                             }
                         }
-                        <button class="app-card add-app-card">
+                        <button class="app-card add-app-card" aria-label="添加新应用">
                             <div class="add-app-icon">
                                 <span class="material-symbols-outlined" style="font-size: 30px;">add</span>
                             </div>
                             <span class="app-name">添加应用</span>
-                            <span class="app-category" style="opacity: 0;">New</span>
+                            <span class="app-category invisible-placeholder">New</span>
                         </button>
                     </div>
                 </div>
@@ -176,29 +176,29 @@
     <div class="bottom-dock">
         <div class="dock-container">
             <a href="/" class="dock-item">
-                <div class="dock-icon-bg" style="background: linear-gradient(180deg, rgb(249 250 251) 0%, rgb(229 231 235) 100%);">
+                <div class="dock-icon-bg" style="background: var(--dock-gradient-dashboard);">
                     <span class="material-symbols-outlined" style="font-size: 28px; color: rgb(55 65 81);">dashboard</span>
                 </div>
                 <span class="dock-tooltip">概览</span>
                 <div class="dock-indicator"></div>
             </a>
-            <div class="dock-item" @onclick="OpenDockerModal" role="button" tabindex="0">
-                <div class="dock-icon-bg" style="background: linear-gradient(180deg, rgb(31 41 55) 0%, rgb(0 0 0) 100%);">
+            <div class="dock-item" @onclick="OpenDockerModal" @onkeydown="HandleDockKeyDown" role="button" tabindex="0" aria-label="终端">
+                <div class="dock-icon-bg" style="background: var(--dock-gradient-terminal);">
                     <span class="material-symbols-outlined" style="font-size: 28px; color: white;">terminal</span>
                 </div>
                 <span class="dock-tooltip">终端</span>
                 <div class="dock-indicator inactive"></div>
             </div>
             <div class="dock-divider"></div>
-            <div class="dock-item" @onclick="OpenFileManagerModal" role="button" tabindex="0">
-                <div class="dock-icon-bg" style="background: linear-gradient(180deg, rgb(59 130 246) 0%, rgb(29 78 216) 100%);">
+            <div class="dock-item" @onclick="OpenFileManagerModal" @onkeydown="HandleDockKeyDown" role="button" tabindex="0" aria-label="文件管理">
+                <div class="dock-icon-bg" style="background: var(--dock-gradient-files);">
                     <span class="material-symbols-outlined" style="font-size: 28px; color: white;">folder_open</span>
                 </div>
                 <span class="dock-tooltip">文件</span>
                 <div class="dock-indicator inactive"></div>
             </div>
-            <div class="dock-item" @onclick="OpenSystemMonitorModal" role="button" tabindex="0">
-                <div class="dock-icon-bg" style="background: linear-gradient(180deg, rgb(229 231 235) 0%, rgb(156 163 175) 100%);">
+            <div class="dock-item" @onclick="OpenSystemMonitorModal" @onkeydown="HandleDockKeyDown" role="button" tabindex="0" aria-label="系统监控">
+                <div class="dock-icon-bg" style="background: var(--dock-gradient-settings);">
                     <span class="material-symbols-outlined" style="font-size: 28px; color: rgb(55 65 81);">tune</span>
                 </div>
                 <span class="dock-tooltip">设置</span>
@@ -314,8 +314,9 @@
                 var uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
                 return (int)uptime.TotalDays;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"Failed to calculate uptime days: {ex.Message}");
                 return 0;
             }
         }
@@ -570,25 +571,33 @@
         // Convert MudBlazor Icons to Material Symbols
         if (string.IsNullOrWhiteSpace(icon)) return "link";
         
-        return icon switch
+        // Extract icon name from MudBlazor format (e.g., "Icons.Material.Filled.Home" => "Home")
+        var trimmedIcon = icon.Trim();
+        var lastDotIndex = trimmedIcon.LastIndexOf('.');
+        var iconName = lastDotIndex >= 0 && lastDotIndex < trimmedIcon.Length - 1
+            ? trimmedIcon.Substring(lastDotIndex + 1)
+            : trimmedIcon;
+        
+        return iconName switch
         {
-            var i when i.Contains("Home") => "home",
-            var i when i.Contains("Dashboard") => "dashboard",
-            var i when i.Contains("Dns") => "dns",
-            var i when i.Contains("Storage") => "storage",
-            var i when i.Contains("Folder") => "folder",
-            var i when i.Contains("Tv") => "movie",
-            var i when i.Contains("Security") => "shield",
-            var i when i.Contains("PlayCircle") => "play_circle",
-            var i when i.Contains("SwapVert") => "swap_vert",
-            var i when i.Contains("VerifiedUser") => "verified_user",
-            var i when i.Contains("VpnLock") => "vpn_lock",
-            var i when i.Contains("EditNote") => "edit_note",
-            var i when i.Contains("Settings") => "settings",
-            var i when i.Contains("NetworkCheck") => "network_check",
-            var i when i.Contains("ContentCopy") => "content_copy",
-            var i when i.Contains("Link") => "link",
-            var i when i.Contains("Cloud") => "cloud",
+            "Home" => "home",
+            "Dashboard" or "DashboardCustomize" => "dashboard",
+            "Dns" => "dns",
+            "Storage" => "storage",
+            "Folder" => "folder",
+            "Tv" => "movie",
+            "Security" => "shield",
+            "PlayCircle" or "PlayCircleFilled" => "play_circle",
+            "SwapVert" => "swap_vert",
+            "VerifiedUser" => "verified_user",
+            "VpnLock" => "vpn_lock",
+            "EditNote" => "edit_note",
+            "Settings" => "settings",
+            "NetworkCheck" => "network_check",
+            "ContentCopy" => "content_copy",
+            "Link" => "link",
+            "Cloud" => "cloud",
+            "WbSunny" => "sunny",
             _ => "apps"
         };
     }
@@ -678,5 +687,22 @@
     private async Task OpenSystemMonitorModal()
     {
         await OpenInModal(new ShortcutLink { Url = Constants.InternalPages.SystemMonitor, Title = "系统监控" });
+    }
+    
+    private async Task HandleCardKeyDown(KeyboardEventArgs e, ShortcutLink shortcut)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            await OpenInModal(shortcut);
+        }
+    }
+    
+    private async Task HandleDockKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            // The onclick handler will be triggered automatically
+            await Task.CompletedTask;
+        }
     }
 }
