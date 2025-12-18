@@ -21,17 +21,19 @@
             }
             <!-- Toolbar -->
             <div style="padding: 12px 0; border-bottom: 1px solid var(--mud-palette-divider); display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowBack" 
-                              @@onclick="GoBack" disabled="@(navigationHistory.Count <= 1)" />
-                <button type="button" class="btn btn-link text-white" Icon="@Icons.Material.Filled.ArrowForward"
-                              @@onclick="GoForward" disabled="@(forwardHistory.Count == 0)" />
+                <button type="button" class="btn btn-link text-white" @onclick="GoBack" disabled="@(navigationHistory.Count <= 1)">
+                    <i class="@Icons.Material.Filled.ArrowBack"></i>
+                </button>
+                <button type="button" class="btn btn-link text-white" @onclick="GoForward" disabled="@(forwardHistory.Count == 0)">
+                    <i class="@Icons.Material.Filled.ArrowForward"></i>
+                </button>
                 
                 <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
                     <p class="small">Files</p>
                     @foreach (var part in GetPathParts())
                     {
                         <i class="@Icons.Material.Filled.ChevronRight"></i>
-                        <a Typo="Typo.body2" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
+                        <a class="clickable" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
                     }
                     @if (files != null)
                     {
@@ -39,8 +41,9 @@
                     }
                 </div>
                 
-                <button type="button" class="btn btn-link text-white" Icon="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"
-                              @@onclick="ToggleViewMode" />
+                <button type="button" class="btn btn-link text-white" @onclick="ToggleViewMode">
+                    <i class="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"></i>
+                </button>
             </div>
             
             <!-- File Grid/List View -->
@@ -144,12 +147,13 @@
         </div>
     </div>
     <div class="modal-footer-custom">
-        <button type="button" class="btn btn-custom" @@onclick="Close">关闭</button>
+        <button type="button" class="btn btn-custom" @onclick="Close">关闭</button>
     </div>
 </div>
 
 @code {
     [Parameter] public string? Title { get; set; }
+    [Parameter] public EventCallback OnCloseDialog { get; set; }
     
     private List<FileItemInfo>? files;
     private string currentPath = string.Empty;
@@ -286,5 +290,11 @@
         return $"/ {parts[0]} / ... / {parts[parts.Length - 1]}";
     }
 
-    private void Close() { /* Dialog managed by parent component */ }
+    private async Task Close()
+    {
+        if (OnCloseDialog.HasDelegate)
+        {
+            await OnCloseDialog.InvokeAsync();
+        }
+    }
 }

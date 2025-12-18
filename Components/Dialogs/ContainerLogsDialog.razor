@@ -30,8 +30,8 @@
         }
     </div>
     <div class="modal-footer-custom">
-        <button type="button" class="btn btn-custom" @@onclick="RefreshLogs" disabled="@isLoadingLogs">刷新</button>
-        <button type="button" class="btn btn-custom" @@onclick="Close">关闭</button>
+        <button type="button" class="btn btn-custom" @onclick="RefreshLogs" disabled="@isLoadingLogs">刷新</button>
+        <button type="button" class="btn btn-custom" @onclick="Close">关闭</button>
     </div>
 </div>
 
@@ -39,6 +39,7 @@
     [Parameter] public string? Title { get; set; }
     [Parameter] public string? ContainerId { get; set; }
     [Parameter] public string? ContainerName { get; set; }
+    [Parameter] public EventCallback OnCloseDialog { get; set; }
     
     private bool isLoadingLogs = false;
     private string containerLogs = string.Empty;
@@ -79,5 +80,11 @@
         await LoadLogs();
     }
 
-    private void Close() { /* Dialog managed by parent component */ }
+    private async Task Close()
+    {
+        if (OnCloseDialog.HasDelegate)
+        {
+            await OnCloseDialog.InvokeAsync();
+        }
+    }
 }
