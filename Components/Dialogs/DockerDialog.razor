@@ -134,10 +134,14 @@
             <p class="text-muted-custom">没有找到镜像</p>
         }
     </div>
+    <div class="modal-footer-custom">
+        <button type="button" class="btn btn-custom" @onclick="Close">关闭</button>
+    </div>
 </div>
 
 @code {
     [Parameter] public string? Title { get; set; }
+    [Parameter] public EventCallback OnCloseDialog { get; set; }
     
     private List<DockerContainerInfo> containers = new();
     private List<DockerImageInfo> images = new();
@@ -228,5 +232,13 @@
         
         await DialogService.ShowAsync<QingFeng.Components.Dialogs.ContainerLogsDialog>(
             $"容器日志 - {container.Name}", parameters, options);
+    }
+
+    private async Task Close()
+    {
+        if (OnCloseDialog.HasDelegate)
+        {
+            await OnCloseDialog.InvokeAsync();
+        }
     }
 }
