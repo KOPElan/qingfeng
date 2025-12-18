@@ -10,34 +10,48 @@
 }
 else
 {
-    <div class="d-flex" style="min-height: 100vh;">
-        <!-- Sidebar -->
-        <div class="sidebar-custom @(_drawerOpen ? "" : "collapsed")" style="width: 250px; position: fixed; left: 0; top: 0; height: 100vh; z-index: 1030;">
-            <div class="p-3">
-                <h5 class="text-white mb-4">My Portal</h5>
-                <NavMenu />
-            </div>
+    <div class="modern-homepage-container">
+        <!-- Background Gradient Blobs for all pages -->
+        <div class="gradient-bg">
+            <div class="gradient-blob gradient-blob-1"></div>
+            <div class="gradient-blob gradient-blob-2"></div>
+            <div class="gradient-blob gradient-blob-3"></div>
         </div>
 
-        <!-- Main content area -->
-        <div class="flex-grow-1" style="margin-left: @(_drawerOpen ? "250px" : "0"); transition: margin-left 0.3s ease;">
-            <!-- App Bar -->
-            <div class="app-bar-custom">
-                <button class="btn btn-link text-white" @onclick="ToggleDrawer" title="Toggle menu">
-                    <i class="@Icons.Material.Filled.Menu" style="font-size: 1.5rem;"></i>
-                </button>
-                <div class="flex-grow-1"></div>
-                <button class="btn btn-link text-white tooltip-custom" @onclick="ToggleDarkMode" title="切换主题">
-                    <i class="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" style="font-size: 1.5rem;"></i>
-                    <span class="tooltip-text">切换主题</span>
-                </button>
-            </div>
+        <div class="layout-container">
+            <!-- Header -->
+            <header class="modern-header">
+                <div class="header-brand">
+                    <div class="brand-icon">
+                        <span class="material-symbols-outlined">dns</span>
+                    </div>
+                    <h2 class="brand-title">个人门户</h2>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" @onclick="ToggleDarkMode" title="切换主题" aria-label="切换主题">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">@(_isDarkMode ? "light_mode" : "dark_mode")</span>
+                    </button>
+                    <button class="header-btn" title="设置" aria-label="设置">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
+                    </button>
+                </div>
+            </header>
 
-            <!-- Page content -->
-            <div class="container-fluid p-4" style="max-width: 1400px;">
-                @Body
-            </div>
+            <!-- Main Content -->
+            <main class="main-content">
+                <div class="content-wrapper">
+                    @Body
+                </div>
+            </main>
+
+            <!-- Footer -->
+            <footer class="modern-footer">
+                <p>© @DateTime.Now.Year 个人家庭实验室门户. Designed for efficiency.</p>
+            </footer>
         </div>
+
+        <!-- Navigation Dock -->
+        <NavMenu />
     </div>
 }
 
@@ -48,7 +62,6 @@ else
 </div>
 
 @code {
-    private bool _drawerOpen = true;
     private bool _isDarkMode = false;
     private bool _isHomePage = false;
 
@@ -69,16 +82,12 @@ else
         _isHomePage = NavigationManager.ToBaseRelativePath(NavigationManager.Uri) == string.Empty;
     }
 
-    private async Task ToggleDrawer()
-    {
-        _drawerOpen = !_drawerOpen;
-        await JS.InvokeVoidAsync("drawerManager.toggle");
-    }
-
     private async Task ToggleDarkMode()
     {
         _isDarkMode = !_isDarkMode;
-        await JS.InvokeVoidAsync("themeManager.toggle");
+        // TODO: Theme toggle functionality to be implemented in future release
+        // This will require adding CSS classes for dark mode and persisting user preference
+        await Task.CompletedTask;
     }
 
     public void Dispose()

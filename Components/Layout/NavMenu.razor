@@ -1,37 +1,49 @@
 @using QingFeng.Utilities
+@inject NavigationManager NavigationManager
 
-<nav class="nav-menu-custom">
-    <ul class="nav flex-column">
-        <li class="nav-item-custom">
-            <NavLink href="/" Match="NavLinkMatch.All" class="nav-link-custom" ActiveClass="active">
-                <i class="@Icons.Material.Filled.Home"></i>
-                <span>首页</span>
-            </NavLink>
-        </li>
-        <li class="nav-item-custom">
-            <NavLink href="/system-monitor" class="nav-link-custom" ActiveClass="active">
-                <i class="@Icons.Material.Filled.Dashboard"></i>
-                <span>系统监控</span>
-            </NavLink>
-        </li>
-        <li class="nav-item-custom">
-            <NavLink href="/disk-management" class="nav-link-custom" ActiveClass="active">
-                <i class="@Icons.Material.Filled.Storage"></i>
-                <span>磁盘管理</span>
-            </NavLink>
-        </li>
-        <li class="nav-item-custom">
-            <NavLink href="/docker" class="nav-link-custom" ActiveClass="active">
-                <i class="@Icons.Material.Filled.ContentCopy"></i>
-                <span>Docker管理</span>
-            </NavLink>
-        </li>
-        <li class="nav-item-custom">
-            <NavLink href="/file-manager" class="nav-link-custom" ActiveClass="active">
-                <i class="@Icons.Material.Filled.Folder"></i>
-                <span>文件管理</span>
-            </NavLink>
-        </li>
-    </ul>
-</nav>
+<!-- Dock-style Navigation Menu -->
+<div class="bottom-dock">
+    <div class="dock-container">
+        <NavLink href="/" Match="NavLinkMatch.All" class="dock-item">
+            <div class="dock-icon-bg" style="background: var(--dock-gradient-dashboard);">
+                <span class="material-symbols-outlined" style="font-size: 28px; color: rgb(55 65 81);">dashboard</span>
+            </div>
+            <span class="dock-tooltip">概览</span>
+            <div class="dock-indicator @(IsActive("/") ? "" : "inactive")"></div>
+        </NavLink>
+        <NavLink href="/docker" class="dock-item">
+            <div class="dock-icon-bg" style="background: var(--dock-gradient-terminal);">
+                <span class="material-symbols-outlined" style="font-size: 28px; color: white;">terminal</span>
+            </div>
+            <span class="dock-tooltip">Docker</span>
+            <div class="dock-indicator @(IsActive("/docker") ? "" : "inactive")"></div>
+        </NavLink>
+        <div class="dock-divider"></div>
+        <NavLink href="/file-manager" class="dock-item">
+            <div class="dock-icon-bg" style="background: var(--dock-gradient-files);">
+                <span class="material-symbols-outlined" style="font-size: 28px; color: white;">folder_open</span>
+            </div>
+            <span class="dock-tooltip">文件</span>
+            <div class="dock-indicator @(IsActive("/file-manager") ? "" : "inactive")"></div>
+        </NavLink>
+        <NavLink href="/system-monitor" class="dock-item">
+            <div class="dock-icon-bg" style="background: var(--dock-gradient-settings);">
+                <span class="material-symbols-outlined" style="font-size: 28px; color: rgb(55 65 81);">tune</span>
+            </div>
+            <span class="dock-tooltip">系统监控</span>
+            <div class="dock-indicator @(IsActive("/system-monitor") ? "" : "inactive")"></div>
+        </NavLink>
+    </div>
+</div>
 
+@code {
+    private bool IsActive(string href)
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        if (href == "/")
+        {
+            return string.IsNullOrEmpty(relativePath);
+        }
+        return relativePath.StartsWith(href.TrimStart('/'));
+    }
+}
