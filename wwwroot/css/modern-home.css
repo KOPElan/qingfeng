@@ -770,6 +770,11 @@
     background: transparent;
 }
 
+/* Firefox scrollbar hiding */
+* {
+    scrollbar-width: none;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
     .welcome-title {
