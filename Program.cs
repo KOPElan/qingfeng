@@ -30,17 +30,26 @@ var app = builder.Build();
 // Initialize database
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<QingFengDbContext>();
-    await dbContext.Database.EnsureCreatedAsync();
-    
-    var dockItemService = scope.ServiceProvider.GetRequiredService<IDockItemService>();
-    await dockItemService.InitializeDefaultDockItemsAsync();
-    
-    var applicationService = scope.ServiceProvider.GetRequiredService<IApplicationService>();
-    await applicationService.InitializeDefaultApplicationsAsync();
-    
-    var systemSettingService = scope.ServiceProvider.GetRequiredService<ISystemSettingService>();
-    await systemSettingService.InitializeDefaultSettingsAsync();
+    try
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<QingFengDbContext>();
+        await dbContext.Database.MigrateAsync();
+        
+        var dockItemService = scope.ServiceProvider.GetRequiredService<IDockItemService>();
+        await dockItemService.InitializeDefaultDockItemsAsync();
+        
+        var applicationService = scope.ServiceProvider.GetRequiredService<IApplicationService>();
+        await applicationService.InitializeDefaultApplicationsAsync();
+        
+        var systemSettingService = scope.ServiceProvider.GetRequiredService<ISystemSettingService>();
+        await systemSettingService.InitializeDefaultSettingsAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogCritical(ex, "Failed to initialize database. The application cannot start without a valid database connection. Please check the connection string and ensure the database is accessible.");
+        throw;
+    }
 }
 
 // Configure the HTTP request pipeline.
