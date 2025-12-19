@@ -38,9 +38,25 @@ public class DiskInfo
     public double UsagePercent { get; set; }
     public bool IsReady { get; set; }
     
+    // Enhanced properties for advanced disk management
+    public string DevicePath { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty; // disk, part, loop, etc.
+    public string UUID { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public bool IsRemovable { get; set; }
+    public bool IsReadOnly { get; set; }
+    public string Model { get; set; } = string.Empty;
+    public string Serial { get; set; } = string.Empty;
+    public List<DiskInfo> Children { get; set; } = new();
+    
+    // Power management
+    public bool? IsSpinningDown { get; set; }
+    public int? ApmLevel { get; set; }
+    
     public string TotalGB => $"{TotalBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string UsedGB => $"{UsedBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string AvailableGB => $"{AvailableBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
+    public string SizeDisplay => TotalBytes > 0 ? TotalGB : "N/A";
 }
 
 public class NetworkInfo
