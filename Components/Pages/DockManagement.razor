@@ -1,0 +1,377 @@
+@page "/dock-management"
+@using QingFeng.Services
+@using QingFeng.Models
+@inject IDockItemService DockItemService
+@inject IApplicationService ApplicationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Dock 管理 - 清风</PageTitle>
+
+<div class="dock-management-container">
+    <div class="page-header">
+        <h2><i class="bi bi-layout-text-sidebar-reverse me-2"></i>Dock 面板管理</h2>
+        <button class="btn btn-primary" @onclick="ShowAddFromApps">
+            <i class="bi bi-plus-lg me-2"></i>从应用添加
+        </button>
+    </div>
+
+    <div class="dock-preview">
+        <h5 class="mb-3">Dock 预览</h5>
+        <div class="dock-items-preview">
+            @foreach (var item in dockItems.OrderBy(d => d.SortOrder))
+            {
+                <div class="dock-item-preview">
+                    <div class="dock-icon-preview" style="background: @item.IconBackground;">
+                        <span class="material-symbols-outlined">@item.Icon</span>
+                    </div>
+                    <span class="dock-item-title">@item.Title</span>
+                    @if (!item.IsSystemItem)
+                    {
+                        <div class="dock-item-actions">
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveDockItem(item)">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="system-badge">系统</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="dock-info-panel">
+        <h5>说明</h5>
+        <ul>
+            <li>固定的系统项目（首页、设置）无法删除</li>
+            <li>从应用中心固定的应用会自动添加到 Dock</li>
+            <li>取消固定应用会从 Dock 中移除</li>
+            <li>Dock 项目按排序顺序显示</li>
+        </ul>
+    </div>
+</div>
+
+@if (showAppSelector)
+{
+    <div class="modal-backdrop-custom" @onclick="CloseDialog"></div>
+    <div class="modal-custom">
+        <div class="modal-header-custom">
+            <h5>选择应用添加到 Dock</h5>
+            <button class="btn-close-custom" @onclick="CloseDialog">&times;</button>
+        </div>
+        <div class="modal-body-custom">
+            <div class="apps-selector-grid">
+                @foreach (var app in availableApps)
+                {
+                    <div class="app-selector-item" @onclick="() => PinAppToDock(app)">
+                        <div class="app-icon-small" style="background: @app.IconColor;">
+                            <i class="bi @app.Icon"></i>
+                        </div>
+                        <div class="app-info">
+                            <span class="app-name">@app.Title</span>
+                            <span class="app-cat">@app.Category</span>
+                        </div>
+                        <i class="bi bi-plus-circle"></i>
+                    </div>
+                }
+            </div>
+            @if (!availableApps.Any())
+            {
+                <div class="text-center py-4">
+                    <p class="text-muted">所有应用都已固定到 Dock</p>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private List<DockItem> dockItems = new();
+    private List<Application> availableApps = new();
+    private bool showAppSelector = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDockItemsAsync();
+    }
+
+    private async Task LoadDockItemsAsync()
+    {
+        dockItems = await DockItemService.GetAllDockItemsAsync();
+    }
+
+    private async Task ShowAddFromApps()
+    {
+        var allApps = await ApplicationService.GetAllApplicationsAsync();
+        // Filter out apps that are already pinned
+        availableApps = allApps.Where(a => !a.IsPinnedToDock).ToList();
+        showAppSelector = true;
+    }
+
+    private async Task PinAppToDock(Application app)
+    {
+        await ApplicationService.TogglePinToDockAsync(app.AppId);
+        await LoadDockItemsAsync();
+        CloseDialog();
+    }
+
+    private async Task RemoveDockItem(DockItem item)
+    {
+        if (item.IsSystemItem)
+            return;
+
+        if (!string.IsNullOrEmpty(item.AssociatedAppId))
+        {
+            // Unpin the associated app
+            await ApplicationService.TogglePinToDockAsync(item.AssociatedAppId);
+        }
+        else
+        {
+            // Remove the dock item directly
+            await DockItemService.DeleteDockItemAsync(item.ItemId);
+        }
+
+        await LoadDockItemsAsync();
+    }
+
+    private void CloseDialog()
+    {
+        showAppSelector = false;
+    }
+}
+
+<style>
+    .dock-management-container {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .page-header h2 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #e5e7eb;
+        margin: 0;
+    }
+
+    .dock-preview {
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .dock-preview h5 {
+        color: #60a5fa;
+        font-weight: 600;
+    }
+
+    .dock-items-preview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 12px;
+        min-height: 120px;
+    }
+
+    .dock-item-preview {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem;
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 12px;
+        position: relative;
+        min-width: 100px;
+    }
+
+    .dock-icon-preview {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 32px;
+    }
+
+    .dock-item-title {
+        font-size: 0.875rem;
+        color: #e5e7eb;
+        text-align: center;
+    }
+
+    .dock-item-actions {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+    }
+
+    .system-badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+        background: rgba(96, 165, 250, 0.2);
+        color: #60a5fa;
+        border-radius: 8px;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+
+    .dock-info-panel {
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 12px;
+        padding: 1.5rem;
+        backdrop-filter: blur(10px);
+    }
+
+    .dock-info-panel h5 {
+        color: #60a5fa;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .dock-info-panel ul {
+        color: #94a3b8;
+        padding-left: 1.5rem;
+    }
+
+    .dock-info-panel li {
+        margin-bottom: 0.5rem;
+    }
+
+    .modal-backdrop-custom {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        z-index: 1040;
+    }
+
+    .modal-custom {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(30, 41, 59, 0.95);
+        border-radius: 16px;
+        max-width: 600px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        z-index: 1050;
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-header-custom {
+        padding: 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        background: rgba(30, 41, 59, 0.95);
+        backdrop-filter: blur(20px);
+        z-index: 1;
+    }
+
+    .modal-header-custom h5 {
+        margin: 0;
+        color: #e5e7eb;
+        font-weight: 600;
+    }
+
+    .btn-close-custom {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .btn-close-custom:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-body-custom {
+        padding: 1.5rem;
+    }
+
+    .apps-selector-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .app-selector-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .app-selector-item:hover {
+        background: rgba(96, 165, 250, 0.2);
+        transform: translateX(4px);
+    }
+
+    .app-icon-small {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .app-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .app-name {
+        font-weight: 600;
+        color: #e5e7eb;
+    }
+
+    .app-cat {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+    }
+</style>

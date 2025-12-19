@@ -1,0 +1,380 @@
+@page "/app-management"
+@using QingFeng.Services
+@using QingFeng.Models
+@inject IApplicationService ApplicationService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>应用管理 - 清风</PageTitle>
+
+<div class="app-management-container">
+    <div class="page-header">
+        <h2><i class="bi bi-grid-3x3-gap-fill me-2"></i>应用管理</h2>
+        <button class="btn btn-primary" @onclick="ShowAddDialog">
+            <i class="bi bi-plus-lg me-2"></i>添加应用
+        </button>
+    </div>
+
+    <div class="apps-grid-management">
+        @foreach (var app in applications)
+        {
+            <div class="app-card-management">
+                <div class="app-card-header">
+                    <div class="app-icon-small" style="background: @app.IconColor;">
+                        <i class="bi @app.Icon"></i>
+                    </div>
+                    <div class="app-status-indicator @(app.IsOnline ? "online" : "offline")"></div>
+                </div>
+                <div class="app-card-body">
+                    <h5 class="app-title">@app.Title</h5>
+                    <p class="app-description">@app.Description</p>
+                    <span class="app-category-badge">@app.Category</span>
+                    <div class="app-url">@app.Url</div>
+                </div>
+                <div class="app-card-actions">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditApplication(app)">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm @(app.IsPinnedToDock ? "btn-warning" : "btn-outline-secondary")" 
+                            @onclick="() => TogglePin(app)" title="@(app.IsPinnedToDock ? "从Dock取消固定" : "固定到Dock")">
+                        <i class="bi bi-pin-angle-fill"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteApplication(app)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (!applications.Any())
+    {
+        <div class="empty-state">
+            <i class="bi bi-inbox" style="font-size: 4rem; color: #64748b;"></i>
+            <p>还没有应用</p>
+            <button class="btn btn-primary" @onclick="ShowAddDialog">添加第一个应用</button>
+        </div>
+    }
+</div>
+
+@if (showDialog)
+{
+    <div class="modal-backdrop-custom" @onclick="CloseDialog"></div>
+    <div class="modal-custom">
+        <div class="modal-header-custom">
+            <h5>@(editingApp.Id > 0 ? "编辑应用" : "添加应用")</h5>
+            <button class="btn-close-custom" @onclick="CloseDialog">&times;</button>
+        </div>
+        <div class="modal-body-custom">
+            <div class="mb-3">
+                <label class="form-label">应用名称</label>
+                <input type="text" class="form-control" @bind="editingApp.Title" placeholder="例如: Jellyfin">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">URL</label>
+                <input type="text" class="form-control" @bind="editingApp.Url" placeholder="http://localhost:8096">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">图标 (Bootstrap Icon)</label>
+                <input type="text" class="form-control" @bind="editingApp.Icon" placeholder="bi-film">
+                <small class="form-text text-muted">访问 <a href="https://icons.getbootstrap.com/" target="_blank">Bootstrap Icons</a> 查找图标</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">图标颜色</label>
+                <input type="color" class="form-control form-control-color" @bind="editingApp.IconColor">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">描述</label>
+                <input type="text" class="form-control" @bind="editingApp.Description" placeholder="媒体服务器">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">分类</label>
+                <input type="text" class="form-control" @bind="editingApp.Category" placeholder="MEDIA">
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="onlineCheck" @bind="editingApp.IsOnline">
+                <label class="form-check-label" for="onlineCheck">在线状态</label>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-secondary" @onclick="CloseDialog">取消</button>
+            <button class="btn btn-primary" @onclick="SaveApplication">保存</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Application> applications = new();
+    private Application editingApp = new();
+    private bool showDialog = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadApplicationsAsync();
+    }
+
+    private async Task LoadApplicationsAsync()
+    {
+        applications = await ApplicationService.GetAllApplicationsAsync();
+    }
+
+    private void ShowAddDialog()
+    {
+        editingApp = new Application
+        {
+            IconColor = "#3b82f6",
+            Icon = "bi-app",
+            IsOnline = true
+        };
+        showDialog = true;
+    }
+
+    private void EditApplication(Application app)
+    {
+        editingApp = new Application
+        {
+            Id = app.Id,
+            AppId = app.AppId,
+            Title = app.Title,
+            Url = app.Url,
+            Icon = app.Icon,
+            IconColor = app.IconColor,
+            Description = app.Description,
+            Category = app.Category,
+            IsOnline = app.IsOnline,
+            SortOrder = app.SortOrder,
+            IsPinnedToDock = app.IsPinnedToDock
+        };
+        showDialog = true;
+    }
+
+    private async Task SaveApplication()
+    {
+        try
+        {
+            await ApplicationService.SaveApplicationAsync(editingApp);
+            await LoadApplicationsAsync();
+            CloseDialog();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving application: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteApplication(Application app)
+    {
+        // Use AppId instead of Title to prevent XSS
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "确定要删除此应用吗?"))
+        {
+            await ApplicationService.DeleteApplicationAsync(app.AppId);
+            await LoadApplicationsAsync();
+        }
+    }
+
+    private async Task TogglePin(Application app)
+    {
+        await ApplicationService.TogglePinToDockAsync(app.AppId);
+        await LoadApplicationsAsync();
+    }
+
+    private void CloseDialog()
+    {
+        showDialog = false;
+        editingApp = new();
+    }
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = default!;
+}
+
+<style>
+    .app-management-container {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .page-header h2 {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #e5e7eb;
+        margin: 0;
+    }
+
+    .apps-grid-management {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .app-card-management {
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 12px;
+        padding: 1.5rem;
+        backdrop-filter: blur(10px);
+        transition: transform 0.2s;
+    }
+
+    .app-card-management:hover {
+        transform: translateY(-4px);
+    }
+
+    .app-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .app-icon-small {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+    }
+
+    .app-status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+
+    .app-status-indicator.online {
+        background: #10b981;
+        box-shadow: 0 0 8px #10b981;
+    }
+
+    .app-status-indicator.offline {
+        background: #ef4444;
+        box-shadow: 0 0 8px #ef4444;
+    }
+
+    .app-card-body {
+        margin-bottom: 1rem;
+    }
+
+    .app-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #e5e7eb;
+        margin-bottom: 0.5rem;
+    }
+
+    .app-description {
+        font-size: 0.875rem;
+        color: #94a3b8;
+        margin-bottom: 0.5rem;
+    }
+
+    .app-category-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background: rgba(96, 165, 250, 0.2);
+        color: #60a5fa;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .app-url {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 0.5rem;
+        word-break: break-all;
+    }
+
+    .app-card-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #94a3b8;
+    }
+
+    .modal-backdrop-custom {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        z-index: 1040;
+    }
+
+    .modal-custom {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(30, 41, 59, 0.95);
+        border-radius: 16px;
+        max-width: 500px;
+        width: 90%;
+        z-index: 1050;
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-header-custom {
+        padding: 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header-custom h5 {
+        margin: 0;
+        color: #e5e7eb;
+        font-weight: 600;
+    }
+
+    .btn-close-custom {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .btn-close-custom:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-body-custom {
+        padding: 1.5rem;
+    }
+
+    .modal-footer-custom {
+        padding: 1.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+</style>
