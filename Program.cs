@@ -31,7 +31,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<QingFengDbContext>();
-    await dbContext.Database.EnsureCreatedAsync();
+    await dbContext.Database.MigrateAsync();
     
     var dockItemService = scope.ServiceProvider.GetRequiredService<IDockItemService>();
     await dockItemService.InitializeDefaultDockItemsAsync();
