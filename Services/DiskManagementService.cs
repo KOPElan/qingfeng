@@ -224,6 +224,11 @@ public class DiskManagementService : IDiskManagementService
             return "Invalid mount point";
         }
 
+        if (fileSystem != null && InvalidChars.Any(c => fileSystem.Contains(c)))
+        {
+            return "Invalid characters in filesystem type";
+        }
+
         if (options != null && InvalidChars.Any(c => options.Contains(c)))
         {
             return "Invalid characters in mount options";
@@ -314,34 +319,20 @@ public class DiskManagementService : IDiskManagementService
             fstabEntry += $" {(string.IsNullOrEmpty(options) ? "defaults" : options)}";
             fstabEntry += " 0 2";
 
-            // Append to /etc/fstab
-            var processInfo = new ProcessStartInfo
+            // Use File.AppendAllText for safer file writing instead of shell command
+            try
             {
-                FileName = "bash",
-                Arguments = $"-c \"echo '{fstabEntry}' >> /etc/fstab\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var process = Process.Start(processInfo);
-            if (process != null)
-            {
-                await process.WaitForExitAsync();
-                var error = await process.StandardError.ReadToEndAsync();
-
-                if (process.ExitCode == 0)
-                {
-                    return $"Successfully mounted {devicePath} to {mountPoint} and added to /etc/fstab";
-                }
-                else
-                {
-                    return $"Mounted successfully but failed to update /etc/fstab: {error}. Entry: {fstabEntry}";
-                }
+                await File.AppendAllTextAsync("/etc/fstab", fstabEntry + Environment.NewLine);
+                return $"Successfully mounted {devicePath} to {mountPoint} and added to /etc/fstab";
             }
-
-            return "Failed to update /etc/fstab";
+            catch (UnauthorizedAccessException)
+            {
+                return $"Mounted successfully but permission denied writing to /etc/fstab. Entry: {fstabEntry}";
+            }
+            catch (Exception ex)
+            {
+                return $"Mounted successfully but error updating /etc/fstab: {ex.Message}. Entry: {fstabEntry}";
+            }
         }
         catch (Exception ex)
         {
@@ -470,7 +461,8 @@ public class DiskManagementService : IDiskManagementService
 
         try
         {
-            // Convert minutes to hdparm units (5 seconds per unit)
+            // Convert minutes to hdparm units
+            // hdparm uses 5-second units, so: minutes * 60 seconds / 5 = minutes * 12
             var hdparmValue = timeoutMinutes == 0 ? "0" : (timeoutMinutes * 12).ToString();
 
             var processInfo = new ProcessStartInfo

@@ -86,7 +86,7 @@
                                     <span>-</span>
                                 }
                             </td>
-                            <td><small>@(string.IsNullOrEmpty(disk.UUID) ? "-" : disk.UUID.Substring(0, Math.Min(8, disk.UUID.Length)) + "...")</small></td>
+                            <td><small>@FormatUuid(disk.UUID)</small></td>
                             <td>
                                 @if (!string.IsNullOrEmpty(disk.MountPoint))
                                 {
@@ -138,7 +138,7 @@
                                             <span>-</span>
                                         }
                                     </td>
-                                    <td><small>@(string.IsNullOrEmpty(child.UUID) ? "-" : child.UUID.Substring(0, Math.Min(8, child.UUID.Length)) + "...")</small></td>
+                                    <td><small>@FormatUuid(child.UUID)</small></td>
                                     <td>
                                         @if (!string.IsNullOrEmpty(child.MountPoint))
                                         {
@@ -570,5 +570,15 @@
             isProcessing = false;
             currentOperation = string.Empty;
         }
+    }
+
+    private string FormatUuid(string uuid)
+    {
+        if (string.IsNullOrEmpty(uuid))
+        {
+            return "-";
+        }
+        
+        return uuid.Length > 8 ? uuid.Substring(0, 8) + "..." : uuid;
     }
 }
