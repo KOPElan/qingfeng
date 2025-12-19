@@ -277,6 +277,10 @@ UpgradeLog*.htm
 ServiceFabricBackup/
 *.rptproj.bak
 
+# Custom backup files
+*.backup
+*.old
+
 # SQL Server files
 *.mdf
 *.ldf
