@@ -287,23 +287,21 @@
                     <h6>当前状态</h6>
                     @if (!string.IsNullOrEmpty(powerStatus))
                     {
-                        @{
-                            // 尝试从 hdparm 输出中解析关键信息
-                            var lines = powerStatus
-                                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-                            string deviceLine = lines.Length > 0 ? lines[0].Trim() : string.Empty;
-                            string stateLine = lines.FirstOrDefault(
-                                l => l.Contains("drive state is", StringComparison.OrdinalIgnoreCase)
-                                  || l.Contains("drive state:", StringComparison.OrdinalIgnoreCase)
-                            );
-                            string driveState = string.Empty;
-                            if (!string.IsNullOrEmpty(stateLine))
-                            {
-                                var idx = stateLine.IndexOf(':');
-                                driveState = idx >= 0 && idx + 1 < stateLine.Length
-                                    ? stateLine[(idx + 1)..].Trim()
-                                    : stateLine.Trim();
-                            }
+                        // 尝试从 hdparm 输出中解析关键信息
+                        var lines = powerStatus
+                            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                        string deviceLine = lines.Length > 0 ? lines[0].Trim() : string.Empty;
+                        string stateLine = lines.FirstOrDefault(
+                            l => l.Contains("drive state is", StringComparison.OrdinalIgnoreCase)
+                              || l.Contains("drive state:", StringComparison.OrdinalIgnoreCase)
+                        );
+                        string driveState = string.Empty;
+                        if (!string.IsNullOrEmpty(stateLine))
+                        {
+                            var idx = stateLine.IndexOf(':');
+                            driveState = idx >= 0 && idx + 1 < stateLine.Length
+                                ? stateLine[(idx + 1)..].Trim()
+                                : stateLine.Trim();
                         }
                         <div class="border rounded p-2 mb-2 bg-light">
                             @if (!string.IsNullOrEmpty(deviceLine))
