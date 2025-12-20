@@ -1,0 +1,115 @@
+/* Theme Variables for QingFeng Portal
+ * This file contains all color, spacing, and visual design tokens
+ * to enable easy theming in future updates
+ */
+
+:root {
+    /* Primary Brand Colors */
+    --primary-color: #f9f506;
+    --primary-hover: #e6e205;
+    --secondary-color: #764ba2;
+    --accent-color: #667eea;
+    
+    /* Semantic Colors */
+    --success-color: #43e97b;
+    --danger-color: #f5576c;
+    --warning-color: #fbbf24;
+    --info-color: #4facfe;
+    
+    /* Background Colors */
+    --bg-light: #f8f8f5;
+    --bg-medium: #e8e8e8;
+    --bg-dark: #1a1f3a;
+    --bg-darker: #0f172a;
+    
+    /* Surface Colors (cards, panels) */
+    --surface-light: #ffffff;
+    --surface-light-transparent: rgba(255, 255, 255, 0.6);
+    --surface-medium: rgba(255, 255, 255, 0.5);
+    --surface-dark: rgba(30, 41, 59, 0.5);
+    --surface-dark-hover: rgba(30, 41, 59, 0.7);
+    --surface-overlay: rgba(255, 255, 255, 0.05);
+    --surface-overlay-hover: rgba(255, 255, 255, 0.08);
+    
+    /* Text Colors */
+    --text-primary: #181811;
+    --text-secondary: #333;
+    --text-muted: #8c8b5f;
+    --text-light: #94a3b8;
+    --text-lighter: #64748b;
+    --text-white: #ffffff;
+    --text-white-muted: rgba(255, 255, 255, 0.8);
+    --text-white-light: rgba(255, 255, 255, 0.6);
+    
+    /* Border & Divider Colors */
+    --border-light: rgba(255, 255, 255, 0.4);
+    --border-medium: rgba(255, 255, 255, 0.2);
+    --border-dark: rgba(255, 255, 255, 0.1);
+    --border-darker: #1f2a44;
+    --border-custom: #e6e6db;
+    
+    /* Icon & Gradient Backgrounds */
+    --icon-bg-gray: #999;
+    --gradient-primary: linear-gradient(135deg, var(--accent-color), var(--secondary-color));
+    --gradient-dark: linear-gradient(180deg, #1a1f3a 0%, #2d1b4e 100%);
+    --gradient-light: linear-gradient(180deg, #f8f8f5 0%, #e8e8e8 100%);
+    --gradient-blue: linear-gradient(135deg, #2563eb, #22d3ee);
+    
+    /* Dock Icon Gradients */
+    --dock-gradient-dashboard: linear-gradient(180deg, rgb(249 250 251) 0%, rgb(229 231 235) 100%);
+    --dock-gradient-terminal: linear-gradient(180deg, rgb(31 41 55) 0%, rgb(0 0 0) 100%);
+    --dock-gradient-files: linear-gradient(180deg, rgb(59 130 246) 0%, rgb(29 78 216) 100%);
+    --dock-gradient-settings: linear-gradient(180deg, rgb(229 231 235) 0%, rgb(156 163 175) 100%);
+    
+    /* Border Radius */
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --radius-2xl: 2rem;
+    --radius-3xl: 3rem;
+    --radius-round: 9999px;
+    
+    /* Spacing Scale */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 0.75rem;
+    --spacing-lg: 1rem;
+    --spacing-xl: 1.5rem;
+    --spacing-2xl: 2rem;
+    --spacing-3xl: 2.5rem;
+    
+    /* Shadow Levels */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    --shadow-accent: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    --shadow-primary: 0 0 10px rgba(249, 245, 6, 0.5);
+    
+    /* Backdrop Blur */
+    --blur-light: blur(8px);
+    --blur-medium: blur(12px);
+    --blur-heavy: blur(20px);
+    
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+    
+    /* Z-Index Layers */
+    --z-base: 0;
+    --z-nav: 10;
+    --z-dock: 50;
+    --z-modal-backdrop: 100;
+    --z-modal: 1000;
+    --z-toast: 1050;
+}
+
+/* Dark Mode Variables (for future implementation) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Override variables for dark mode when implemented */
+    }
+}

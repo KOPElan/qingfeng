@@ -1,0 +1,482 @@
+/* Utility Classes for QingFeng Portal
+ * This file contains utility classes for spacing, colors, typography, and common patterns
+ */
+
+/* ==========================================================================
+   Bootstrap Overrides & Enhancements
+   ========================================================================== */
+
+a,
+.btn-link {
+    color: #006bb7;
+}
+
+.btn-primary {
+    color: var(--text-white);
+    background-color: #1b6ec2;
+    border-color: #1861ac;
+}
+
+.btn:focus,
+.btn:active:focus,
+.btn-link.nav-link:focus,
+.form-control:focus,
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+h1:focus {
+    outline: none;
+}
+
+.darker-border-checkbox.form-check-input {
+    border-color: #929292;
+}
+
+/* ==========================================================================
+   Form Utilities
+   ========================================================================== */
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid #e50000;
+}
+
+.validation-message {
+    color: #e50000;
+}
+
+.form-floating>.form-control-plaintext::placeholder,
+.form-floating>.form-control::placeholder {
+    color: var(--bs-secondary-color);
+    text-align: end;
+}
+
+.form-floating>.form-control-plaintext:focus::placeholder,
+.form-floating>.form-control:focus::placeholder {
+    text-align: start;
+}
+
+/* ==========================================================================
+   Text Utilities
+   ========================================================================== */
+
+.text-muted {
+    color: var(--text-light);
+}
+
+.text-muted-custom {
+    color: var(--text-white-light);
+}
+
+.text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ==========================================================================
+   Cursor & Interaction Utilities
+   ========================================================================== */
+
+.clickable,
+.cursor-pointer {
+    cursor: pointer;
+}
+
+/* ==========================================================================
+   Color Utilities (for inline style replacement)
+   ========================================================================== */
+
+.color-primary {
+    color: var(--primary-color);
+}
+
+.color-secondary {
+    color: var(--text-secondary);
+}
+
+.color-muted {
+    color: var(--text-muted);
+}
+
+.color-light {
+    color: var(--text-light);
+}
+
+.color-white {
+    color: var(--text-white);
+}
+
+.bg-primary {
+    background-color: var(--primary-color);
+}
+
+.bg-secondary {
+    background-color: var(--secondary-color);
+}
+
+.bg-icon-gray {
+    background: var(--icon-bg-gray);
+}
+
+/* ==========================================================================
+   Size Utilities
+   ========================================================================== */
+
+.w-150 {
+    width: 150px;
+}
+
+.w-200 {
+    width: 200px;
+}
+
+.w-250 {
+    width: 250px;
+}
+
+.h-20 {
+    height: 20px;
+}
+
+.h-24 {
+    height: 24px;
+}
+
+/* Icon size utilities */
+.icon-sm {
+    font-size: 20px;
+}
+
+.icon-md {
+    font-size: 24px;
+}
+
+.icon-lg {
+    font-size: 28px;
+}
+
+.icon-xl {
+    font-size: 32px;
+}
+
+.icon-2xl {
+    font-size: 4rem;
+}
+
+/* ==========================================================================
+   z-index Utilities
+   ========================================================================== */
+
+.z-1050 {
+    z-index: var(--z-toast);
+}
+
+/* ==========================================================================
+   Placeholder Utilities
+   ========================================================================== */
+
+.invisible-placeholder {
+    opacity: 0;
+}
+
+/* ==========================================================================
+   Empty State
+   ========================================================================== */
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-3xl);
+    gap: var(--spacing-lg);
+    text-align: center;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: var(--text-lighter);
+}
+
+/* ==========================================================================
+   Settings Page Specific
+   ========================================================================== */
+
+.settings-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--spacing-2xl);
+}
+
+.settings-header {
+    margin-bottom: var(--spacing-3xl);
+}
+
+.settings-header h2 {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.settings-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xl);
+}
+
+.settings-section {
+    background: var(--surface-medium);
+    border-radius: var(--radius-2xl);
+    padding: var(--spacing-2xl);
+    border: 1px solid var(--border-light);
+    backdrop-filter: var(--blur-medium);
+}
+
+.settings-section-title {
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg);
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: var(--radius-lg);
+    transition: background var(--transition-fast);
+}
+
+.setting-item:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.setting-info {
+    flex: 1;
+}
+
+.setting-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+    display: block;
+}
+
+.setting-description {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.setting-control {
+    margin-left: var(--spacing-xl);
+}
+
+/* ==========================================================================
+   App Management Specific
+   ========================================================================== */
+
+.app-management-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--spacing-2xl);
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-3xl);
+}
+
+.page-header h2 {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.apps-grid-management {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-xl);
+}
+
+.app-card-management {
+    background: var(--surface-medium);
+    border-radius: var(--radius-2xl);
+    padding: var(--spacing-xl);
+    border: 1px solid var(--border-light);
+    backdrop-filter: var(--blur-medium);
+    transition: all var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.app-card-management:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.app-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.app-icon-small {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-white);
+    font-size: 24px;
+    box-shadow: var(--shadow-md);
+}
+
+.app-status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-round);
+}
+
+.app-status-indicator.online {
+    background: var(--success-color);
+    box-shadow: 0 0 8px var(--success-color);
+}
+
+.app-status-indicator.offline {
+    background: var(--danger-color);
+    box-shadow: 0 0 8px var(--danger-color);
+}
+
+.app-card-body {
+    flex: 1;
+}
+
+.app-card-body .app-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.app-card-body .app-description {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-md);
+}
+
+.app-category-badge {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-md);
+    background: rgba(249, 245, 6, 0.2);
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.app-url {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    margin-top: var(--spacing-sm);
+    word-break: break-all;
+}
+
+.app-card-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-light);
+}
+
+/* ==========================================================================
+   Modal/Dialog Utilities
+   ========================================================================== */
+
+.modal-backdrop-custom {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: var(--z-modal-backdrop);
+    backdrop-filter: var(--blur-light);
+}
+
+.modal-custom {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: var(--z-modal);
+    background: var(--gradient-dark);
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-2xl);
+    color: var(--text-white);
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header-custom {
+    border-bottom: 1px solid var(--border-dark);
+    padding: var(--spacing-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-body-custom {
+    padding: var(--spacing-xl);
+    max-height: 70vh;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-footer-custom {
+    border-top: 1px solid var(--border-dark);
+    padding: var(--spacing-xl);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+}
+
+.btn-close-custom {
+    background: none;
+    border: none;
+    color: var(--text-white);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+}
+
+.btn-close-custom:hover {
+    background: var(--surface-overlay);
+}

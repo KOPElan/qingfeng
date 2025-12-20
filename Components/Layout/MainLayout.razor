@@ -41,14 +41,14 @@ else
                     {
                         <span class="header-username">@_currentUsername</span>
                         <button class="header-btn" @onclick="Logout" title="退出登录" aria-label="退出登录">
-                            <span class="material-symbols-outlined" style="font-size: 20px;">logout</span>
+                            <span class="material-symbols-outlined icon-sm">logout</span>
                         </button>
                     }
                     <button class="header-btn" @onclick="ToggleDarkMode" title="切换主题" aria-label="切换主题">
-                        <span class="material-symbols-outlined" style="font-size: 20px;">@(_isDarkMode ? "light_mode" : "dark_mode")</span>
+                        <span class="material-symbols-outlined icon-sm">@(_isDarkMode ? "light_mode" : "dark_mode")</span>
                     </button>
                     <button class="header-btn" @onclick="NavigateToSettings" title="设置" aria-label="设置">
-                        <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
+                        <span class="material-symbols-outlined icon-sm">settings</span>
                     </button>
                 </div>
             </header>
