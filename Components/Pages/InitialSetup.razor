@@ -122,16 +122,16 @@
         }
 
         // Check password complexity
-        bool hasUpper = password.Any(char.IsUpper);
-        bool hasLower = password.Any(char.IsLower);
-        bool hasDigit = password.Any(char.IsDigit);
-        bool hasSpecial = password.Any(c => !char.IsLetterOrDigit(c));
+        // bool hasUpper = password.Any(char.IsUpper);
+        // bool hasLower = password.Any(char.IsLower);        
+        // bool hasDigit = password.Any(char.IsDigit);
+        // bool hasSpecial = password.Any(c => !char.IsLetterOrDigit(c));
 
-        if (!(hasUpper && hasLower && hasDigit && hasSpecial))
-        {
-            errorMessage = "密码必须包含大写字母、小写字母、数字和特殊字符";
-            return;
-        }
+        // if (!(hasUpper && hasLower && hasDigit && hasSpecial))
+        // {
+        //     errorMessage = "密码必须包含大写字母、小写字母、数字和特殊字符";
+        //     return;
+        // }
 
         if (password != confirmPassword)
         {
