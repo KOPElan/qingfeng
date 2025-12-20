@@ -83,7 +83,9 @@ public class DiskManagementService : IDiskManagementService
                 return await GetAllDisksAsync();
             }
 
-            var lsblkData = JsonSerializer.Deserialize<LsblkOutput>(output);
+            var lsblkData = JsonSerializer.Deserialize<LsblkOutput>(
+                output,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (lsblkData?.Blockdevices == null)
             {
                 return await GetAllDisksAsync();
