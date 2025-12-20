@@ -75,9 +75,11 @@ public class QingFengDbContext : DbContext
         modelBuilder.Entity<FavoriteFolder>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Path).IsUnique();
+            entity.HasIndex(e => e.Order);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Path).IsRequired().HasMaxLength(1000);
-            entity.Property(e => e.Icon).HasMaxLength(100);
+            entity.Property(e => e.Icon).IsRequired().HasMaxLength(100);
         });
     }
 }

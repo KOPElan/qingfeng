@@ -564,7 +564,7 @@ public class FileManagerService : IFileManagerService
             .FirstOrDefaultAsync(f => f.Path == path);
         
         if (existing != null)
-            throw new InvalidOperationException("This folder is already in favorites");
+            throw new InvalidOperationException($"Folder '{existing.Name}' is already in favorites at this path");
 
         // Get next order value
         var maxOrder = await context.FavoriteFolders.MaxAsync(f => (int?)f.Order) ?? 0;
@@ -579,7 +579,15 @@ public class FileManagerService : IFileManagerService
         };
 
         context.FavoriteFolders.Add(favorite);
-        await context.SaveChangesAsync();
+        
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException?.Message?.Contains("UNIQUE constraint") == true)
+        {
+            throw new InvalidOperationException("This folder is already in favorites");
+        }
 
         return favorite;
     }
