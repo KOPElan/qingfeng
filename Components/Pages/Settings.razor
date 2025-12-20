@@ -42,7 +42,7 @@
                                 <div class="setting-control">
                                     @if (setting.Key == "language")
                                     {
-                                        <select class="form-select form-select-sm" style="width: 200px;"
+                                        <select class="form-select form-select-sm w-200"
                                                 value="@setting.Value"
                                                 @onchange="@(e => UpdateLanguageSetting(e.Value?.ToString() ?? "zh-CN"))">
                                             <option value="zh-CN">@LocalizationService.GetString("Language_Chinese")</option>
@@ -59,13 +59,13 @@
                                     }
                                     else if (setting.DataType == "int")
                                     {
-                                        <input type="number" class="form-control form-control-sm" style="width: 150px;"
+                                        <input type="number" class="form-control form-control-sm w-150"
                                                value="@setting.Value"
                                                @onchange="@(e => UpdateSetting(setting.Key, e.Value?.ToString() ?? ""))">
                                     }
                                     else
                                     {
-                                        <input type="text" class="form-control form-control-sm" style="width: 250px;"
+                                        <input type="text" class="form-control form-control-sm w-250"
                                                value="@setting.Value"
                                                @onchange="@(e => UpdateSetting(setting.Key, e.Value?.ToString() ?? ""))">
                                     }
@@ -86,7 +86,7 @@
 
     @if (showSaveMessage)
     {
-        <div class="alert alert-success alert-dismissible fade show position-fixed bottom-0 end-0 m-3" role="alert" style="z-index: 1050;">
+        <div class="alert alert-success alert-dismissible fade show position-fixed bottom-0 end-0 m-3 z-1050" role="alert">
             <i class="bi bi-check-circle-fill me-2"></i>@LocalizationService.GetString("SettingsSaved")
         </div>
     }
