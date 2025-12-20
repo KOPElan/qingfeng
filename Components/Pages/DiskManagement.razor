@@ -178,6 +178,87 @@
     }
 </div>
 
+<!-- Network Disks -->
+<div class="card-custom p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">
+            <i class="@Icons.Material.Filled.SettingsEthernet me-2"></i>
+            网络磁盘
+        </h5>
+        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="ShowNetworkMountWizard">
+            <i class="@Icons.Material.Filled.AddCircle me-1"></i>
+            挂载网络磁盘
+        </button>
+    </div>
+    @if (networkDisks != null && networkDisks.Any())
+    {
+        <div class="table-responsive">
+            <table class="table table-custom">
+                <thead>
+                    <tr>
+                        <th>类型</th>
+                        <th>服务器</th>
+                        <th>共享路径</th>
+                        <th>挂载点</th>
+                        <th>大小</th>
+                        <th>使用率</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var disk in networkDisks)
+                    {
+                        <tr>
+                            <td>
+                                <span class="badge @(disk.DiskType == NetworkDiskType.CIFS ? "bg-primary" : "bg-success")">
+                                    @disk.DiskType.ToString()
+                                </span>
+                            </td>
+                            <td>@disk.Server</td>
+                            <td>@disk.SharePath</td>
+                            <td>@disk.MountPoint</td>
+                            <td>@disk.SizeDisplay</td>
+                            <td>
+                                @if (disk.IsReady && disk.TotalBytes > 0)
+                                {
+                                    <div class="progress-custom" style="height: 20px;">
+                                        <div class="progress-bar-custom" style="width: @disk.UsagePercent%">
+                                            <small>@disk.UsagePercent%</small>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => UnmountDiskAction(disk.MountPoint)">
+                                    <i class="@Icons.Material.Filled.Eject me-1"></i>
+                                    卸载
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (isLoading)
+    {
+        <div class="d-flex align-items-center gap-2">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mb-0">加载中...</p>
+        </div>
+    }
+    else
+    {
+        <p class="text-muted-custom">没有挂载的网络磁盘</p>
+    }
+</div>
+
 <!-- Mount Wizard Modal -->
 @if (showMountWizard)
 {
@@ -370,6 +451,129 @@
     <div class="modal-backdrop show"></div>
 }
 
+<!-- Network Mount Wizard Modal -->
+@if (showNetworkMountWizard)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="@Icons.Material.Filled.SettingsEthernet me-2"></i>
+                        网络磁盘挂载向导
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="HideNetworkMountWizard"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(networkWizardMessage))
+                    {
+                        <div class="alert @(networkWizardError ? "alert-danger" : "alert-success") mb-3">
+                            @networkWizardMessage
+                            <button type="button" class="btn-close" @onclick="@(() => networkWizardMessage = string.Empty)"></button>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">网络磁盘类型 *</label>
+                        <select class="form-control-custom" @bind="networkWizardType">
+                            <option value="@NetworkDiskType.CIFS">CIFS/SMB (Windows共享)</option>
+                            <option value="@NetworkDiskType.NFS">NFS (Linux共享)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">服务器地址 *</label>
+                        <input type="text" class="form-control-custom" @bind="networkWizardServer" placeholder="192.168.1.100 或 server.local" />
+                        <small class="form-text text-muted-custom">服务器IP地址或主机名</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">共享路径 *</label>
+                        <input type="text" class="form-control-custom" @bind="networkWizardSharePath" placeholder="@(networkWizardType == NetworkDiskType.CIFS ? "share" : "export/path")" />
+                        <small class="form-text text-muted-custom">
+                            @if (networkWizardType == NetworkDiskType.CIFS)
+                            {
+                                <text>Windows共享名称，如: share 或 Documents</text>
+                            }
+                            else
+                            {
+                                <text>NFS导出路径，如: export/data 或 mnt/storage</text>
+                            }
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">挂载点 *</label>
+                        <input type="text" class="form-control-custom" @bind="networkWizardMountPoint" placeholder="/mnt/network" />
+                        <small class="form-text text-muted-custom">本地挂载目录，如: /mnt/network</small>
+                    </div>
+
+                    @if (networkWizardType == NetworkDiskType.CIFS)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">用户名（可选）</label>
+                            <input type="text" class="form-control-custom" @bind="networkWizardUsername" placeholder="username" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">密码（可选）</label>
+                            <input type="password" class="form-control-custom" @bind="networkWizardPassword" placeholder="password" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">域（可选）</label>
+                            <input type="text" class="form-control-custom" @bind="networkWizardDomain" placeholder="WORKGROUP" />
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">挂载选项（可选）</label>
+                        <input type="text" class="form-control-custom" @bind="networkWizardOptions" placeholder="默认选项" />
+                        <small class="form-text text-muted-custom">
+                            @if (networkWizardType == NetworkDiskType.CIFS)
+                            {
+                                <text>如: vers=3.0,uid=1000,gid=1000</text>
+                            }
+                            else
+                            {
+                                <text>如: rw,sync,hard,intr</text>
+                            }
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">挂载类型 *</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="networkMountType" id="networkTempMount" value="temp" @onchange="@(() => networkWizardPermanent = false)" checked="@(!networkWizardPermanent)">
+                            <label class="form-check-label" for="networkTempMount">
+                                临时挂载（仅当前会话，重启后失效）
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="networkMountType" id="networkPermMount" value="perm" @onchange="@(() => networkWizardPermanent = true)" checked="@networkWizardPermanent">
+                            <label class="form-check-label" for="networkPermMount">
+                                永久挂载（写入 /etc/fstab，重启后自动挂载）
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideNetworkMountWizard">取消</button>
+                    <button type="button" class="btn btn-custom-primary" @onclick="ExecuteNetworkMountWizard" disabled="@(string.IsNullOrWhiteSpace(networkWizardServer) || string.IsNullOrWhiteSpace(networkWizardSharePath) || string.IsNullOrWhiteSpace(networkWizardMountPoint) || isProcessing)">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="@Icons.Material.Filled.Check me-1"></i>
+                        挂载
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
 @code {
     private List<DiskInfo> allDisks = new();
     private List<string> availableFileSystems = new();
@@ -388,6 +592,21 @@
     private bool wizardPermanent = false;
     private string wizardMessage = string.Empty;
     private bool wizardError = false;
+
+    // Network Mount Wizard
+    private bool showNetworkMountWizard = false;
+    private NetworkDiskType networkWizardType = NetworkDiskType.CIFS;
+    private string networkWizardServer = string.Empty;
+    private string networkWizardSharePath = string.Empty;
+    private string networkWizardMountPoint = string.Empty;
+    private string networkWizardUsername = string.Empty;
+    private string networkWizardPassword = string.Empty;
+    private string networkWizardDomain = string.Empty;
+    private string networkWizardOptions = string.Empty;
+    private bool networkWizardPermanent = false;
+    private string networkWizardMessage = string.Empty;
+    private bool networkWizardError = false;
+    private List<NetworkDiskInfo> networkDisks = new();
 
     // Power Management
     private bool showPowerManagement = false;
@@ -410,6 +629,7 @@
         try
         {
             allDisks = await DiskManagementService.GetAllBlockDevicesAsync();
+            networkDisks = await DiskManagementService.GetNetworkDisksAsync();
         }
         finally
         {
@@ -519,6 +739,91 @@
         {
             message = $"卸载失败: {ex.Message}";
             isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ShowNetworkMountWizard()
+    {
+        networkWizardType = NetworkDiskType.CIFS;
+        networkWizardServer = string.Empty;
+        networkWizardSharePath = string.Empty;
+        networkWizardMountPoint = string.Empty;
+        networkWizardUsername = string.Empty;
+        networkWizardPassword = string.Empty;
+        networkWizardDomain = string.Empty;
+        networkWizardOptions = string.Empty;
+        networkWizardPermanent = false;
+        networkWizardMessage = string.Empty;
+        networkWizardError = false;
+        showNetworkMountWizard = true;
+    }
+
+    private void HideNetworkMountWizard()
+    {
+        showNetworkMountWizard = false;
+    }
+
+    private async Task ExecuteNetworkMountWizard()
+    {
+        if (string.IsNullOrWhiteSpace(networkWizardServer) || 
+            string.IsNullOrWhiteSpace(networkWizardSharePath) || 
+            string.IsNullOrWhiteSpace(networkWizardMountPoint))
+            return;
+
+        isProcessing = true;
+        networkWizardMessage = string.Empty;
+
+        try
+        {
+            string result;
+            if (networkWizardPermanent)
+            {
+                result = await DiskManagementService.MountNetworkDiskPermanentAsync(
+                    networkWizardServer,
+                    networkWizardSharePath,
+                    networkWizardMountPoint,
+                    networkWizardType,
+                    string.IsNullOrWhiteSpace(networkWizardUsername) ? null : networkWizardUsername,
+                    string.IsNullOrWhiteSpace(networkWizardPassword) ? null : networkWizardPassword,
+                    string.IsNullOrWhiteSpace(networkWizardDomain) ? null : networkWizardDomain,
+                    string.IsNullOrWhiteSpace(networkWizardOptions) ? null : networkWizardOptions);
+            }
+            else
+            {
+                result = await DiskManagementService.MountNetworkDiskAsync(
+                    networkWizardServer,
+                    networkWizardSharePath,
+                    networkWizardMountPoint,
+                    networkWizardType,
+                    string.IsNullOrWhiteSpace(networkWizardUsername) ? null : networkWizardUsername,
+                    string.IsNullOrWhiteSpace(networkWizardPassword) ? null : networkWizardPassword,
+                    string.IsNullOrWhiteSpace(networkWizardDomain) ? null : networkWizardDomain,
+                    string.IsNullOrWhiteSpace(networkWizardOptions) ? null : networkWizardOptions);
+            }
+
+            var operationResult = new
+            {
+                Success = result.Contains("Successfully", StringComparison.OrdinalIgnoreCase),
+                Message = result
+            };
+
+            networkWizardMessage = operationResult.Message;
+            networkWizardError = !operationResult.Success;
+            if (!networkWizardError)
+            {
+                await RefreshData();
+                await Task.Delay(2000);
+                HideNetworkMountWizard();
+            }
+        }
+        catch (Exception ex)
+        {
+            networkWizardMessage = $"挂载失败: {ex.Message}";
+            networkWizardError = true;
         }
         finally
         {
