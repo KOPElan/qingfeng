@@ -81,7 +81,7 @@
 .date-display {
     font-size: 1.2rem;
     color: var(--text-secondary-light);
-    margin: 10px 0 0 0;
+    margin: var(--spacing-sm) 0 0 0;
 }
 
 .home-portal-container .date-display {
@@ -321,7 +321,7 @@
 .status-metrics {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--spacing-sm);
 }
 
 .metric-item {
@@ -481,7 +481,7 @@
 .apps-grid {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
-    gap: 25px 15px;
+    gap: var(--gap-apps-grid);
     padding: 0 var(--spacing-2xl);
 }
 
@@ -669,7 +669,7 @@
 @media (max-width: 768px) {
     .apps-grid {
         grid-template-columns: repeat(4, 1fr);
-        gap: 20px 15px;
+        gap: var(--gap-apps-grid-mobile);
     }
 
     .app-icon {

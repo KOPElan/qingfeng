@@ -107,7 +107,7 @@
    ========================================================================== */
 
 .progress-custom {
-    height: 24px;
+    height: var(--h-24);
     border-radius: var(--radius-xl);
     background: rgba(255, 255, 255, 0.1);
     overflow: hidden;
@@ -245,8 +245,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: var(--icon-size-sm);
+    height: var(--icon-size-sm);
     border-radius: var(--radius-md);
     background: var(--surface-overlay);
     margin-right: var(--spacing-sm);
@@ -278,14 +278,14 @@
 }
 
 .app-icon {
-    width: 70px;
-    height: 70px;
+    width: var(--icon-size-xl);
+    height: var(--icon-size-xl);
     border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-white);
-    margin-bottom: 8px;
+    margin-bottom: var(--spacing-sm);
     box-shadow: var(--shadow-xl);
     background: var(--icon-bg-gray);
 }
@@ -298,8 +298,8 @@
     position: absolute;
     top: 0.625rem;
     right: 0.625rem;
-    width: 0.5rem;
-    height: 0.5rem;
+    width: var(--dot-size-sm);
+    height: var(--dot-size-sm);
     background: var(--primary-color);
     border-radius: var(--radius-round);
     border: 1px solid var(--surface-light);
@@ -309,8 +309,8 @@
     position: absolute;
     top: var(--spacing-md);
     right: var(--spacing-md);
-    width: 0.625rem;
-    height: 0.625rem;
+    width: var(--dot-size-md);
+    height: var(--dot-size-md);
     border-radius: var(--radius-round);
     background: var(--success-color);
     box-shadow: 0 0 0 2px var(--surface-light);

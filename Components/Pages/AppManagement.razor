@@ -50,7 +50,7 @@
     @if (!applications.Any())
     {
         <div class="empty-state">
-            <i class="bi bi-inbox icon-2xl"></i>
+            <i class="bi bi-inbox icon-2xl" style="color: var(--text-lighter);"></i>
             <p>还没有应用</p>
             <button class="btn btn-primary" @onclick="ShowAddDialog">添加第一个应用</button>
         </div>

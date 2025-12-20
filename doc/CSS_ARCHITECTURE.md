@@ -1,4 +1,4 @@
-# CSS Architecture Documentation
+# QingFeng Portal CSS Architecture Documentation
 
 ## Overview
 
@@ -51,7 +51,7 @@ The QingFeng Portal application now uses a modular CSS architecture designed to 
    - Hover effects
    
 6. **utilities.css** - Utility Classes
-   - Bootstrap overrides
+   - Bootstrap Overrides & Enhancements
    - Text utilities
    - Color classes
    - Size classes

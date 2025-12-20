@@ -85,6 +85,10 @@
     --spacing-2xl: 2rem;
     --spacing-3xl: 2.5rem;
     
+    /* Grid Gaps (specific values for layouts) */
+    --gap-apps-grid: 25px 15px;
+    --gap-apps-grid-mobile: 20px 15px;
+    
     /* Shadow Levels */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -117,9 +121,26 @@
     --opacity-hover: 0.4;
     --opacity-skeleton-start: 0.05;
     --opacity-skeleton-mid: 0.1;
+    --opacity-modal-backdrop: 0.8;
     
     /* Special Background Colors */
     --app-category-bg: rgba(249, 245, 6, 0.2);
+    --modal-backdrop-bg: rgba(0, 0, 0, 0.8);
+    
+    /* Component Sizes */
+    --h-20: 20px;
+    --h-24: 24px;
+    --icon-size-sm: 40px;
+    --icon-size-md: 50px;
+    --icon-size-lg: 64px;
+    --icon-size-xl: 70px;
+    --dock-icon-size: 60px;
+    --dock-icon-size-sm: 50px;
+    --dock-icon-size-md: 3.5rem;
+    --dock-divider-height: 2.5rem;
+    --dot-size-sm: 0.5rem;
+    --dot-size-md: 0.625rem;
+    --status-indicator-size: 12px;
     
     /* Z-Index Layers */
     --z-base: 0;
@@ -130,15 +151,5 @@
     --z-toast: 1050;
 }
 
-/* Dark Mode Variables (for future implementation) */
-@media (prefers-color-scheme: dark) {
-    :root {
-        /* TODO: Override variables for dark mode when implemented
-         * Example overrides needed:
-         * --bg-light: #1a1a1a;
-         * --text-primary: #ffffff;
-         * --surface-light: #2a2a2a;
-         * etc.
-         */
-    }
-}
+/* Dark mode variables can be added here in a future implementation. */
+

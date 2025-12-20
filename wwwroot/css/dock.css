@@ -8,7 +8,7 @@
 
 .bottom-dock {
     position: fixed;
-    bottom: 2rem;
+    bottom: var(--spacing-2xl);
     left: 50%;
     transform: translateX(-50%);
     z-index: var(--z-dock);
@@ -81,8 +81,8 @@
 }
 
 .dock-icon-bg {
-    width: 60px;
-    height: 60px;
+    width: var(--dock-icon-size);
+    height: var(--dock-icon-size);
     border-radius: var(--radius-xl);
     display: flex;
     align-items: center;
@@ -96,8 +96,8 @@
 
 @media (min-width: 640px) {
     .dock-icon-bg {
-        width: 3.5rem;
-        height: 3.5rem;
+        width: var(--dock-icon-size-md);
+        height: var(--dock-icon-size-md);
     }
 }
 
@@ -159,7 +159,7 @@
 
 .dock-divider {
     width: 1px;
-    height: 2.5rem;
+    height: var(--dock-divider-height);
     background: var(--border-medium);
     margin: 0 var(--spacing-xs);
 }
@@ -234,12 +234,12 @@
 
 @media (max-width: 768px) {
     .bottom-dock {
-        bottom: 15px;
+        bottom: var(--spacing-lg);
     }
 
     .dock-icon-bg {
-        width: 50px;
-        height: 50px;
+        width: var(--dock-icon-size-sm);
+        height: var(--dock-icon-size-sm);
     }
 
     .dock-panel {
