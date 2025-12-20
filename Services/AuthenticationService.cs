@@ -33,16 +33,15 @@ public class AuthenticationService : IAuthenticationService
         user.LastLoginAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
 
-        // Set authentication state
-        _authState.SetUser(user);
+        // Set authentication state (now persisted to session storage)
+        await _authState.SetUserAsync(user);
 
         return user;
     }
 
-    public Task LogoutAsync()
+    public async Task LogoutAsync()
     {
-        _authState.Clear();
-        return Task.CompletedTask;
+        await _authState.ClearAsync();
     }
 
     public async Task<User> CreateUserAsync(string username, string password, string role)
@@ -80,18 +79,22 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<User?> GetCurrentUserAsync()
     {
-        // Return from circuit-scoped state
-        return await Task.FromResult(_authState.CurrentUser);
+        // Now returns from session storage-backed state
+        return await _authState.GetCurrentUserAsync();
     }
 
-    public Task<bool> IsAdminAsync()
+    public async Task<bool> IsAdminAsync()
     {
-        return Task.FromResult(_authState.IsAdmin);
+        var user = await GetCurrentUserAsync();
+        return user?.Role == User.RoleAdmin;
     }
 
     public string? GetCurrentUsername()
     {
-        return _authState.CurrentUser?.Username;
+        // This method is synchronous but needs async state
+        // Consider deprecating or making it async in the future
+        var user = _authState.GetCurrentUserAsync().GetAwaiter().GetResult();
+        return user?.Username;
     }
 
     public async Task<List<User>> GetAllUsersAsync()
@@ -122,9 +125,10 @@ public class AuthenticationService : IAuthenticationService
         await _dbContext.SaveChangesAsync();
 
         // Invalidate authentication state if the deleted user is currently authenticated
-        if (_authState.CurrentUser != null && _authState.CurrentUser.Id == userId)
+        var currentUser = await _authState.GetCurrentUserAsync();
+        if (currentUser != null && currentUser.Id == userId)
         {
-            _authState.Clear();
+            await _authState.ClearAsync();
         }
     }
 
