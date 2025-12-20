@@ -68,8 +68,64 @@ app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
+// Add file download endpoint
+app.MapGet("/api/files/download", async (string path, IFileManagerService fileManager) =>
+{
+    try
+    {
+        var fileBytes = await fileManager.DownloadFileAsync(path);
+        var fileName = Path.GetFileName(path);
+        var contentType = GetContentType(fileName);
+        
+        return Results.File(fileBytes, contentType, fileName);
+    }
+    catch (UnauthorizedAccessException)
+    {
+        return Results.Unauthorized();
+    }
+    catch (FileNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Helper function for content type detection
+static string GetContentType(string fileName)
+{
+    var extension = Path.GetExtension(fileName).ToLowerInvariant();
+    return extension switch
+    {
+        ".txt" => "text/plain",
+        ".pdf" => "application/pdf",
+        ".doc" => "application/msword",
+        ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".xls" => "application/vnd.ms-excel",
+        ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".gif" => "image/gif",
+        ".svg" => "image/svg+xml",
+        ".zip" => "application/zip",
+        ".rar" => "application/x-rar-compressed",
+        ".7z" => "application/x-7z-compressed",
+        ".mp3" => "audio/mpeg",
+        ".mp4" => "video/mp4",
+        ".avi" => "video/x-msvideo",
+        ".json" => "application/json",
+        ".xml" => "application/xml",
+        ".css" => "text/css",
+        ".js" => "application/javascript",
+        ".html" or ".htm" => "text/html",
+        _ => "application/octet-stream"
+    };
+}
 
 app.Run();
