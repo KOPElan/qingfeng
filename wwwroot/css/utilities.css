@@ -267,7 +267,7 @@ h1:focus {
 }
 
 .setting-item:hover {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, var(--opacity-hover));
 }
 
 .setting-info {
@@ -390,7 +390,7 @@ h1:focus {
 .app-category-badge {
     display: inline-block;
     padding: var(--spacing-xs) var(--spacing-md);
-    background: rgba(249, 245, 6, 0.2);
+    background: var(--app-category-bg);
     color: var(--text-primary);
     border-radius: var(--radius-md);
     font-size: 0.75rem;

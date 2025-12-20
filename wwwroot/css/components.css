@@ -367,9 +367,9 @@
 
 .skeleton {
     background: linear-gradient(90deg,
-            rgba(255, 255, 255, 0.05) 25%,
-            rgba(255, 255, 255, 0.1) 50%,
-            rgba(255, 255, 255, 0.05) 75%);
+            rgba(255, 255, 255, var(--opacity-skeleton-start)) 25%,
+            rgba(255, 255, 255, var(--opacity-skeleton-mid)) 50%,
+            rgba(255, 255, 255, var(--opacity-skeleton-start)) 75%);
     background-size: 200% 100%;
     animation: loading 1.5s ease-in-out infinite;
     border-radius: var(--radius-md);

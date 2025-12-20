@@ -113,6 +113,14 @@
     --bootstrap-invalid-border: #e50000;
     --bootstrap-checkbox-border: #929292;
     
+    /* Opacity Values */
+    --opacity-hover: 0.4;
+    --opacity-skeleton-start: 0.05;
+    --opacity-skeleton-mid: 0.1;
+    
+    /* Special Background Colors */
+    --app-category-bg: rgba(249, 245, 6, 0.2);
+    
     /* Z-Index Layers */
     --z-base: 0;
     --z-nav: 10;
@@ -125,6 +133,12 @@
 /* Dark Mode Variables (for future implementation) */
 @media (prefers-color-scheme: dark) {
     :root {
-        /* Override variables for dark mode when implemented */
+        /* TODO: Override variables for dark mode when implemented
+         * Example overrides needed:
+         * --bg-light: #1a1a1a;
+         * --text-primary: #ffffff;
+         * --surface-light: #2a2a2a;
+         * etc.
+         */
     }
 }
