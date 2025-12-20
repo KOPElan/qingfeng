@@ -8,7 +8,10 @@ namespace QingFeng.Services;
 
 public class DiskManagementService : IDiskManagementService
 {
-    private static readonly string[] InvalidChars = ["&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r"];
+    private static readonly string[] InvalidChars = ["&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r", " "];
+    private static readonly char[] InvalidCredentialChars = ['\n', '\r', '='];
+    private static readonly HashSet<char> InvalidCredentialCharsSet = new(InvalidCredentialChars);
+    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 
     public Task<List<DiskInfo>> GetAllDisksAsync()
     {
@@ -662,6 +665,516 @@ public class DiskManagementService : IDiskManagementService
             return false;
         }
 
+        return true;
+    }
+    
+    // Network disk management implementation
+    public async Task<List<NetworkDiskInfo>> GetNetworkDisksAsync()
+    {
+        var networkDisks = new List<NetworkDiskInfo>();
+        
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return networkDisks;
+        }
+        
+        try
+        {
+            // Read /proc/mounts to find network mounts
+            var mountsPath = "/proc/mounts";
+            if (!File.Exists(mountsPath))
+            {
+                return networkDisks;
+            }
+            
+            var lines = await File.ReadAllLinesAsync(mountsPath);
+            foreach (var line in lines)
+            {
+                var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 4)
+                    continue;
+                    
+                var device = parts[0];
+                var mountPoint = parts[1];
+                var fsType = parts[2];
+                var options = parts.Length > 3 ? parts[3] : "";
+                
+                // Check if it's a network filesystem
+                if (fsType == "cifs" || fsType == "nfs" || fsType == "nfs4")
+                {
+                    var diskInfo = new NetworkDiskInfo
+                    {
+                        MountPoint = mountPoint,
+                        FileSystem = fsType,
+                        Options = options,
+                        IsReady = true
+                    };
+                    
+                    // Parse server and share path
+                    if (fsType == "cifs")
+                    {
+                        diskInfo.DiskType = NetworkDiskType.CIFS;
+                        // Format: //server/share
+                        if (device.StartsWith("//") && device.Length > 2)
+                        {
+                            var pathParts = device[2..].Split('/', 2);
+                            if (pathParts.Length >= 1)
+                            {
+                                diskInfo.Server = pathParts[0];
+                                diskInfo.SharePath = pathParts.Length > 1 ? pathParts[1] : "";
+                            }
+                        }
+                    }
+                    else if (fsType == "nfs" || fsType == "nfs4")
+                    {
+                        diskInfo.DiskType = NetworkDiskType.NFS;
+                        // Format: server:/path
+                        var colonIndex = device.IndexOf(':');
+                        if (colonIndex > 0 && colonIndex < device.Length - 1)
+                        {
+                            diskInfo.Server = device[..colonIndex];
+                            diskInfo.SharePath = device[(colonIndex + 1)..];
+                        }
+                    }
+                    
+                    // Get usage information
+                    if (Directory.Exists(mountPoint))
+                    {
+                        try
+                        {
+                            var driveInfo = new DriveInfo(mountPoint);
+                            if (driveInfo.IsReady)
+                            {
+                                diskInfo.TotalBytes = driveInfo.TotalSize;
+                                diskInfo.AvailableBytes = driveInfo.AvailableFreeSpace;
+                                diskInfo.UsedBytes = driveInfo.TotalSize - driveInfo.AvailableFreeSpace;
+                                diskInfo.UsagePercent = diskInfo.TotalBytes > 0
+                                    ? Math.Round((double)diskInfo.UsedBytes / diskInfo.TotalBytes * 100, 2)
+                                    : 0;
+                            }
+                        }
+                        catch
+                        {
+                            // Ignore errors getting usage info
+                        }
+                    }
+                    
+                    networkDisks.Add(diskInfo);
+                }
+            }
+        }
+        catch
+        {
+            // Return empty list on error
+        }
+        
+        return networkDisks;
+    }
+    
+    public async Task<string> MountNetworkDiskAsync(string server, string sharePath, string mountPoint, NetworkDiskType diskType, string? username = null, string? password = null, string? domain = null, string? options = null)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Network disk mounting is only supported on Linux";
+        }
+        
+        if (!ValidateNetworkPath(server, sharePath))
+        {
+            return "Invalid server or share path";
+        }
+        
+        if (!ValidateMountPoint(mountPoint))
+        {
+            return "Invalid mount point";
+        }
+        
+        if (options != null && InvalidChars.Any(c => options.Contains(c)))
+        {
+            return "Invalid characters in mount options";
+        }
+        
+        // Validate credentials don't contain invalid characters
+        if (!string.IsNullOrEmpty(username) && username.Any(c => InvalidCredentialCharsSet.Contains(c)))
+        {
+            return "Username contains invalid characters (newline or equals sign)";
+        }
+        if (!string.IsNullOrEmpty(password) && password.Any(c => InvalidCredentialCharsSet.Contains(c)))
+        {
+            return "Password contains invalid characters (newline or equals sign)";
+        }
+        if (!string.IsNullOrEmpty(domain) && domain.Any(c => InvalidCredentialCharsSet.Contains(c)))
+        {
+            return "Domain contains invalid characters (newline or equals sign)";
+        }
+        
+        try
+        {
+            // Create mount point if it doesn't exist
+            if (!Directory.Exists(mountPoint))
+            {
+                Directory.CreateDirectory(mountPoint);
+            }
+            
+            string device;
+            string? tempCredFile = null;
+            
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "mount",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            
+            if (diskType == NetworkDiskType.CIFS)
+            {
+                // CIFS mount
+                device = $"//{server}/{sharePath}";
+                
+                processInfo.ArgumentList.Add("-t");
+                processInfo.ArgumentList.Add("cifs");
+                
+                // Build credentials using a temporary credentials file for security
+                var credOptions = new List<string>();
+                
+                // If credentials are provided, create a temporary credential file with secure permissions
+                if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
+                {
+                    try
+                    {
+                        // Use SHA256 hash for better collision resistance
+                        var hashInput = $"{Guid.NewGuid()}-{DateTime.UtcNow.Ticks}";
+                        var hashBytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(hashInput));
+                        var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant()[..16];
+                        tempCredFile = Path.Combine("/tmp", $"cifs-cred-{hashString}");
+                        
+                        var credContent = $"username={username}\npassword={password}\n";
+                        if (!string.IsNullOrEmpty(domain))
+                        {
+                            credContent += $"domain={domain}\n";
+                        }
+                        
+                        // Create the credential file with secure permissions atomically
+                        var fsOptions = new FileStreamOptions
+                        {
+                            Mode = FileMode.CreateNew,
+                            Access = FileAccess.Write,
+                            Share = FileShare.None,
+                            Options = FileOptions.Asynchronous,
+                            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+                        };
+
+                        await using (var fs = new FileStream(tempCredFile, fsOptions))
+                        {
+                            await using (var writer = new StreamWriter(fs))
+                            {
+                                await writer.WriteAsync(credContent);
+                            }
+                        }
+                        
+                        credOptions.Add($"credentials={tempCredFile}");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Clean up the credential file if it was created
+                        if (tempCredFile != null && File.Exists(tempCredFile))
+                        {
+                            try { File.Delete(tempCredFile); } catch { }
+                            tempCredFile = null;
+                        }
+                        Debug.WriteLine($"Failed to create secure credential file: {ex}");
+                        return $"Failed to create secure credential file: {ex.Message}";
+                    }
+                }
+                
+                // Add custom options
+                if (!string.IsNullOrEmpty(options))
+                {
+                    credOptions.AddRange(options.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(o => o.Trim()));
+                }
+                
+                if (credOptions.Count > 0)
+                {
+                    processInfo.ArgumentList.Add("-o");
+                    processInfo.ArgumentList.Add(string.Join(",", credOptions));
+                }
+                
+                processInfo.ArgumentList.Add(device);
+                processInfo.ArgumentList.Add(mountPoint);
+            }
+            else // NFS
+            {
+                // NFS mount - normalize share path
+                var normalizedSharePath = sharePath.StartsWith("/") ? sharePath : "/" + sharePath;
+                device = $"{server}:{normalizedSharePath}";
+                
+                if (!string.IsNullOrEmpty(options))
+                {
+                    processInfo.ArgumentList.Add("-o");
+                    processInfo.ArgumentList.Add(options);
+                }
+                
+                processInfo.ArgumentList.Add(device);
+                processInfo.ArgumentList.Add(mountPoint);
+            }
+            
+            try
+            {
+                using var process = Process.Start(processInfo);
+                if (process != null)
+                {
+                    await process.WaitForExitAsync();
+                    var error = await process.StandardError.ReadToEndAsync();
+                    
+                    return process.ExitCode == 0
+                        ? $"Successfully mounted {device} to {mountPoint}"
+                        : $"Failed to mount: {error}";
+                }
+                
+                return "Failed to start mount process";
+            }
+            finally
+            {
+                // Clean up temporary credential file
+                if (tempCredFile != null && File.Exists(tempCredFile))
+                {
+                    try
+                    {
+                        File.Delete(tempCredFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to delete temporary credential file '{tempCredFile}': {ex}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            return $"Error mounting network disk: {ex.Message}";
+        }
+    }
+    
+    public async Task<string> MountNetworkDiskPermanentAsync(string server, string sharePath, string mountPoint, NetworkDiskType diskType, string? username = null, string? password = null, string? domain = null, string? options = null)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Permanent network disk mounting is only supported on Linux";
+        }
+        
+        // First mount temporarily
+        var mountResult = await MountNetworkDiskAsync(server, sharePath, mountPoint, diskType, username, password, domain, options);
+        if (!mountResult.Contains("Successfully"))
+        {
+            return mountResult;
+        }
+        
+        try
+        {
+            string device;
+            string fsType;
+            var fstabOptions = new List<string>();
+            
+            if (diskType == NetworkDiskType.CIFS)
+            {
+                device = $"//{server}/{sharePath}";
+                fsType = "cifs";
+                
+                // For CIFS, we should use a credentials file for security
+                if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
+                {
+                    // Use SHA256 hash for better collision resistance
+                    var hashInput = $"{server}-{sharePath}";
+                    var hashBytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(hashInput));
+                    var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant()[..32];
+                    var credFile = $"/etc/cifs-credentials-{hashString}";
+                    try
+                    {
+                        var credContent = $"username={username}\npassword={password}\n";
+                        if (!string.IsNullOrEmpty(domain))
+                        {
+                            credContent += $"domain={domain}\n";
+                        }
+                        
+                        // Create the credential file with secure permissions atomically
+                        var fsOptions = new FileStreamOptions
+                        {
+                            Mode = FileMode.Create,
+                            Access = FileAccess.Write,
+                            Share = FileShare.None,
+                            Options = FileOptions.Asynchronous,
+                            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+                        };
+
+                        await using (var fs = new FileStream(credFile, fsOptions))
+                        {
+                            await using (var writer = new StreamWriter(fs))
+                            {
+                                await writer.WriteAsync(credContent);
+                            }
+                        }
+                        
+                        // Verify file permissions were set correctly
+                        var chmodInfo = new ProcessStartInfo
+                        {
+                            FileName = "chmod",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+                        chmodInfo.ArgumentList.Add("600");
+                        chmodInfo.ArgumentList.Add(credFile);
+                        
+                        using var chmodProcess = Process.Start(chmodInfo);
+                        if (chmodProcess == null)
+                        {
+                            throw new InvalidOperationException("Failed to start chmod process to secure credential file.");
+                        }
+
+                        await chmodProcess.WaitForExitAsync();
+                        if (chmodProcess.ExitCode != 0)
+                        {
+                            var errorOutput = await chmodProcess.StandardError.ReadToEndAsync();
+                            // Remove potentially insecure credential file
+                            try
+                            {
+                                if (File.Exists(credFile))
+                                {
+                                    File.Delete(credFile);
+                                }
+                            }
+                            catch
+                            {
+                                // Ignore file deletion errors
+                            }
+                            throw new InvalidOperationException($"chmod failed for credential file '{credFile}' with exit code {chmodProcess.ExitCode}: {errorOutput}");
+                        }
+                        
+                        fstabOptions.Add($"credentials={credFile}");
+                    }
+                    catch (Exception ex)
+                    {
+                        // If we can't securely write credentials file, fail the operation
+                        try
+                        {
+                            if (File.Exists(credFile))
+                            {
+                                File.Delete(credFile);
+                            }
+                        }
+                        catch
+                        {
+                            // Ignore file deletion errors
+                        }
+                        Debug.WriteLine($"Failed to create CIFS credentials file: {ex}");
+                        return $"Failed to create secure CIFS credentials file '{credFile}'. Refusing to store credentials insecurely in /etc/fstab. Error: {ex.Message}";
+                    }
+                }
+            }
+            else // NFS
+            {
+                // NFS mount - normalize share path
+                var normalizedSharePath = sharePath.Trim().TrimStart('/');
+                if (string.IsNullOrEmpty(normalizedSharePath))
+                {
+                    return "Invalid NFS share path: share path must not be empty or consist only of '/'.";
+                }
+                
+                device = $"{server}:/{normalizedSharePath}";
+                fsType = "nfs";
+            }
+            
+            // Add custom options with validation
+            if (!string.IsNullOrEmpty(options))
+            {
+                foreach (var rawOption in options.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var option = rawOption.Trim();
+                    if (string.IsNullOrEmpty(option))
+                    {
+                        continue;
+                    }
+                    
+                    // Reject options containing invalid characters or whitespace
+                    if (InvalidChars.Any(c => option.Contains(c)) || option.Any(char.IsWhiteSpace))
+                    {
+                        Debug.WriteLine($"Ignoring invalid fstab option: '{rawOption}' after trimming to '{option}'.");
+                        continue;
+                    }
+                    
+                    fstabOptions.Add(option);
+                }
+            }
+            
+            // Add default options if none specified
+            if (fstabOptions.Count == 0)
+            {
+                fstabOptions.Add("defaults");
+            }
+            
+            var fstabEntry = $"{device} {mountPoint} {fsType} {string.Join(",", fstabOptions)} 0 0";
+            
+            try
+            {
+                var fstabPath = "/etc/fstab";
+                string[] existingLines;
+                
+                try
+                {
+                    existingLines = await File.ReadAllLinesAsync(fstabPath);
+                }
+                catch (FileNotFoundException)
+                {
+                    existingLines = Array.Empty<string>();
+                }
+                
+                // Check if entry already exists using proper field parsing
+                var hasExistingEntry = existingLines
+                    .Select(line => line.Trim())
+                    .Where(trimmed => !string.IsNullOrEmpty(trimmed) && !trimmed.StartsWith("#"))
+                    .Select(trimmed => WhitespaceRegex.Split(trimmed))
+                    .Where(fields => fields.Length >= 2)
+                    .Any(fields => fields[0] == device && fields[1] == mountPoint);
+
+                if (hasExistingEntry)
+                {
+                    return $"Successfully mounted {device} to {mountPoint}; matching entry already exists in /etc/fstab";
+                }
+                
+                await File.AppendAllTextAsync(fstabPath, fstabEntry + Environment.NewLine);
+                return $"Successfully mounted {device} to {mountPoint} and added to /etc/fstab";
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return $"Mounted successfully but permission denied writing to /etc/fstab. Entry: {fstabEntry}";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error appending to /etc/fstab for network disk '{device}' at mount point '{mountPoint}'. Exception: {ex}");
+                return $"Mounted successfully but error updating /etc/fstab: {ex.Message}. Entry: {fstabEntry}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error during permanent network mount setup. Exception: {ex}");
+            return $"Mounted successfully but error updating /etc/fstab: {ex.Message}";
+        }
+    }
+    
+    private static bool ValidateNetworkPath(string server, string sharePath)
+    {
+        if (string.IsNullOrWhiteSpace(server) || string.IsNullOrWhiteSpace(sharePath))
+        {
+            return false;
+        }
+        
+        if (InvalidChars.Any(c => server.Contains(c) || sharePath.Contains(c)))
+        {
+            return false;
+        }
+        
         return true;
     }
 }

@@ -71,3 +71,32 @@ public class NetworkInfo
     public string SentMB => $"{BytesSent / 1024.0 / 1024.0:F2} MB";
     public string ReceivedMB => $"{BytesReceived / 1024.0 / 1024.0:F2} MB";
 }
+
+public enum NetworkDiskType
+{
+    CIFS,
+    NFS
+}
+
+public class NetworkDiskInfo
+{
+    public string Server { get; set; } = string.Empty;
+    public string SharePath { get; set; } = string.Empty;
+    public string MountPoint { get; set; } = string.Empty;
+    public NetworkDiskType DiskType { get; set; }
+    public string FileSystem { get; set; } = string.Empty; // cifs, nfs, nfs4, etc.
+    public long TotalBytes { get; set; }
+    public long UsedBytes { get; set; }
+    public long AvailableBytes { get; set; }
+    public double UsagePercent { get; set; }
+    public bool IsReady { get; set; }
+    public string Options { get; set; } = string.Empty;
+    
+    public string TotalGB => $"{TotalBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
+    public string UsedGB => $"{UsedBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
+    public string AvailableGB => $"{AvailableBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
+    public string SizeDisplay => TotalBytes > 0 ? TotalGB : "N/A";
+    public string FullPath => DiskType == NetworkDiskType.NFS
+        ? $"{Server}:/{SharePath}"
+        : $"//{Server}/{SharePath}";
+}

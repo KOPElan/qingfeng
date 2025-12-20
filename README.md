@@ -19,10 +19,12 @@
   - 磁盘空间使用
   - 网络接口状态和流量统计
 
-- **磁盘管理**：管理磁盘挂载和共享
+- **磁盘管理**：管理本地磁盘和网络磁盘
   - 查看所有磁盘信息（已挂载和未挂载）
-  - 挂载/卸载磁盘（Linux）
+  - 挂载/卸载本地磁盘（Linux）
   - 磁盘挂载向导（支持临时和永久挂载）
+  - 网络磁盘管理（CIFS/SMB 和 NFS）
+  - 网络磁盘挂载向导（支持Windows共享和NFS共享）
   - 磁盘电源管理（休眠/APM设置）
   - 查看Samba共享配置
 
@@ -57,6 +59,14 @@
   - `lsblk` - 列出块设备信息
   - `mount` / `umount` - 挂载和卸载文件系统
   - `hdparm` - 磁盘电源管理和性能调优（可选）
+  - `cifs-utils` - CIFS/SMB网络磁盘支持（可选）
+  - `nfs-common` - NFS网络磁盘支持（可选）
+
+**安装网络磁盘工具**（Ubuntu/Debian）：
+```bash
+sudo apt-get update
+sudo apt-get install cifs-utils nfs-common
+```
 
 **注意**：磁盘挂载和电源管理功能需要 sudo 权限。建议使用以下方式之一运行：
 
@@ -161,7 +171,12 @@ qingfeng/
 1. **查看所有磁盘**：使用 `lsblk` 命令列出所有块设备，包括未挂载的磁盘和分区
 2. **临时挂载**：将磁盘挂载到指定挂载点，重启后失效
 3. **永久挂载**：将磁盘挂载并自动写入 `/etc/fstab` 文件，重启后自动挂载
-4. **磁盘电源管理**：
+4. **网络磁盘管理**：
+   - **CIFS/SMB**：挂载Windows网络共享，支持用户名密码认证
+   - **NFS**：挂载Linux/Unix网络共享
+   - 支持临时和永久挂载
+   - 自动检测已挂载的网络磁盘
+5. **磁盘电源管理**：
    - **休眠超时**：使用 `hdparm -S` 设置磁盘自动休眠时间（0-240分钟）
    - **APM 级别**：使用 `hdparm -B` 设置高级电源管理级别（1=最省电，255=最高性能）
    - **电源状态查询**：使用 `hdparm -C` 查看磁盘当前电源状态
@@ -169,14 +184,14 @@ qingfeng/
 **安装必需工具**（Ubuntu/Debian）：
 ```bash
 sudo apt-get update
-sudo apt-get install util-linux hdparm
+sudo apt-get install util-linux hdparm cifs-utils nfs-common
 ```
 
 **安装必需工具**（CentOS/RHEL/Fedora）：
 ```bash
-sudo yum install util-linux hdparm
+sudo yum install util-linux hdparm cifs-utils nfs-utils
 # 或
-sudo dnf install util-linux hdparm
+sudo dnf install util-linux hdparm cifs-utils nfs-utils
 ```
 
 ## 安全注意事项
