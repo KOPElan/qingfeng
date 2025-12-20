@@ -15,6 +15,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<QingFengDbContext>(options =>
     options.UseSqlite(connectionString));
 
+// Add localization services
+builder.Services.AddLocalization();
+
 // Register custom services
 builder.Services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
 builder.Services.AddSingleton<IDockerService, DockerService>();
@@ -24,6 +27,7 @@ builder.Services.AddScoped<IDockItemService, DockItemService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddSingleton<IDialogService, DialogService>();
+builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 
 var app = builder.Build();
 

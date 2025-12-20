@@ -3,6 +3,7 @@
 @using QingFeng.Models
 @inject NavigationManager NavigationManager
 @inject IDockItemService DockItemService
+@inject ILocalizationService LocalizationService
 @implements IDisposable
 
 <!-- Dock-style Navigation Menu -->
@@ -43,11 +44,11 @@
         }
         
         <!-- Add dock item button -->
-        <button class="dock-item add-dock-btn" @onclick="NavigateToDockManagement" title="管理 Dock">
+        <button class="dock-item add-dock-btn" @onclick="NavigateToDockManagement" title="@LocalizationService.GetString("ManageDock")">
             <div class="dock-icon-bg" style="background: rgba(255, 255, 255, 0.1);">
                 <span class="material-symbols-outlined" style="font-size: 28px; color: white;">add</span>
             </div>
-            <span class="dock-tooltip">添加</span>
+            <span class="dock-tooltip">@LocalizationService.GetString("Add")</span>
         </button>
     </div>
 </div>
