@@ -22,8 +22,10 @@ builder.Services.AddHttpContextAccessor();
 // Add SQLite database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? "Data Source=qingfeng.db";
-builder.Services.AddDbContext<QingFengDbContext>(options =>
+builder.Services.AddDbContextFactory<QingFengDbContext>(options =>
     options.UseSqlite(connectionString));
+// Also add DbContext for scoped services that need it
+builder.Services.AddScoped(provider => provider.GetRequiredService<IDbContextFactory<QingFengDbContext>>().CreateDbContext());
 
 // Add localization services
 builder.Services.AddLocalization();

@@ -1,5 +1,7 @@
 using QingFeng.Models;
+using QingFeng.Data;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace QingFeng.Services;
 
@@ -7,10 +9,12 @@ public class FileManagerService : IFileManagerService
 {
     private readonly string _rootPath;
     private readonly ILogger<FileManagerService> _logger;
+    private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
 
-    public FileManagerService(ILogger<FileManagerService> logger)
+    public FileManagerService(ILogger<FileManagerService> logger, IDbContextFactory<QingFengDbContext> dbContextFactory)
     {
         _logger = logger;
+        _dbContextFactory = dbContextFactory;
         
         // Set root path based on OS
         if (OperatingSystem.IsWindows())
@@ -533,5 +537,76 @@ public class FileManagerService : IFileManagerService
             // Recursive call will validate the subdirectory path
             await CopyDirectoryAsync(subDir.FullName, targetPath);
         }
+    }
+
+    // Favorites management
+    public async Task<List<FavoriteFolder>> GetFavoriteFoldersAsync()
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        return await context.FavoriteFolders
+            .OrderBy(f => f.Order)
+            .ThenBy(f => f.Name)
+            .ToListAsync();
+    }
+
+    public async Task<FavoriteFolder> AddFavoriteFolderAsync(string name, string path, string icon = "folder")
+    {
+        if (!IsPathAllowed(path))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        if (!Directory.Exists(path))
+            throw new DirectoryNotFoundException($"Directory not found: {path}");
+
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        // Check if already exists
+        var existing = await context.FavoriteFolders
+            .FirstOrDefaultAsync(f => f.Path == path);
+        
+        if (existing != null)
+            throw new InvalidOperationException("This folder is already in favorites");
+
+        // Get next order value
+        var maxOrder = await context.FavoriteFolders.MaxAsync(f => (int?)f.Order) ?? 0;
+
+        var favorite = new FavoriteFolder
+        {
+            Name = name,
+            Path = path,
+            Icon = icon,
+            Order = maxOrder + 1,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.FavoriteFolders.Add(favorite);
+        await context.SaveChangesAsync();
+
+        return favorite;
+    }
+
+    public async Task RemoveFavoriteFolderAsync(int id)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var favorite = await context.FavoriteFolders.FindAsync(id);
+        if (favorite == null)
+            throw new InvalidOperationException("Favorite folder not found");
+
+        context.FavoriteFolders.Remove(favorite);
+        await context.SaveChangesAsync();
+    }
+
+    public async Task UpdateFavoriteFolderAsync(int id, string name, string icon)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var favorite = await context.FavoriteFolders.FindAsync(id);
+        if (favorite == null)
+            throw new InvalidOperationException("Favorite folder not found");
+
+        favorite.Name = name;
+        favorite.Icon = icon;
+
+        await context.SaveChangesAsync();
     }
 }

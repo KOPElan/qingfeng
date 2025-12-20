@@ -23,4 +23,10 @@ public interface IFileManagerService
     Task<List<FileItemInfo>> SearchFilesAsync(string path, string searchPattern);
     Task UploadFileAsync(string directoryPath, string fileName, byte[] content);
     Task<byte[]> DownloadFileAsync(string filePath);
+    
+    // Favorites management
+    Task<List<FavoriteFolder>> GetFavoriteFoldersAsync();
+    Task<FavoriteFolder> AddFavoriteFolderAsync(string name, string path, string icon = "folder");
+    Task RemoveFavoriteFolderAsync(int id);
+    Task UpdateFavoriteFolderAsync(int id, string name, string icon);
 }

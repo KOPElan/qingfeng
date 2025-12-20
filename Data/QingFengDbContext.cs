@@ -15,6 +15,7 @@ public class QingFengDbContext : DbContext
     public DbSet<DockItem> DockItems { get; set; } = null!;
     public DbSet<SystemSetting> SystemSettings { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
+    public DbSet<FavoriteFolder> FavoriteFolders { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,6 +69,15 @@ public class QingFengDbContext : DbContext
             entity.Property(e => e.Username).IsRequired().HasMaxLength(50);
             entity.Property(e => e.PasswordHash).IsRequired();
             entity.Property(e => e.Role).IsRequired().HasMaxLength(20);
+        });
+
+        // Configure FavoriteFolder
+        modelBuilder.Entity<FavoriteFolder>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Path).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.Icon).HasMaxLength(100);
         });
     }
 }

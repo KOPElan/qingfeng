@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using QingFeng.Data;
 
@@ -10,9 +11,11 @@ using QingFeng.Data;
 namespace QingFeng.Migrations
 {
     [DbContext(typeof(QingFengDbContext))]
-    partial class QingFengDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251220120018_AddFavoriteFolders")]
+    partial class AddFavoriteFolders
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.1");
