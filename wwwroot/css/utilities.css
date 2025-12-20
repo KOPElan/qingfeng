@@ -112,6 +112,10 @@ h1:focus {
     color: var(--text-white);
 }
 
+.color-primary-blue {
+    color: var(--color-primary-blue);
+}
+
 .bg-primary {
     background-color: var(--primary-color);
 }
