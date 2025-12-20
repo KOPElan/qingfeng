@@ -204,23 +204,7 @@
                 <div class="text-muted small px-3 py-2">暂无收藏文件夹</div>
             }
         </div>
-        
-        <!-- Shortcuts Section -->
-        <div class="sidebar-section">
-            <div class="sidebar-title">快捷访问</div>
-            @if (shortcuts != null)
-            {
-                @foreach (var shortcut in shortcuts)
-                {
-                    <div class="sidebar-item @(currentPath == shortcut.Path ? "selected" : "")" 
-                         @onclick="@(() => NavigateTo(shortcut.Path))">
-                        <i class="@GetShortcutIcon(shortcut.Type)"></i>
-                        <span>@shortcut.Name</span>
-                    </div>
-                }
-            }
-        </div>
-        
+
         <!-- Drives Section -->
         <div class="sidebar-section">
             <div class="sidebar-title">存储</div>
@@ -727,7 +711,6 @@
 @code {
     private List<FileItemInfo>? files;
     private List<DriveItemInfo>? drives;
-    private List<ShortcutItemInfo>? shortcuts;
     private List<FavoriteFolder>? favoriteFolders;
     private string currentPath = string.Empty;
     private bool isGridView = true;
@@ -789,8 +772,7 @@
     protected override async Task OnInitializedAsync()
     {
         // Load drives, shortcuts, and favorites
-        drives = await FileManagerService.GetDrivesAsync();
-        shortcuts = await FileManagerService.GetShortcutsAsync();
+        drives = await FileManagerService.GetDrivesAsync();        
         favoriteFolders = await FileManagerService.GetFavoriteFoldersAsync();
         
         // Start at user's home directory or first drive
