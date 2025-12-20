@@ -25,29 +25,37 @@ public class LocalizationService : ILocalizationService
         _resourceManager = new ResourceManager("QingFeng.Resources.Localizations", typeof(LocalizationService).Assembly);
         _currentCulture = new CultureInfo("zh-CN"); // Default culture
         
-        // Load culture from settings asynchronously
-        _ = InitializeCultureAsync();
+        // Initialize culture synchronously using the existing language setting if available
+        // This avoids race conditions while still supporting dynamic language changes
+        InitializeCulture();
     }
 
-    private async Task InitializeCultureAsync()
+    private void InitializeCulture()
     {
         try
         {
-            var cultureName = await _settingService.GetSettingAsync("language");
-            if (!string.IsNullOrEmpty(cultureName))
+            // Attempt to get the language setting synchronously
+            // If not available yet, will use default zh-CN
+            var task = _settingService.GetSettingAsync("language");
+            if (task.Wait(TimeSpan.FromSeconds(2)))
             {
-                var culture = AvailableCultures.FirstOrDefault(c => c.Name == cultureName);
-                if (culture != null)
+                var cultureName = task.Result;
+                if (!string.IsNullOrEmpty(cultureName))
                 {
-                    _currentCulture = culture;
-                    CultureInfo.CurrentCulture = _currentCulture;
-                    CultureInfo.CurrentUICulture = _currentCulture;
+                    var culture = AvailableCultures.FirstOrDefault(c => c.Name == cultureName);
+                    if (culture != null)
+                    {
+                        _currentCulture = culture;
+                        CultureInfo.CurrentCulture = _currentCulture;
+                        CultureInfo.CurrentUICulture = _currentCulture;
+                        _logger.LogInformation("Initialized culture to {Culture}", cultureName);
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error loading culture from settings");
+            _logger.LogWarning(ex, "Could not load culture from settings during initialization, using default zh-CN");
         }
     }
 
