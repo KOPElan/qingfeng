@@ -1,10 +1,9 @@
 @page "/initial-setup"
+@layout AuthLayout
 @using QingFeng.Services
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
-
-<PageTitle>初始设置 - 清风</PageTitle>
 
 <div class="setup-container">
     <div class="setup-card">
@@ -68,14 +67,7 @@
     private string errorMessage = "";
     private bool isCreating = false;
 
-    protected override async Task OnInitializedAsync()
-    {
-        // If admin already exists, redirect to login
-        if (await AuthService.HasAdminUserAsync())
-        {
-            Navigation.NavigateTo("/login", forceLoad: true);
-        }
-    }
+    // Removed OnInitializedAsync to avoid navigation issues during render
 
     private async Task CreateAdminAccount()
     {
@@ -120,11 +112,9 @@
             // Create admin user
             await AuthService.CreateUserAsync(username, password, "Admin");
 
-            // Auto login
-            await AuthService.LoginAsync(username, password);
-
-            // Redirect to home
-            Navigation.NavigateTo("/", forceLoad: true);
+            // Don't auto login here due to session issues in interactive mode
+            // Instead redirect to login page
+            Navigation.NavigateTo("/login", forceLoad: true);
         }
         catch (Exception ex)
         {

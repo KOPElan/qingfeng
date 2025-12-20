@@ -1,0 +1,362 @@
+@page "/user-management"
+@using QingFeng.Services
+@using QingFeng.Models
+@inherits AuthorizedPageBase
+@rendermode InteractiveServer
+
+<PageTitle>用户管理</PageTitle>
+
+@if (!IsAuthorized)
+{
+    <div class="loading-container">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+    return;
+}
+
+<div class="user-management-container">
+    <div class="header-section">
+        <h3><i class="bi bi-people-fill me-2"></i>用户管理</h3>
+        <button class="btn btn-primary" @onclick="ShowCreateUserDialog">
+            <i class="bi bi-person-plus-fill me-2"></i>创建用户
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show">
+            @message
+            <button type="button" class="btn-close" @onclick="@(() => message = string.Empty)"></button>
+        </div>
+    }
+
+    <div class="card-custom p-4">
+        @if (users == null)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (users.Count == 0)
+        {
+            <div class="text-center py-5">
+                <p class="text-muted">暂无用户</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-custom">
+                    <thead>
+                        <tr>
+                            <th>用户名</th>
+                            <th>角色</th>
+                            <th>创建时间</th>
+                            <th>最后登录</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in users)
+                        {
+                            <tr>
+                                <td>
+                                    <i class="bi bi-person-circle me-2"></i>
+                                    @user.Username
+                                </td>
+                                <td>
+                                    @if (user.Role == "Admin")
+                                    {
+                                        <span class="badge bg-danger">管理员</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-info">普通用户</span>
+                                    }
+                                </td>
+                                <td>@user.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@(user.LastLoginAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "从未登录")</td>
+                                <td>
+                                    @if (user.IsActive)
+                                    {
+                                        <span class="badge bg-success">激活</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">禁用</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (user.Username != CurrentUsername)
+                                    {
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => DeleteUser(user))">
+                                            <i class="bi bi-trash-fill"></i> 删除
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">当前用户</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@if (showCreateDialog)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">创建新用户</h5>
+                    <button type="button" class="btn-close" @onclick="CloseCreateDialog"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(dialogError))
+                    {
+                        <div class="alert alert-danger">
+                            @dialogError
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" @bind="newUsername" placeholder="请输入用户名" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密码</label>
+                        <input type="password" class="form-control" @bind="newPassword" placeholder="请输入密码" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">确认密码</label>
+                        <input type="password" class="form-control" @bind="newPasswordConfirm" placeholder="请再次输入密码" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">角色</label>
+                        <select class="form-select" @bind="newUserRole">
+                            <option value="User">普通用户</option>
+                            <option value="Admin">管理员</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseCreateDialog">取消</button>
+                    <button type="button" class="btn btn-primary" @onclick="CreateUser" disabled="@isCreating">
+                        @if (isCreating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        创建
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<User>? users;
+    private string message = "";
+    private bool isError = false;
+    private bool showCreateDialog = false;
+    private string newUsername = "";
+    private string newPassword = "";
+    private string newPasswordConfirm = "";
+    private string newUserRole = "User";
+    private string dialogError = "";
+    private bool isCreating = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (IsAuthorized)
+        {
+            await LoadUsersAsync();
+        }
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        try
+        {
+            users = await AuthService.GetAllUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            message = $"加载用户列表失败：{ex.Message}";
+            isError = true;
+        }
+    }
+
+    private void ShowCreateUserDialog()
+    {
+        newUsername = "";
+        newPassword = "";
+        newPasswordConfirm = "";
+        newUserRole = "User";
+        dialogError = "";
+        showCreateDialog = true;
+    }
+
+    private void CloseCreateDialog()
+    {
+        showCreateDialog = false;
+    }
+
+    private async Task CreateUser()
+    {
+        dialogError = "";
+
+        if (string.IsNullOrWhiteSpace(newUsername))
+        {
+            dialogError = "请输入用户名";
+            return;
+        }
+
+        if (newUsername.Length < 3)
+        {
+            dialogError = "用户名至少需要3个字符";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newPassword))
+        {
+            dialogError = "请输入密码";
+            return;
+        }
+
+        if (newPassword.Length < 6)
+        {
+            dialogError = "密码至少需要6个字符";
+            return;
+        }
+
+        if (newPassword != newPasswordConfirm)
+        {
+            dialogError = "两次输入的密码不一致";
+            return;
+        }
+
+        try
+        {
+            isCreating = true;
+            StateHasChanged();
+
+            await AuthService.CreateUserAsync(newUsername, newPassword, newUserRole);
+
+            message = "用户创建成功";
+            isError = false;
+            showCreateDialog = false;
+
+            await LoadUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            dialogError = $"创建用户失败：{ex.Message}";
+        }
+        finally
+        {
+            isCreating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteUser(User user)
+    {
+        try
+        {
+            await AuthService.DeleteUserAsync(user.Id);
+            message = $"用户 {user.Username} 已删除";
+            isError = false;
+            await LoadUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            message = $"删除用户失败：{ex.Message}";
+            isError = true;
+        }
+    }
+
+    private async Task<bool> ConfirmDelete(string username)
+    {
+        // Simple confirmation - in a real app, use a proper dialog
+        return await Task.FromResult(true);
+    }
+}
+
+<style>
+    .user-management-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .header-section h3 {
+        margin: 0;
+        color: #e5e7eb;
+    }
+
+    .card-custom {
+        background: rgba(30, 41, 59, 0.5);
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+    }
+
+    .table-custom {
+        color: #e5e7eb;
+        margin-bottom: 0;
+    }
+
+    .table-custom thead th {
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        color: #60a5fa;
+        font-weight: 600;
+    }
+
+    .table-custom tbody td {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        vertical-align: middle;
+    }
+
+    .modal-content {
+        background: #1e293b;
+        color: #e5e7eb;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .form-control, .form-select {
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #e5e7eb;
+    }
+
+    .form-control:focus, .form-select:focus {
+        background: rgba(15, 23, 42, 0.7);
+        border-color: #60a5fa;
+        color: #e5e7eb;
+    }
+</style>

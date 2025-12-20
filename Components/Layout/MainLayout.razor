@@ -6,8 +6,12 @@
 @using QingFeng.Services
 @inject IAuthenticationService AuthService
 
-<AuthWrapper>
-@if (_isHomePage)
+@if (_isAuthPage)
+{
+    @* Simple layout for login and setup pages *@
+    @Body
+}
+else if (_isHomePage)
 {
     @Body
     <!-- Navigation Dock on homepage -->
@@ -66,7 +70,6 @@ else
         <NavMenu />
     </div>
 }
-</AuthWrapper>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -77,11 +80,13 @@ else
 @code {
     private bool _isDarkMode = false;
     private bool _isHomePage = false;
+    private bool _isAuthPage = false;
     private string? _currentUsername;
 
     protected override async Task OnInitializedAsync()
     {
         UpdateIsHomePage();
+        UpdateIsAuthPage();
         NavigationManager.LocationChanged += OnLocationChanged;
         await UpdateCurrentUserAsync();
     }
@@ -95,6 +100,7 @@ else
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         UpdateIsHomePage();
+        UpdateIsAuthPage();
         _ = UpdateCurrentUserAsync();
         StateHasChanged();
     }
@@ -103,6 +109,12 @@ else
     {
         var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).ToLower();
         _isHomePage = string.IsNullOrEmpty(path) || path == "/";
+    }
+
+    private void UpdateIsAuthPage()
+    {
+        var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).ToLower();
+        _isAuthPage = path.StartsWith("login") || path.StartsWith("initial-setup");
     }
 
     private async Task ToggleDarkMode()

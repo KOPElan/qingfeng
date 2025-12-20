@@ -1,10 +1,9 @@
 @page "/login"
+@layout AuthLayout
 @using QingFeng.Services
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
-
-<PageTitle>登录 - 清风</PageTitle>
 
 <div class="login-container">
     <div class="login-card">
@@ -58,15 +57,7 @@
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }
 
-    protected override async Task OnInitializedAsync()
-    {
-        // If already logged in, redirect to home
-        var currentUser = await AuthService.GetCurrentUserAsync();
-        if (currentUser != null)
-        {
-            Navigation.NavigateTo(ReturnUrl ?? "/", forceLoad: true);
-        }
-    }
+    // Removed OnInitializedAsync to avoid navigation issues during render
 
     private async Task LoginAsync()
     {

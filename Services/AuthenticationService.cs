@@ -106,6 +106,31 @@ public class AuthenticationService : IAuthenticationService
         return session?.GetString(SessionKeyUsername);
     }
 
+    public async Task<List<User>> GetAllUsersAsync()
+    {
+        return await _dbContext.Users
+            .OrderBy(u => u.Username)
+            .ToListAsync();
+    }
+
+    public async Task DeleteUserAsync(int userId)
+    {
+        var user = await _dbContext.Users.FindAsync(userId);
+        if (user == null)
+            throw new InvalidOperationException("用户不存在");
+
+        if (user.Role == "Admin")
+        {
+            // Check if this is the last admin
+            var adminCount = await _dbContext.Users.CountAsync(u => u.Role == "Admin" && u.IsActive);
+            if (adminCount <= 1)
+                throw new InvalidOperationException("不能删除最后一个管理员账号");
+        }
+
+        _dbContext.Users.Remove(user);
+        await _dbContext.SaveChangesAsync();
+    }
+
     private static string HashPassword(string password)
     {
         using var sha256 = SHA256.Create();

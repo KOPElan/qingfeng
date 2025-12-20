@@ -11,4 +11,6 @@ public interface IAuthenticationService
     Task<User?> GetCurrentUserAsync();
     Task<bool> IsAdminAsync();
     string? GetCurrentUsername();
+    Task<List<User>> GetAllUsersAsync();
+    Task DeleteUserAsync(int userId);
 }
