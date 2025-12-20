@@ -1,7 +1,6 @@
-@using QingFeng.Services
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Web
-@inject IDialogService DialogService
+@inject QingFeng.Services.IDialogService DialogService
 @implements IDisposable
 @rendermode InteractiveServer
 
@@ -63,7 +62,7 @@
         });
     }
 
-    private void HandleKeyDown(KeyboardEventArgs e, DialogReference dialog)
+    private void HandleKeyDown(KeyboardEventArgs e, QingFeng.Services.DialogReference dialog)
     {
         if (e.Key == "Escape")
         {
@@ -71,12 +70,12 @@
         }
     }
 
-    private void CloseDialog(DialogReference dialog)
+    private void CloseDialog(QingFeng.Services.DialogReference dialog)
     {
         DialogService.Close(dialog);
     }
 
-    private Dictionary<string, object> GetParameters(DialogReference dialog)
+    private Dictionary<string, object> GetParameters(QingFeng.Services.DialogReference dialog)
     {
         // Cache parameters to avoid repeated dictionary allocations
         if (dialog.CachedParameters != null)
@@ -98,7 +97,7 @@
         return parameters;
     }
 
-    private string GetModalClass(DialogOptions? options)
+    private string GetModalClass(QingFeng.Services.DialogOptions? options)
     {
         if (options == null)
             return "modal-dialog-centered";

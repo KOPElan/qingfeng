@@ -6,46 +6,49 @@
 @rendermode InteractiveServer
 
 <div class="login-container">
-    <div class="login-card">
+    <FluentCard class="login-card">
         <div class="login-header">
-            <h2><i class="bi bi-box-arrow-in-right me-2"></i>登录</h2>
-            <p class="text-muted">欢迎回来，请登录您的账号</p>
+            <FluentLabel Typo="Typography.H3" Style="color: white; margin: 0;">🔐 登录</FluentLabel>
+            <FluentLabel Typo="Typography.Body" Style="color: rgba(255, 255, 255, 0.9); margin-top: 0.5rem;">欢迎回来，请登录您的账号</FluentLabel>
         </div>
 
         <div class="login-body">
             @if (!string.IsNullOrEmpty(errorMessage))
             {
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>@errorMessage
-                </div>
+                <FluentMessageBar Intent="MessageIntent.Error" Style="margin-bottom: 1rem;">
+                    @errorMessage
+                </FluentMessageBar>
             }
 
-            <div class="mb-3">
-                <label class="form-label">用户名</label>
-                <input type="text" class="form-control" @bind="username" placeholder="请输入用户名" 
-                       @onkeypress="HandleKeyPress" />
-            </div>
+            <FluentTextField @bind-Value="username" 
+                           Placeholder="请输入用户名" 
+                           Label="用户名"
+                           Style="width: 100%; margin-bottom: 1rem;"
+                           @onkeydown="HandleKeyDown" />
 
-            <div class="mb-4">
-                <label class="form-label">密码</label>
-                <input type="password" class="form-control" @bind="password" placeholder="请输入密码"
-                       @onkeypress="HandleKeyPress" />
-            </div>
+            <FluentTextField @bind-Value="password" 
+                           Type="TextFieldType.Password"
+                           Placeholder="请输入密码" 
+                           Label="密码"
+                           Style="width: 100%; margin-bottom: 1.5rem;"
+                           @onkeydown="HandleKeyDown" />
 
-            <button class="btn btn-primary w-100" @onclick="LoginAsync" disabled="@isLoggingIn">
+            <FluentButton Appearance="Appearance.Accent" 
+                         OnClick="LoginAsync" 
+                         Disabled="@isLoggingIn"
+                         Style="width: 100%;">
                 @if (isLoggingIn)
                 {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    <FluentProgressRing Style="width: 20px; height: 20px; margin-right: 0.5rem;" />
                     <span>登录中...</span>
                 }
                 else
                 {
-                    <i class="bi bi-box-arrow-in-right me-2"></i>
-                    <span>登录</span>
+                    <span>🔑 登录</span>
                 }
-            </button>
+            </FluentButton>
         </div>
-    </div>
+    </FluentCard>
 </div>
 
 @code {
@@ -56,8 +59,6 @@
 
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }
-
-    // Removed OnInitializedAsync to avoid navigation issues during render
 
     private async Task LoginAsync()
     {
@@ -87,23 +88,7 @@
                 return;
             }
 
-            // Validate return URL to prevent open redirect
             var redirectUrl = GetSafeRedirectUrl(ReturnUrl);
-            
-            // NOTE: Using forceLoad: false to preserve the current Blazor circuit
-            // 
-            // Other parts of the app (logout, unauthorized redirects) use forceLoad: true
-            // to force a full page reload. Here we intentionally use forceLoad: false to keep
-            // the existing Blazor Server circuit alive after successful login.
-            //
-            // The authenticated state is stored in the circuit-scoped AuthenticationStateService.
-            // Using forceLoad: true would create a new circuit without authentication state,
-            // causing the login redirect loop that this change fixes.
-            //
-            // Trade-off: Post-login experience depends on the current circuit remaining valid.
-            // If the circuit is lost (network issues, server restart, etc.), the user will need
-            // to authenticate again. For more resilience, consider implementing session or
-            // cookie-based authentication persistence in addition to circuit-scoped state.
             Navigation.NavigateTo(redirectUrl, forceLoad: false);
         }
         catch (Exception ex)
@@ -119,26 +104,22 @@
 
     private string GetSafeRedirectUrl(string? returnUrl)
     {
-        // Only allow local relative URLs to prevent open redirect attacks
         if (string.IsNullOrWhiteSpace(returnUrl))
             return "/";
 
-        // Check if URL is relative (starts with /)
         if (!returnUrl.StartsWith("/"))
             return "/";
 
-        // Prevent protocol-relative URLs (//example.com)
         if (returnUrl.StartsWith("//"))
             return "/";
 
-        // Check for javascript: or data: schemes
         if (returnUrl.Contains(":", StringComparison.OrdinalIgnoreCase))
             return "/";
 
         return returnUrl;
     }
 
-    private async Task HandleKeyPress(KeyboardEventArgs e)
+    private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !isLoggingIn)
         {
@@ -158,12 +139,9 @@
     }
 
     .login-card {
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         max-width: 450px;
         width: 100%;
-        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     }
 
     .login-header {
@@ -173,55 +151,7 @@
         text-align: center;
     }
 
-    .login-header h2 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.75rem;
-        font-weight: 600;
-    }
-
-    .login-header .text-muted {
-        color: rgba(255, 255, 255, 0.9) !important;
-        font-size: 0.95rem;
-    }
-
     .login-body {
         padding: 2rem;
-    }
-
-    .form-label {
-        font-weight: 500;
-        color: #495057;
-        margin-bottom: 0.5rem;
-    }
-
-    .form-control {
-        border-radius: 8px;
-        border: 2px solid #e9ecef;
-        padding: 0.75rem;
-        transition: border-color 0.3s;
-    }
-
-    .form-control:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-    }
-
-    .btn-primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem;
-        font-weight: 500;
-        transition: transform 0.2s;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-primary:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
     }
 </style>
