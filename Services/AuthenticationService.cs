@@ -80,29 +80,8 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<User?> GetCurrentUserAsync()
     {
-        // Check if user is already loaded in the current circuit
-        if (_authState.CurrentUser != null)
-            return _authState.CurrentUser;
-
-        // Try to restore from session
-        var userId = _authState.GetUserIdFromSession();
-        if (userId.HasValue)
-        {
-            var user = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Id == userId.Value && u.IsActive);
-            
-            if (user != null)
-            {
-                // Restore to circuit-scoped state (but don't write back to session)
-                _authState.CurrentUser = user;
-                return user;
-            }
-            
-            // User no longer exists or is inactive, clear session
-            _authState.Clear();
-        }
-
-        return null;
+        // Return from circuit-scoped state
+        return await Task.FromResult(_authState.CurrentUser);
     }
 
     public Task<bool> IsAdminAsync()
