@@ -324,7 +324,27 @@ public class DiskManagementService : IDiskManagementService
             // Use File.AppendAllText for safer file writing instead of shell command
             try
             {
-                await File.AppendAllTextAsync("/etc/fstab", fstabEntry + Environment.NewLine);
+                var fstabPath = "/etc/fstab";
+                string[] existingLines;
+
+                try
+                {
+                    existingLines = await File.ReadAllLinesAsync(fstabPath);
+                }
+                catch (FileNotFoundException)
+                {
+                    existingLines = Array.Empty<string>();
+                }
+
+                foreach (var line in existingLines)
+                {
+                    if (line.Trim() == fstabEntry)
+                    {
+                        return $"Successfully mounted {devicePath} to {mountPoint}; matching entry already exists in /etc/fstab";
+                    }
+                }
+
+                await File.AppendAllTextAsync(fstabPath, fstabEntry + Environment.NewLine);
                 return $"Successfully mounted {devicePath} to {mountPoint} and added to /etc/fstab";
             }
             catch (UnauthorizedAccessException)
