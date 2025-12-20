@@ -9,15 +9,12 @@ namespace QingFeng.Services;
 public class AuthenticationService : IAuthenticationService
 {
     private readonly QingFengDbContext _dbContext;
-    private readonly IHttpContextAccessor _httpContextAccessor;
-    private const string SessionKeyUsername = "Username";
-    private const string SessionKeyUserId = "UserId";
-    private const string SessionKeyUserRole = "UserRole";
+    private readonly AuthenticationStateService _authState;
 
-    public AuthenticationService(QingFengDbContext dbContext, IHttpContextAccessor httpContextAccessor)
+    public AuthenticationService(QingFengDbContext dbContext, AuthenticationStateService authState)
     {
         _dbContext = dbContext;
-        _httpContextAccessor = httpContextAccessor;
+        _authState = authState;
     }
 
     public async Task<User?> LoginAsync(string username, string password)
@@ -36,22 +33,15 @@ public class AuthenticationService : IAuthenticationService
         user.LastLoginAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
 
-        // Set session
-        var session = _httpContextAccessor.HttpContext?.Session;
-        if (session != null)
-        {
-            session.SetString(SessionKeyUsername, user.Username);
-            session.SetInt32(SessionKeyUserId, user.Id);
-            session.SetString(SessionKeyUserRole, user.Role);
-        }
+        // Set authentication state
+        _authState.SetUser(user);
 
         return user;
     }
 
     public Task LogoutAsync()
     {
-        var session = _httpContextAccessor.HttpContext?.Session;
-        session?.Clear();
+        _authState.Clear();
         return Task.CompletedTask;
     }
 
@@ -86,24 +76,21 @@ public class AuthenticationService : IAuthenticationService
 
     public async Task<User?> GetCurrentUserAsync()
     {
-        var username = GetCurrentUsername();
-        if (string.IsNullOrEmpty(username))
-            return null;
+        // Return from circuit-scoped state
+        if (_authState.CurrentUser != null)
+            return _authState.CurrentUser;
 
-        return await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
+        return await Task.FromResult<User?>(null);
     }
 
     public async Task<bool> IsAdminAsync()
     {
-        var user = await GetCurrentUserAsync();
-        return user?.Role == "Admin";
+        return _authState.IsAdmin;
     }
 
     public string? GetCurrentUsername()
     {
-        var session = _httpContextAccessor.HttpContext?.Session;
-        return session?.GetString(SessionKeyUsername);
+        return _authState.CurrentUser?.Username;
     }
 
     public async Task<List<User>> GetAllUsersAsync()
