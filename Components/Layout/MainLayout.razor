@@ -46,9 +46,14 @@ else
                 }
                 <FluentButton Appearance="Appearance.Lightweight" 
                              OnClick="ToggleDarkMode" 
-                             Title="切换主题" 
+                             Title="切换主题 (Light/Dark/System)" 
                              aria-label="切换主题">
-                    @(_mode == DesignThemeModes.Dark ? "☀️" : "🌙")
+                    @(_mode switch 
+                    {
+                        DesignThemeModes.Light => "☀️",
+                        DesignThemeModes.Dark => "🌙",
+                        _ => "💻"
+                    })
                 </FluentButton>
                 <FluentButton Appearance="Appearance.Lightweight" 
                              OnClick="NavigateToSettings" 
@@ -127,7 +132,12 @@ else
 
     private void ToggleDarkMode()
     {
-        _mode = _mode == DesignThemeModes.Dark ? DesignThemeModes.Light : DesignThemeModes.Dark;
+        _mode = _mode switch
+        {
+            DesignThemeModes.Light => DesignThemeModes.Dark,
+            DesignThemeModes.Dark => DesignThemeModes.System,
+            _ => DesignThemeModes.Light
+        };
     }
 
     private async Task Logout()
