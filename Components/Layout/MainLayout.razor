@@ -3,8 +3,15 @@
 @inject IJSRuntime JS
 @implements IDisposable
 @using QingFeng.Utilities
+@using QingFeng.Services
+@inject IAuthenticationService AuthService
 
-@if (_isHomePage)
+@if (_isAuthPage)
+{
+    @* Simple layout for login and setup pages *@
+    @Body
+}
+else if (_isHomePage)
 {
     @Body
     <!-- Navigation Dock on homepage -->
@@ -30,10 +37,17 @@ else
                     <h2 class="brand-title">个人门户</h2>
                 </div>
                 <div class="header-actions">
+                    @if (!string.IsNullOrEmpty(_currentUsername))
+                    {
+                        <span class="header-username">@_currentUsername</span>
+                        <button class="header-btn" @onclick="Logout" title="退出登录" aria-label="退出登录">
+                            <span class="material-symbols-outlined" style="font-size: 20px;">logout</span>
+                        </button>
+                    }
                     <button class="header-btn" @onclick="ToggleDarkMode" title="切换主题" aria-label="切换主题">
                         <span class="material-symbols-outlined" style="font-size: 20px;">@(_isDarkMode ? "light_mode" : "dark_mode")</span>
                     </button>
-                    <button class="header-btn" title="设置" aria-label="设置">
+                    <button class="header-btn" @onclick="NavigateToSettings" title="设置" aria-label="设置">
                         <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
                     </button>
                 </div>
@@ -66,22 +80,41 @@ else
 @code {
     private bool _isDarkMode = false;
     private bool _isHomePage = false;
+    private bool _isAuthPage = false;
+    private string? _currentUsername;
 
     protected override void OnInitialized()
     {
         UpdateIsHomePage();
+        UpdateIsAuthPage();
         NavigationManager.LocationChanged += OnLocationChanged;
+        UpdateCurrentUser();
+    }
+
+    private void UpdateCurrentUser()
+    {
+        _currentUsername = AuthService.GetCurrentUsername();
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         UpdateIsHomePage();
+        UpdateIsAuthPage();
+        UpdateCurrentUser();
         StateHasChanged();
     }
 
     private void UpdateIsHomePage()
     {
-        _isHomePage = NavigationManager.ToBaseRelativePath(NavigationManager.Uri) == string.Empty;
+        var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        _isHomePage = string.IsNullOrEmpty(path) || path.Equals("/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void UpdateIsAuthPage()
+    {
+        var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        _isAuthPage = path.StartsWith("login", StringComparison.OrdinalIgnoreCase) || 
+                      path.StartsWith("initial-setup", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task ToggleDarkMode()
@@ -90,6 +123,17 @@ else
         // TODO: Theme toggle functionality to be implemented in future release
         // This will require adding CSS classes for dark mode and persisting user preference
         await Task.CompletedTask;
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
+
+    private void NavigateToSettings()
+    {
+        NavigationManager.NavigateTo("/settings");
     }
 
     public void Dispose()

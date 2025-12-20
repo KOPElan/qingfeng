@@ -9,6 +9,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Add session support for authentication
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(1);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+builder.Services.AddHttpContextAccessor();
+
 // Add SQLite database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? "Data Source=qingfeng.db";
@@ -28,6 +38,8 @@ builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddSingleton<IDialogService, DialogService>();
 builder.Services.AddScoped<ILocalizationService, LocalizationService>();
+builder.Services.AddScoped<AuthenticationStateService>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 var app = builder.Build();
 
@@ -47,6 +59,15 @@ using (var scope = app.Services.CreateScope())
         
         var systemSettingService = scope.ServiceProvider.GetRequiredService<ISystemSettingService>();
         await systemSettingService.InitializeDefaultSettingsAsync();
+        
+        // Check if initial setup is needed
+        var authService = scope.ServiceProvider.GetRequiredService<IAuthenticationService>();
+        var hasAdmin = await authService.HasAdminUserAsync();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        if (!hasAdmin)
+        {
+            logger.LogInformation("No admin user found. Initial setup is required.");
+        }
     }
     catch (Exception ex)
     {
@@ -65,6 +86,8 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+
+app.UseSession();
 
 app.UseAntiforgery();
 

@@ -96,3 +96,17 @@ main {
         right: 0.75rem;
         top: 0.5rem;
     }
+
+.header-username {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9rem;
+    margin-right: 0.5rem;
+    padding: 0.5rem;
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}

@@ -1,0 +1,253 @@
+@page "/initial-setup"
+@layout AuthLayout
+@using QingFeng.Models
+@using QingFeng.Services
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<div class="setup-container">
+    <div class="setup-card">
+        <div class="setup-header">
+            <h2><i class="bi bi-shield-lock-fill me-2"></i>初始设置</h2>
+            <p class="text-muted">欢迎使用清风！请创建管理员账号以开始使用。</p>
+        </div>
+
+        <div class="setup-body">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>@errorMessage
+                </div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">用户名</label>
+                <input type="text" class="form-control" @bind="username" placeholder="请输入管理员用户名" />
+                <small class="form-text text-muted">用户名将用于登录系统</small>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">密码</label>
+                <input type="password" class="form-control" @bind="password" placeholder="请输入密码" />
+                <small class="form-text text-muted">建议使用强密码保护您的账号安全</small>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">确认密码</label>
+                <input type="password" class="form-control" @bind="confirmPassword" placeholder="请再次输入密码" />
+            </div>
+
+            <button class="btn btn-primary w-100" @onclick="CreateAdminAccount" disabled="@isCreating">
+                @if (isCreating)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    <span>创建中...</span>
+                }
+                else
+                {
+                    <i class="bi bi-check-circle me-2"></i>
+                    <span>创建管理员账号</span>
+                }
+            </button>
+        </div>
+
+        <div class="setup-footer">
+            <p class="text-muted mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                管理员拥有系统的完全控制权限，包括设置、Docker管理和磁盘管理。
+            </p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string username = "";
+    private string password = "";
+    private string confirmPassword = "";
+    private string errorMessage = "";
+    private bool isCreating = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Check if admin already exists - prevent unauthorized admin creation
+            var hasAdmin = await AuthService.HasAdminUserAsync();
+            if (hasAdmin)
+            {
+                // Admin already exists, redirect to login
+                Navigation.NavigateTo("/login", forceLoad: true);
+            }
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private async Task CreateAdminAccount()
+    {
+        errorMessage = "";
+
+        // Double-check admin doesn't exist (server-side guard)
+        var hasAdmin = await AuthService.HasAdminUserAsync();
+        if (hasAdmin)
+        {
+            errorMessage = "管理员账号已存在，请登录";
+            return;
+        }
+
+        // Validation
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            errorMessage = "请输入用户名";
+            return;
+        }
+
+        if (username.Length < 3)
+        {
+            errorMessage = "用户名至少需要3个字符";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "请输入密码";
+            return;
+        }
+
+        // Enforce stronger password requirements
+        if (password.Length < 8)
+        {
+            errorMessage = "密码至少需要8个字符";
+            return;
+        }
+
+        // Check password complexity
+        bool hasUpper = password.Any(char.IsUpper);
+        bool hasLower = password.Any(char.IsLower);
+        bool hasDigit = password.Any(char.IsDigit);
+        bool hasSpecial = password.Any(c => !char.IsLetterOrDigit(c));
+
+        if (!(hasUpper && hasLower && hasDigit && hasSpecial))
+        {
+            errorMessage = "密码必须包含大写字母、小写字母、数字和特殊字符";
+            return;
+        }
+
+        if (password != confirmPassword)
+        {
+            errorMessage = "两次输入的密码不一致";
+            return;
+        }
+
+        try
+        {
+            isCreating = true;
+            StateHasChanged();
+
+            // Create admin user using the RoleAdmin constant
+            await AuthService.CreateUserAsync(username, password, User.RoleAdmin);
+
+            // Don't auto login here due to session issues in interactive mode
+            // Instead redirect to login page
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"创建账号失败：{ex.Message}";
+        }
+        finally
+        {
+            isCreating = false;
+            StateHasChanged();
+        }
+    }
+}
+
+<style>
+    .setup-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+    }
+
+    .setup-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 500px;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .setup-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .setup-header h2 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.75rem;
+        font-weight: 600;
+    }
+
+    .setup-header .text-muted {
+        color: rgba(255, 255, 255, 0.9) !important;
+        font-size: 0.95rem;
+    }
+
+    .setup-body {
+        padding: 2rem;
+    }
+
+    .setup-footer {
+        background: #f8f9fa;
+        padding: 1.5rem 2rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .setup-footer .text-muted {
+        font-size: 0.875rem;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        padding: 0.75rem;
+        transition: border-color 0.3s;
+    }
+
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem;
+        font-weight: 500;
+        transition: transform 0.2s;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+</style>

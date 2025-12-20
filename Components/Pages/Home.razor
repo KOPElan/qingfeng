@@ -5,12 +5,23 @@
 @inject IApplicationService ApplicationService
 @inject ISystemSettingService SystemSettingService
 @inject ILocalizationService LocalizationService
+@inject IAuthenticationService AuthService
 @inject NavigationManager NavigationManager
 @implements IDisposable
 @rendermode InteractiveServer
 
 <PageTitle>@LocalizationService.GetString("AppTitle") - @LocalizationService.GetString("HomePortal")</PageTitle>
 
+@if (isCheckingAuth)
+{
+    <div class="loading-container">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
 <div class="home-portal-container">
     <!-- Background Gradient -->
     <div class="gradient-bg">
@@ -124,8 +135,10 @@
         </div>
     </div>
 </div>
+}
 
 @code {
+    private bool isCheckingAuth = true;
     private SystemResourceInfo? systemInfo;
     private List<Application> applications = new();
     private Timer? refreshTimer;
@@ -140,16 +153,41 @@
     private string DownloadSpeed = "24MB/s";
     private string UploadSpeed = "12MB/s";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await LoadDataAsync();
-        
-        // Set up auto-refresh timer (every 5 seconds)
-        refreshTimer = new Timer(async _ => await InvokeAsync(async () =>
+        if (firstRender && !isCheckingAuth)
         {
-            await LoadDataAsync();
+            // Check authentication first
+            var hasAdmin = await AuthService.HasAdminUserAsync();
+            if (!hasAdmin)
+            {
+                // No admin exists, redirect to initial setup
+                NavigationManager.NavigateTo("/initial-setup", forceLoad: true);
+                return;
+            }
+
+            var currentUser = await AuthService.GetCurrentUserAsync();
+            if (currentUser == null)
+            {
+                // Not logged in, redirect to login
+                NavigationManager.NavigateTo("/login", forceLoad: true);
+                return;
+            }
+
+            isCheckingAuth = false;
             StateHasChanged();
-        }), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+
+            // Continue with normal initialization
+            await LoadDataAsync();
+            
+            // Set up auto-refresh timer (every 5 seconds)
+            refreshTimer = new Timer(async _ => await InvokeAsync(async () =>
+            {
+                await LoadDataAsync();
+                StateHasChanged();
+            }), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        }
+        await base.OnAfterRenderAsync(firstRender);
     }
 
     private async Task LoadDataAsync()
