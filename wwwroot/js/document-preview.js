@@ -112,6 +112,22 @@ window.documentPreview = {
             contentDiv.style.overflow = 'auto';
             contentDiv.style.maxHeight = '600px';
             
+            // Helper function to style table
+            const styleTable = function(table) {
+                if (table) {
+                    table.style.borderCollapse = 'collapse';
+                    table.style.width = '100%';
+                    table.querySelectorAll('td, th').forEach(cell => {
+                        cell.style.border = '1px solid #ddd';
+                        cell.style.padding = '8px';
+                    });
+                    table.querySelectorAll('th').forEach(header => {
+                        header.style.background = '#f3f3f3';
+                        header.style.fontWeight = 'bold';
+                    });
+                }
+            };
+            
             workbook.SheetNames.forEach((sheetName, index) => {
                 // Create tab button
                 const tabButton = document.createElement('button');
@@ -140,18 +156,7 @@ window.documentPreview = {
                     
                     // Style the table
                     const table = contentDiv.querySelector('table');
-                    if (table) {
-                        table.style.borderCollapse = 'collapse';
-                        table.style.width = '100%';
-                        table.querySelectorAll('td, th').forEach(cell => {
-                            cell.style.border = '1px solid #ddd';
-                            cell.style.padding = '8px';
-                        });
-                        table.querySelectorAll('th').forEach(header => {
-                            header.style.background = '#f3f3f3';
-                            header.style.fontWeight = 'bold';
-                        });
-                    }
+                    styleTable(table);
                 };
                 
                 tabsDiv.appendChild(tabButton);
@@ -168,18 +173,7 @@ window.documentPreview = {
                 
                 // Style the table
                 const table = contentDiv.querySelector('table');
-                if (table) {
-                    table.style.borderCollapse = 'collapse';
-                    table.style.width = '100%';
-                    table.querySelectorAll('td, th').forEach(cell => {
-                        cell.style.border = '1px solid #ddd';
-                        cell.style.padding = '8px';
-                    });
-                    table.querySelectorAll('th').forEach(header => {
-                        header.style.background = '#f3f3f3';
-                        header.style.fontWeight = 'bold';
-                    });
-                }
+                styleTable(table);
             }
             
             return { success: true, sheetCount: workbook.SheetNames.length };

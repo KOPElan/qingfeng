@@ -1420,14 +1420,14 @@
         }
     }
 
-    private void ClosePreviewDialog()
+    private async Task ClosePreviewDialog()
     {
         showPreviewDialog = false;
         
         // Cleanup document preview containers
         if (previewIsPdf || previewIsDocx || previewIsXlsx)
         {
-            JSRuntime.InvokeVoidAsync("documentPreview.cleanup", "documentPreviewContainer");
+            await JSRuntime.InvokeVoidAsync("documentPreview.cleanup", "documentPreviewContainer");
         }
         
         previewFilePath = string.Empty;
