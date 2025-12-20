@@ -94,7 +94,7 @@
                                 <td>
                                     @if (user.Username != CurrentUsername)
                                     {
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => DeleteUser(user))">
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => ShowDeleteConfirmation(user))">
                                             <i class="bi bi-trash-fill"></i> 删除
                                         </button>
                                     }
@@ -144,8 +144,8 @@
                     <div class="mb-3">
                         <label class="form-label">角色</label>
                         <select class="form-select" @bind="newUserRole">
-                            <option value="User">普通用户</option>
-                            <option value="Admin">管理员</option>
+                            <option value="@User.RoleUser">普通用户</option>
+                            <option value="@User.RoleAdmin">管理员</option>
                         </select>
                     </div>
                 </div>
@@ -164,15 +164,41 @@
     </div>
 }
 
+@if (showDeleteConfirmDialog)
+{
+    <div class="modal-backdrop fade show"></div>
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认删除</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDeleteConfirmation"></button>
+                </div>
+                <div class="modal-body">
+                    <p>确定要删除用户 <strong>@userToDelete?.Username</strong> 吗？此操作不可撤销。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDeleteConfirmation">取消</button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteUser">
+                        <i class="bi bi-trash-fill me-2"></i>删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<User>? users;
     private string message = "";
     private bool isError = false;
     private bool showCreateDialog = false;
+    private bool showDeleteConfirmDialog = false;
+    private User? userToDelete;
     private string newUsername = "";
     private string newPassword = "";
     private string newPasswordConfirm = "";
-    private string newUserRole = "User";
+    private string newUserRole = User.RoleUser;
     private string dialogError = "";
     private bool isCreating = false;
 
@@ -203,7 +229,7 @@
         newUsername = "";
         newPassword = "";
         newPasswordConfirm = "";
-        newUserRole = "User";
+        newUserRole = User.RoleUser;
         dialogError = "";
         showCreateDialog = true;
     }
@@ -213,37 +239,43 @@
         showCreateDialog = false;
     }
 
+    private string? ValidateUserInput()
+    {
+        if (string.IsNullOrWhiteSpace(newUsername))
+            return "请输入用户名";
+
+        if (newUsername.Length < 3)
+            return "用户名至少需要3个字符";
+
+        if (string.IsNullOrWhiteSpace(newPassword))
+            return "请输入密码";
+
+        if (newPassword.Length < 8)
+            return "密码至少需要8个字符";
+
+        // Check password complexity
+        bool hasUpper = newPassword.Any(char.IsUpper);
+        bool hasLower = newPassword.Any(char.IsLower);
+        bool hasDigit = newPassword.Any(char.IsDigit);
+        bool hasSpecial = newPassword.Any(c => !char.IsLetterOrDigit(c));
+
+        if (!(hasUpper && hasLower && hasDigit && hasSpecial))
+            return "密码必须包含大写字母、小写字母、数字和特殊字符";
+
+        if (newPassword != newPasswordConfirm)
+            return "两次输入的密码不一致";
+
+        return null;
+    }
+
     private async Task CreateUser()
     {
         dialogError = "";
 
-        if (string.IsNullOrWhiteSpace(newUsername))
+        var validationError = ValidateUserInput();
+        if (validationError != null)
         {
-            dialogError = "请输入用户名";
-            return;
-        }
-
-        if (newUsername.Length < 3)
-        {
-            dialogError = "用户名至少需要3个字符";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(newPassword))
-        {
-            dialogError = "请输入密码";
-            return;
-        }
-
-        if (newPassword.Length < 6)
-        {
-            dialogError = "密码至少需要6个字符";
-            return;
-        }
-
-        if (newPassword != newPasswordConfirm)
-        {
-            dialogError = "两次输入的密码不一致";
+            dialogError = validationError;
             return;
         }
 
@@ -271,26 +303,38 @@
         }
     }
 
-    private async Task DeleteUser(User user)
+    private void ShowDeleteConfirmation(User user)
     {
+        userToDelete = user;
+        showDeleteConfirmDialog = true;
+    }
+
+    private void CloseDeleteConfirmation()
+    {
+        userToDelete = null;
+        showDeleteConfirmDialog = false;
+    }
+
+    private async Task ConfirmDeleteUser()
+    {
+        if (userToDelete == null)
+            return;
+
         try
         {
-            await AuthService.DeleteUserAsync(user.Id);
-            message = $"用户 {user.Username} 已删除";
+            await AuthService.DeleteUserAsync(userToDelete.Id);
+            message = $"用户 {userToDelete.Username} 已删除";
             isError = false;
+            showDeleteConfirmDialog = false;
+            userToDelete = null;
             await LoadUsersAsync();
         }
         catch (Exception ex)
         {
             message = $"删除用户失败：{ex.Message}";
             isError = true;
+            showDeleteConfirmDialog = false;
         }
-    }
-
-    private async Task<bool> ConfirmDelete(string username)
-    {
-        // Simple confirmation - in a real app, use a proper dialog
-        return await Task.FromResult(true);
     }
 }
 

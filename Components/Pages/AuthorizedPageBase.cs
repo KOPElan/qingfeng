@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using QingFeng.Models;
 using QingFeng.Services;
 
 namespace QingFeng.Components.Pages;
@@ -14,15 +15,20 @@ public class AuthorizedPageBase : ComponentBase
     protected bool IsAuthorized { get; private set; }
     protected bool IsLoading { get; private set; } = true;
     protected string? CurrentUsername { get; private set; }
+    private bool _hasCheckedAuth = false;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await CheckAuthorizationAsync();
-        await base.OnInitializedAsync();
+        if (firstRender && !_hasCheckedAuth)
+        {
+            await CheckAuthorizationAsync();
+        }
+        await base.OnAfterRenderAsync(firstRender);
     }
 
     protected virtual async Task CheckAuthorizationAsync()
     {
+        _hasCheckedAuth = true;
         IsLoading = true;
         
         var currentUser = await AuthService.GetCurrentUserAsync();
@@ -36,7 +42,7 @@ public class AuthorizedPageBase : ComponentBase
         CurrentUsername = currentUser.Username;
         
         // Check if user is admin (for admin-only pages)
-        if (RequiresAdmin && currentUser.Role != "Admin")
+        if (RequiresAdmin && currentUser.Role != User.RoleAdmin)
         {
             // Not authorized, redirect to home
             Navigation.NavigateTo("/", forceLoad: true);
@@ -45,6 +51,7 @@ public class AuthorizedPageBase : ComponentBase
 
         IsAuthorized = true;
         IsLoading = false;
+        StateHasChanged();
     }
 
     protected virtual bool RequiresAdmin => true;

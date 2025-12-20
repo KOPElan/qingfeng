@@ -153,36 +153,41 @@ else
     private string DownloadSpeed = "24MB/s";
     private string UploadSpeed = "12MB/s";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Check authentication first
-        var hasAdmin = await AuthService.HasAdminUserAsync();
-        if (!hasAdmin)
+        if (firstRender && !isCheckingAuth)
         {
-            // No admin exists, redirect to initial setup
-            NavigationManager.NavigateTo("/initial-setup", forceLoad: true);
-            return;
-        }
+            // Check authentication first
+            var hasAdmin = await AuthService.HasAdminUserAsync();
+            if (!hasAdmin)
+            {
+                // No admin exists, redirect to initial setup
+                NavigationManager.NavigateTo("/initial-setup", forceLoad: true);
+                return;
+            }
 
-        var currentUser = await AuthService.GetCurrentUserAsync();
-        if (currentUser == null)
-        {
-            // Not logged in, redirect to login
-            NavigationManager.NavigateTo("/login", forceLoad: true);
-            return;
-        }
+            var currentUser = await AuthService.GetCurrentUserAsync();
+            if (currentUser == null)
+            {
+                // Not logged in, redirect to login
+                NavigationManager.NavigateTo("/login", forceLoad: true);
+                return;
+            }
 
-        isCheckingAuth = false;
-
-        // Continue with normal initialization
-        await LoadDataAsync();
-        
-        // Set up auto-refresh timer (every 5 seconds)
-        refreshTimer = new Timer(async _ => await InvokeAsync(async () =>
-        {
-            await LoadDataAsync();
+            isCheckingAuth = false;
             StateHasChanged();
-        }), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+
+            // Continue with normal initialization
+            await LoadDataAsync();
+            
+            // Set up auto-refresh timer (every 5 seconds)
+            refreshTimer = new Timer(async _ => await InvokeAsync(async () =>
+            {
+                await LoadDataAsync();
+                StateHasChanged();
+            }), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        }
+        await base.OnAfterRenderAsync(firstRender);
     }
 
     private async Task LoadDataAsync()

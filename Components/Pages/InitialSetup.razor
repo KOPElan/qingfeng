@@ -1,5 +1,6 @@
 @page "/initial-setup"
 @layout AuthLayout
+@using QingFeng.Models
 @using QingFeng.Services
 @inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
@@ -67,11 +68,32 @@
     private string errorMessage = "";
     private bool isCreating = false;
 
-    // Removed OnInitializedAsync to avoid navigation issues during render
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Check if admin already exists - prevent unauthorized admin creation
+            var hasAdmin = await AuthService.HasAdminUserAsync();
+            if (hasAdmin)
+            {
+                // Admin already exists, redirect to login
+                Navigation.NavigateTo("/login", forceLoad: true);
+            }
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
 
     private async Task CreateAdminAccount()
     {
         errorMessage = "";
+
+        // Double-check admin doesn't exist (server-side guard)
+        var hasAdmin = await AuthService.HasAdminUserAsync();
+        if (hasAdmin)
+        {
+            errorMessage = "管理员账号已存在，请登录";
+            return;
+        }
 
         // Validation
         if (string.IsNullOrWhiteSpace(username))
@@ -92,9 +114,22 @@
             return;
         }
 
-        if (password.Length < 6)
+        // Enforce stronger password requirements
+        if (password.Length < 8)
         {
-            errorMessage = "密码至少需要6个字符";
+            errorMessage = "密码至少需要8个字符";
+            return;
+        }
+
+        // Check password complexity
+        bool hasUpper = password.Any(char.IsUpper);
+        bool hasLower = password.Any(char.IsLower);
+        bool hasDigit = password.Any(char.IsDigit);
+        bool hasSpecial = password.Any(c => !char.IsLetterOrDigit(c));
+
+        if (!(hasUpper && hasLower && hasDigit && hasSpecial))
+        {
+            errorMessage = "密码必须包含大写字母、小写字母、数字和特殊字符";
             return;
         }
 
@@ -109,8 +144,8 @@
             isCreating = true;
             StateHasChanged();
 
-            // Create admin user
-            await AuthService.CreateUserAsync(username, password, "Admin");
+            // Create admin user using the RoleAdmin constant
+            await AuthService.CreateUserAsync(username, password, User.RoleAdmin);
 
             // Don't auto login here due to session issues in interactive mode
             // Instead redirect to login page

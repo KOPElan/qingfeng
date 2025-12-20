@@ -14,7 +14,7 @@ public class AuthenticationStateService
 
     public bool IsAuthenticated => _currentUser != null;
     
-    public bool IsAdmin => _currentUser?.Role == "Admin";
+    public bool IsAdmin => _currentUser?.Role == User.RoleAdmin;
 
     public void SetUser(User? user)
     {

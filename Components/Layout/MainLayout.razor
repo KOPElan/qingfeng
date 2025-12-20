@@ -83,38 +83,38 @@ else
     private bool _isAuthPage = false;
     private string? _currentUsername;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         UpdateIsHomePage();
         UpdateIsAuthPage();
         NavigationManager.LocationChanged += OnLocationChanged;
-        await UpdateCurrentUserAsync();
+        UpdateCurrentUser();
     }
 
-    private async Task UpdateCurrentUserAsync()
+    private void UpdateCurrentUser()
     {
         _currentUsername = AuthService.GetCurrentUsername();
-        await Task.CompletedTask;
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         UpdateIsHomePage();
         UpdateIsAuthPage();
-        _ = UpdateCurrentUserAsync();
+        UpdateCurrentUser();
         StateHasChanged();
     }
 
     private void UpdateIsHomePage()
     {
-        var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).ToLower();
-        _isHomePage = string.IsNullOrEmpty(path) || path == "/";
+        var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        _isHomePage = string.IsNullOrEmpty(path) || path.Equals("/", StringComparison.OrdinalIgnoreCase);
     }
 
     private void UpdateIsAuthPage()
     {
-        var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).ToLower();
-        _isAuthPage = path.StartsWith("login") || path.StartsWith("initial-setup");
+        var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        _isAuthPage = path.StartsWith("login", StringComparison.OrdinalIgnoreCase) || 
+                      path.StartsWith("initial-setup", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task ToggleDarkMode()

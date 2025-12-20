@@ -87,8 +87,9 @@
                 return;
             }
 
-            // Redirect to return URL or home
-            Navigation.NavigateTo(ReturnUrl ?? "/", forceLoad: true);
+            // Validate return URL to prevent open redirect
+            var redirectUrl = GetSafeRedirectUrl(ReturnUrl);
+            Navigation.NavigateTo(redirectUrl, forceLoad: true);
         }
         catch (Exception ex)
         {
@@ -99,6 +100,27 @@
             isLoggingIn = false;
             StateHasChanged();
         }
+    }
+
+    private string GetSafeRedirectUrl(string? returnUrl)
+    {
+        // Only allow local relative URLs to prevent open redirect attacks
+        if (string.IsNullOrWhiteSpace(returnUrl))
+            return "/";
+
+        // Check if URL is relative (starts with /)
+        if (!returnUrl.StartsWith("/"))
+            return "/";
+
+        // Prevent protocol-relative URLs (//example.com)
+        if (returnUrl.StartsWith("//"))
+            return "/";
+
+        // Check for javascript: or data: schemes
+        if (returnUrl.Contains(":", StringComparison.OrdinalIgnoreCase))
+            return "/";
+
+        return returnUrl;
     }
 
     private async Task HandleKeyPress(KeyboardEventArgs e)
