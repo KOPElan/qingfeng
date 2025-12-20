@@ -712,9 +712,9 @@ public class DiskManagementService : IDiskManagementService
                     {
                         diskInfo.DiskType = NetworkDiskType.CIFS;
                         // Format: //server/share
-                        if (device.StartsWith("//"))
+                        if (device.StartsWith("//") && device.Length > 2)
                         {
-                            var pathParts = device.Substring(2).Split('/', 2);
+                            var pathParts = device[2..].Split('/', 2);
                             if (pathParts.Length >= 1)
                             {
                                 diskInfo.Server = pathParts[0];
@@ -727,10 +727,10 @@ public class DiskManagementService : IDiskManagementService
                         diskInfo.DiskType = NetworkDiskType.NFS;
                         // Format: server:/path
                         var colonIndex = device.IndexOf(':');
-                        if (colonIndex > 0)
+                        if (colonIndex > 0 && colonIndex < device.Length - 1)
                         {
-                            diskInfo.Server = device.Substring(0, colonIndex);
-                            diskInfo.SharePath = device.Substring(colonIndex + 1);
+                            diskInfo.Server = device[..colonIndex];
+                            diskInfo.SharePath = device[(colonIndex + 1)..];
                         }
                     }
                     
@@ -801,25 +801,58 @@ public class DiskManagementService : IDiskManagementService
             string device;
             string mountCommand;
             string arguments;
+            string? tempCredFile = null;
             
             if (diskType == NetworkDiskType.CIFS)
             {
                 // CIFS mount
                 device = $"//{server}/{sharePath}";
                 
-                // Build credentials string
+                // Build credentials using a temporary credentials file for security
                 var credOptions = new List<string>();
-                if (!string.IsNullOrEmpty(username))
+                
+                // If credentials are provided, create a temporary credential file
+                if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
                 {
-                    credOptions.Add($"username={username}");
-                }
-                if (!string.IsNullOrEmpty(password))
-                {
-                    credOptions.Add($"password={password}");
-                }
-                if (!string.IsNullOrEmpty(domain))
-                {
-                    credOptions.Add($"domain={domain}");
+                    try
+                    {
+                        // Create a temporary credential file
+                        tempCredFile = Path.Combine("/tmp", $"cifs-cred-{Guid.NewGuid()}");
+                        var credContent = $"username={username}\npassword={password}\n";
+                        if (!string.IsNullOrEmpty(domain))
+                        {
+                            credContent += $"domain={domain}\n";
+                        }
+                        await File.WriteAllTextAsync(tempCredFile, credContent);
+                        
+                        // Set secure permissions on credential file
+                        var chmodInfo = new ProcessStartInfo
+                        {
+                            FileName = "chmod",
+                            Arguments = $"600 {tempCredFile}",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+                        using var chmodProcess = Process.Start(chmodInfo);
+                        if (chmodProcess != null)
+                        {
+                            await chmodProcess.WaitForExitAsync();
+                        }
+                        
+                        credOptions.Add($"credentials={tempCredFile}");
+                    }
+                    catch
+                    {
+                        // If we can't create credential file, skip credentials
+                        // This is safer than putting passwords in command line
+                        if (tempCredFile != null && File.Exists(tempCredFile))
+                        {
+                            try { File.Delete(tempCredFile); } catch { }
+                            tempCredFile = null;
+                        }
+                    }
                 }
                 
                 var allOptions = string.IsNullOrEmpty(options) 
@@ -858,24 +891,35 @@ public class DiskManagementService : IDiskManagementService
                 CreateNoWindow = true
             };
             
-            using var process = Process.Start(processInfo);
-            if (process != null)
+            try
             {
-                await process.WaitForExitAsync();
-                var output = await process.StandardOutput.ReadToEndAsync();
-                var error = await process.StandardError.ReadToEndAsync();
-                
-                if (process.ExitCode == 0)
+                using var process = Process.Start(processInfo);
+                if (process != null)
                 {
-                    return $"Successfully mounted {device} to {mountPoint}";
+                    await process.WaitForExitAsync();
+                    var output = await process.StandardOutput.ReadToEndAsync();
+                    var error = await process.StandardError.ReadToEndAsync();
+                    
+                    if (process.ExitCode == 0)
+                    {
+                        return $"Successfully mounted {device} to {mountPoint}";
+                    }
+                    else
+                    {
+                        return $"Failed to mount: {error}";
+                    }
                 }
-                else
+                
+                return "Failed to start mount process";
+            }
+            finally
+            {
+                // Clean up temporary credential file
+                if (tempCredFile != null && File.Exists(tempCredFile))
                 {
-                    return $"Failed to mount: {error}";
+                    try { File.Delete(tempCredFile); } catch { }
                 }
             }
-            
-            return "Failed to start mount process";
         }
         catch (Exception ex)
         {
@@ -911,7 +955,11 @@ public class DiskManagementService : IDiskManagementService
                 // For CIFS, we should use a credentials file for security
                 if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
                 {
-                    var credFile = $"/etc/cifs-credentials-{server.Replace('.', '-')}-{sharePath.Replace('/', '-')}";
+                    // Use a hash-based naming scheme to avoid special character issues
+                    var hashInput = $"{server}-{sharePath}";
+                    var hashBytes = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(hashInput));
+                    var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                    var credFile = $"/etc/cifs-credentials-{hashString}";
                     try
                     {
                         var credContent = $"username={username}\npassword={password}\n";

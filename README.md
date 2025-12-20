@@ -192,7 +192,6 @@ sudo apt-get install util-linux hdparm cifs-utils nfs-common
 sudo yum install util-linux hdparm cifs-utils nfs-utils
 # 或
 sudo dnf install util-linux hdparm cifs-utils nfs-utils
-sudo dnf install util-linux hdparm
 ```
 
 ## 安全注意事项
