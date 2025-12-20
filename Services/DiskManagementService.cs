@@ -648,23 +648,91 @@ public class DiskManagementService : IDiskManagementService
 }
 
 // JSON models for lsblk output
+/// <summary>
+/// Represents the root object of the JSON output produced by the <c>lsblk</c> command.
+/// </summary>
 internal class LsblkOutput
 {
+    /// <summary>
+    /// Gets or sets the collection of top-level block devices returned by <c>lsblk</c> in the
+    /// <c>"blockdevices"</c> array.
+    /// </summary>
     public List<LsblkDevice>? Blockdevices { get; set; }
 }
 
+/// <summary>
+/// Represents a single block device entry from the JSON output of the <c>lsblk</c> command.
+/// </summary>
 internal class LsblkDevice
 {
+    /// <summary>
+    /// Gets or sets the device name (for example, <c>sda</c> or <c>sda1</c>), corresponding to the
+    /// <c>"name"</c> field in <c>lsblk</c> JSON output.
+    /// </summary>
     public string? Name { get; set; }
+
+    /// <summary>
+    /// Gets or sets the device type (for example, <c>disk</c>, <c>part</c>, or <c>rom</c>),
+    /// corresponding to the <c>"type"</c> field.
+    /// </summary>
     public string? Type { get; set; }
+
+    /// <summary>
+    /// Gets or sets the size of the device in bytes, corresponding to the <c>"size"</c> field.
+    /// </summary>
     public long Size { get; set; }
+
+    /// <summary>
+    /// Gets or sets the mount point of the device, if any, corresponding to the
+    /// <c>"mountpoint"</c> field.
+    /// </summary>
     public string? Mountpoint { get; set; }
+
+    /// <summary>
+    /// Gets or sets the filesystem type on the device, such as <c>ext4</c> or <c>ntfs</c>,
+    /// corresponding to the <c>"fstype"</c> field.
+    /// </summary>
     public string? Fstype { get; set; }
+
+    /// <summary>
+    /// Gets or sets the filesystem UUID associated with the device, corresponding to the
+    /// <c>"uuid"</c> field.
+    /// </summary>
     public string? Uuid { get; set; }
+
+    /// <summary>
+    /// Gets or sets the filesystem label assigned to the device, corresponding to the
+    /// <c>"label"</c> field.
+    /// </summary>
     public string? Label { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the device is removable,
+    /// corresponding to the <c>"rm"</c> field.
+    /// </summary>
     public bool Rm { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the device is read-only,
+    /// corresponding to the <c>"ro"</c> field.
+    /// </summary>
     public bool Ro { get; set; }
+
+    /// <summary>
+    /// Gets or sets the device model string reported by the system, corresponding to the
+    /// <c>"model"</c> field.
+    /// </summary>
     public string? Model { get; set; }
+
+    /// <summary>
+    /// Gets or sets the device serial number, if available, corresponding to the
+    /// <c>"serial"</c> field.
+    /// </summary>
     public string? Serial { get; set; }
+
+    /// <summary>
+    /// Gets or sets the collection of child devices for this block device, such as partitions
+    /// or logical volumes, corresponding to the nested <c>"children"</c> array.
+    /// </summary>
     public List<LsblkDevice>? Children { get; set; }
 }
