@@ -22,8 +22,12 @@ builder.Services.AddHttpContextAccessor();
 // Add SQLite database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? "Data Source=qingfeng.db";
-builder.Services.AddDbContext<QingFengDbContext>(options =>
+// Register DbContextFactory for services that need multiple contexts or custom lifetime management (e.g., FileManagerService)
+builder.Services.AddDbContextFactory<QingFengDbContext>(options =>
     options.UseSqlite(connectionString));
+// Also register scoped DbContext for services using traditional injection pattern (e.g., DockItemService, ApplicationService)
+// Prefer DbContextFactory for new services to allow better control over context lifetime
+builder.Services.AddScoped(provider => provider.GetRequiredService<IDbContextFactory<QingFengDbContext>>().CreateDbContext());
 
 // Add localization services
 builder.Services.AddLocalization();

@@ -1,5 +1,8 @@
 using QingFeng.Models;
+using QingFeng.Data;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
 
 namespace QingFeng.Services;
 
@@ -7,10 +10,12 @@ public class FileManagerService : IFileManagerService
 {
     private readonly string _rootPath;
     private readonly ILogger<FileManagerService> _logger;
+    private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
 
-    public FileManagerService(ILogger<FileManagerService> logger)
+    public FileManagerService(ILogger<FileManagerService> logger, IDbContextFactory<QingFengDbContext> dbContextFactory)
     {
         _logger = logger;
+        _dbContextFactory = dbContextFactory;
         
         // Set root path based on OS
         if (OperatingSystem.IsWindows())
@@ -533,5 +538,96 @@ public class FileManagerService : IFileManagerService
             // Recursive call will validate the subdirectory path
             await CopyDirectoryAsync(subDir.FullName, targetPath);
         }
+    }
+
+    // Favorites management
+    public async Task<List<FavoriteFolder>> GetFavoriteFoldersAsync()
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        return await context.FavoriteFolders
+            .OrderBy(f => f.Order)
+            .ThenBy(f => f.Name)
+            .ToListAsync();
+    }
+
+    public async Task<FavoriteFolder> AddFavoriteFolderAsync(string name, string path, string icon = "folder")
+    {
+        ValidateFavoriteInputs(name, icon);
+
+        if (!IsPathAllowed(path))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        if (!Directory.Exists(path))
+            throw new DirectoryNotFoundException($"Directory not found: {path}");
+
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        // Get next order value
+        var maxOrder = await context.FavoriteFolders.MaxAsync(f => (int?)f.Order) ?? 0;
+
+        var favorite = new FavoriteFolder
+        {
+            Name = name,
+            Path = path,
+            Icon = icon,
+            Order = maxOrder + 1
+        };
+
+        context.FavoriteFolders.Add(favorite);
+        
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqliteException sqliteEx && sqliteEx.SqliteErrorCode == 19)
+        {
+            // SQLite error code 19 is SQLITE_CONSTRAINT (unique constraint violation)
+            throw new InvalidOperationException("This folder is already in favorites");
+        }
+
+        return favorite;
+    }
+
+    public async Task RemoveFavoriteFolderAsync(int id)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var favorite = await context.FavoriteFolders.FindAsync(id);
+        if (favorite == null)
+            throw new InvalidOperationException("Favorite folder not found");
+
+        context.FavoriteFolders.Remove(favorite);
+        await context.SaveChangesAsync();
+    }
+
+    public async Task UpdateFavoriteFolderAsync(int id, string name, string icon)
+    {
+        ValidateFavoriteInputs(name, icon);
+
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var favorite = await context.FavoriteFolders.FindAsync(id);
+        if (favorite == null)
+            throw new InvalidOperationException("Favorite folder not found");
+
+        favorite.Name = name;
+        favorite.Icon = icon;
+
+        await context.SaveChangesAsync();
+    }
+
+    private void ValidateFavoriteInputs(string name, string icon)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty", nameof(name));
+        
+        if (name.Length > 200)
+            throw new ArgumentException("Name cannot exceed 200 characters", nameof(name));
+        
+        if (string.IsNullOrWhiteSpace(icon))
+            throw new ArgumentException("Icon cannot be empty", nameof(icon));
+        
+        if (icon.Length > 100)
+            throw new ArgumentException("Icon cannot exceed 100 characters", nameof(icon));
     }
 }

@@ -168,9 +168,46 @@
 <div class="file-manager-container">
     <!-- Left Sidebar -->
     <div class="sidebar">
+        <!-- Favorites Section -->
+        <div class="sidebar-section">
+            <div class="sidebar-title">
+                收藏
+                <button type="button" class="btn btn-sm btn-link text-white float-end p-0" @onclick="ShowAddFavoriteDialog" title="添加当前文件夹到收藏">
+                    <i class="@Icons.Material.Filled.Add" style="font-size: 16px;"></i>
+                </button>
+            </div>
+            @if (favoriteFolders != null && favoriteFolders.Any())
+            {
+                @foreach (var favorite in favoriteFolders)
+                {
+                    <div class="sidebar-item @(currentPath == favorite.Path ? "selected" : "")" 
+                         @onclick="@(() => NavigateTo(favorite.Path))">
+                        <i class="@GetFavoriteIcon(favorite.Icon)"></i>
+                        <span style="flex: 1;">@favorite.Name</span>
+                        <button type="button" class="btn btn-sm btn-link text-white p-0" 
+                                @onclick="@(() => ShowEditFavoriteDialog(favorite))" 
+                                @onclick:stopPropagation="true"
+                                title="编辑">
+                            <i class="@Icons.Material.Filled.Edit" style="font-size: 14px;"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-link text-danger p-0" 
+                                @onclick="@(() => RemoveFavorite(favorite.Id))" 
+                                @onclick:stopPropagation="true"
+                                title="删除">
+                            <i class="@Icons.Material.Filled.Delete" style="font-size: 14px;"></i>
+                        </button>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-muted small px-3 py-2">暂无收藏文件夹</div>
+            }
+        </div>
+        
         <!-- Shortcuts Section -->
         <div class="sidebar-section">
-            <div class="sidebar-title">收藏</div>
+            <div class="sidebar-title">快捷访问</div>
             @if (shortcuts != null)
             {
                 @foreach (var shortcut in shortcuts)
@@ -597,6 +634,59 @@
     <div class="modal-backdrop fade show"></div>
 }
 
+<!-- Add/Edit Favorite Dialog -->
+@if (showFavoriteDialog)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content-custom">
+                <div class="modal-header-custom">
+                    <h6>@(editingFavorite == null ? "添加到收藏" : "编辑收藏")</h6>
+                </div>
+                <div class="modal-body-custom">
+                    <div class="mb-3">
+                        <label class="form-label">名称</label>
+                        <input type="text" class="form-control-custom" @bind="favoriteName" placeholder="输入收藏夹名称" />
+                    </div>
+                    @if (editingFavorite == null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">路径</label>
+                            <input type="text" class="form-control-custom" @bind="favoritePath" placeholder="文件夹路径" readonly />
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">图标</label>
+                        <select class="form-control-custom" @bind="favoriteIcon">
+                            <option value="folder">文件夹</option>
+                            <option value="star">星标</option>
+                            <option value="description">文档</option>
+                            <option value="download">下载</option>
+                            <option value="photo_library">图片</option>
+                            <option value="movie">视频</option>
+                            <option value="audiotrack">音乐</option>
+                            <option value="work">工作</option>
+                            <option value="school">学习</option>
+                            <option value="home">主页</option>
+                        </select>
+                    </div>
+                    @if (!string.IsNullOrEmpty(favoriteMessage))
+                    {
+                        <div class="alert @(favoriteSuccess ? "alert-success" : "alert-danger")">
+                            @favoriteMessage
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-custom" @onclick="CloseFavoriteDialog">取消</button>
+                    <button type="button" class="btn btn-custom-primary" @onclick="SaveFavorite">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
 <!-- File Preview Dialog -->
 @if (showPreviewDialog)
 {
@@ -638,6 +728,7 @@
     private List<FileItemInfo>? files;
     private List<DriveItemInfo>? drives;
     private List<ShortcutItemInfo>? shortcuts;
+    private List<FavoriteFolder>? favoriteFolders;
     private string currentPath = string.Empty;
     private bool isGridView = true;
     private long storageTotal = 0;
@@ -654,6 +745,7 @@
     private bool showMoveDialog = false;
     private bool showSearchDialog = false;
     private bool showPreviewDialog = false;
+    private bool showFavoriteDialog = false;
 
     // Dialog data
     private string newFolderName = string.Empty;
@@ -672,6 +764,14 @@
     private bool previewIsImage = false;
     private bool previewIsText = false;
 
+    // Favorite dialog data
+    private FavoriteFolder? editingFavorite = null;
+    private string favoriteName = string.Empty;
+    private string favoritePath = string.Empty;
+    private string favoriteIcon = "folder";
+    private string favoriteMessage = string.Empty;
+    private bool favoriteSuccess = false;
+
     // Messages
     private string uploadMessage = string.Empty;
     private bool uploadSuccess = false;
@@ -688,9 +788,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Load drives and shortcuts
+        // Load drives, shortcuts, and favorites
         drives = await FileManagerService.GetDrivesAsync();
         shortcuts = await FileManagerService.GetShortcutsAsync();
+        favoriteFolders = await FileManagerService.GetFavoriteFoldersAsync();
         
         // Start at user's home directory or first drive
         if (drives != null && drives.Any())
@@ -1312,5 +1413,119 @@
         previewTextContent = string.Empty;
         previewIsImage = false;
         previewIsText = false;
+    }
+
+    // Favorites management methods
+    private void ShowAddFavoriteDialog()
+    {
+        editingFavorite = null;
+        favoriteName = Path.GetFileName(currentPath) ?? "新收藏";
+        favoritePath = currentPath;
+        favoriteIcon = "folder";
+        favoriteMessage = string.Empty;
+        favoriteSuccess = false;
+        showFavoriteDialog = true;
+    }
+
+    private void ShowEditFavoriteDialog(FavoriteFolder favorite)
+    {
+        editingFavorite = favorite;
+        favoriteName = favorite.Name;
+        favoritePath = favorite.Path;
+        favoriteIcon = favorite.Icon;
+        favoriteMessage = string.Empty;
+        favoriteSuccess = false;
+        showFavoriteDialog = true;
+    }
+
+    private void CloseFavoriteDialog()
+    {
+        showFavoriteDialog = false;
+        editingFavorite = null;
+        favoriteName = string.Empty;
+        favoritePath = string.Empty;
+        favoriteIcon = "folder";
+        favoriteMessage = string.Empty;
+        favoriteSuccess = false;
+    }
+
+    private async Task SaveFavorite()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(favoriteName))
+            {
+                favoriteMessage = "请输入收藏夹名称";
+                favoriteSuccess = false;
+                return;
+            }
+
+            if (favoriteName.Length > 200)
+            {
+                favoriteMessage = "收藏夹名称不能超过200个字符";
+                favoriteSuccess = false;
+                return;
+            }
+
+            if (editingFavorite == null)
+            {
+                // Add new favorite
+                await FileManagerService.AddFavoriteFolderAsync(favoriteName, favoritePath, favoriteIcon);
+                favoriteMessage = "添加收藏成功";
+            }
+            else
+            {
+                // Update existing favorite
+                await FileManagerService.UpdateFavoriteFolderAsync(editingFavorite.Id, favoriteName, favoriteIcon);
+                favoriteMessage = "更新收藏成功";
+            }
+            
+            favoriteSuccess = true;
+            
+            // Reload favorites
+            favoriteFolders = await FileManagerService.GetFavoriteFoldersAsync();
+            
+            // Close dialog after short delay
+            await Task.Delay(1000);
+            CloseFavoriteDialog();
+        }
+        catch (Exception ex)
+        {
+            favoriteMessage = $"操作失败: {ex.Message}";
+            favoriteSuccess = false;
+        }
+    }
+
+    private async Task RemoveFavorite(int id)
+    {
+        try
+        {
+            await FileManagerService.RemoveFavoriteFolderAsync(id);
+            ShowNotification("删除收藏成功", false);
+            
+            // Reload favorites
+            favoriteFolders = await FileManagerService.GetFavoriteFoldersAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowNotification($"删除收藏失败: {ex.Message}", true);
+        }
+    }
+
+    private string GetFavoriteIcon(string icon)
+    {
+        return icon switch
+        {
+            "star" => Icons.Material.Filled.Star,
+            "description" => Icons.Material.Filled.Description,
+            "download" => Icons.Material.Filled.Download,
+            "photo_library" => Icons.Material.Filled.PhotoLibrary,
+            "movie" => Icons.Material.Filled.Movie,
+            "audiotrack" => Icons.Material.Filled.AudioFile,
+            "work" => Icons.Material.Filled.Work,
+            "school" => Icons.Material.Filled.School,
+            "home" => Icons.Material.Filled.Home,
+            _ => Icons.Material.Filled.Folder
+        };
     }
 }
