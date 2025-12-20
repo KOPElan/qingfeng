@@ -353,11 +353,13 @@ public class DiskManagementService : IDiskManagementService
             }
             catch (Exception ex)
             {
+                Debug.WriteLine($"Error appending to /etc/fstab for device '{devicePath}' at mount point '{mountPoint}'. Exception: {ex}");
                 return $"Mounted successfully but error updating /etc/fstab: {ex.Message}. Entry: {fstabEntry}";
             }
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"Error during permanent mount setup for device '{devicePath}' at mount point '{mountPoint}'. Exception: {ex}");
             return $"Mounted successfully but error updating /etc/fstab: {ex.Message}";
         }
     }
