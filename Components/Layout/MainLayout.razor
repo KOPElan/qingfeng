@@ -97,24 +97,25 @@ else
     private bool _isAuthPage = false;
     private string? _currentUsername;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         UpdateIsHomePage();
         UpdateIsAuthPage();
         NavigationManager.LocationChanged += OnLocationChanged;
-        UpdateCurrentUser();
+        await UpdateCurrentUserAsync();
     }
 
-    private void UpdateCurrentUser()
+    private async Task UpdateCurrentUserAsync()
     {
-        _currentUsername = AuthService.GetCurrentUsername();
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        _currentUsername = currentUser?.Username;
     }
 
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         UpdateIsHomePage();
         UpdateIsAuthPage();
-        UpdateCurrentUser();
+        await UpdateCurrentUserAsync();
         StateHasChanged();
     }
 
