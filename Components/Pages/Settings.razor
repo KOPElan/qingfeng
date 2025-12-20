@@ -1,12 +1,23 @@
 @page "/settings"
 @using QingFeng.Services
 @using QingFeng.Models
+@inherits AuthorizedPageBase
 @inject ISystemSettingService SystemSettingService
 @inject ILocalizationService LocalizationService
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
 <PageTitle>@LocalizationService.GetString("Settings") - @LocalizationService.GetString("AppTitle")</PageTitle>
+
+@if (!IsAuthorized)
+{
+    <div class="loading-container">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+    return;
+}
 
 <div class="settings-container">
     <div class="settings-header">

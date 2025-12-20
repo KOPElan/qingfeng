@@ -14,6 +14,7 @@ public class QingFengDbContext : DbContext
     public DbSet<Application> Applications { get; set; } = null!;
     public DbSet<DockItem> DockItems { get; set; } = null!;
     public DbSet<SystemSetting> SystemSettings { get; set; } = null!;
+    public DbSet<User> Users { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,6 +58,16 @@ public class QingFengDbContext : DbContext
             entity.Property(e => e.Category).HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.DataType).HasMaxLength(50);
+        });
+
+        // Configure User
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.Property(e => e.Username).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PasswordHash).IsRequired();
+            entity.Property(e => e.Role).IsRequired().HasMaxLength(20);
         });
     }
 }

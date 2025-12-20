@@ -1,10 +1,21 @@
 @page "/disk-management"
 @using QingFeng.Services
 @using QingFeng.Models
+@inherits AuthorizedPageBase
 @inject IDiskManagementService DiskManagementService
 @rendermode InteractiveServer
 
 <PageTitle>磁盘管理</PageTitle>
+
+@if (!IsAuthorized)
+{
+    <div class="loading-container">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+    return;
+}
 
 <h3 class="mb-4">磁盘管理</h3>
 
