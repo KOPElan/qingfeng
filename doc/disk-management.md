@@ -2,7 +2,7 @@
 
 ## 概述
 
-磁盘管理功能提供了完整的Linux磁盘管理解决方案，允许您查看、挂载、卸载磁盘，并管理磁盘电源设置。
+磁盘管理功能提供了完整的Linux磁盘管理解决方案，允许您查看、挂载、卸载本地磁盘和网络磁盘，并管理磁盘电源设置。
 
 ## 功能特性
 
@@ -47,7 +47,43 @@
 - 自动验证卸载是否成功
 - 提供详细的错误信息
 
-### 4. 磁盘电源管理
+### 4. 网络磁盘管理
+
+#### 网络磁盘类型支持
+- **CIFS/SMB**：Windows网络共享
+  - 支持用户名/密码认证
+  - 支持域认证
+  - 自动创建安全的凭据文件（永久挂载）
+- **NFS**：Linux/Unix网络共享
+  - 支持NFS v3和v4
+  - 支持自定义挂载选项
+
+#### 查看网络磁盘
+- 自动检测已挂载的网络磁盘
+- 显示服务器地址和共享路径
+- 显示磁盘使用率
+- 区分CIFS和NFS类型
+
+#### 网络磁盘挂载向导
+- **CIFS/SMB 挂载**：
+  - 服务器地址（IP或主机名）
+  - 共享名称
+  - 用户名和密码（可选）
+  - 域名（可选）
+  - 自定义挂载选项
+- **NFS 挂载**：
+  - 服务器地址
+  - 导出路径
+  - 自定义挂载选项
+
+#### 临时和永久挂载
+- **临时挂载**：仅当前会话有效，重启后失效
+- **永久挂载**：
+  - CIFS：自动创建凭据文件并写入 `/etc/fstab`
+  - NFS：直接写入 `/etc/fstab`
+  - 系统重启后自动挂载
+
+### 5. 磁盘电源管理
 
 #### 休眠超时设置
 - 设置磁盘自动休眠时间（0-240分钟）
@@ -81,24 +117,32 @@
    - 用于磁盘电源管理和性能调优
    - 需要单独安装
 
+4. **cifs-utils** (可选，用于CIFS/SMB网络磁盘)
+   - 用于挂载Windows网络共享
+   - 需要单独安装
+
+5. **nfs-common** (可选，用于NFS网络磁盘)
+   - 用于挂载NFS网络共享
+   - 需要单独安装
+
 ### 安装命令
 
 #### Ubuntu/Debian
 ```bash
 sudo apt-get update
-sudo apt-get install util-linux hdparm
+sudo apt-get install util-linux hdparm cifs-utils nfs-common
 ```
 
 #### CentOS/RHEL/Fedora
 ```bash
-sudo yum install util-linux hdparm
+sudo yum install util-linux hdparm cifs-utils nfs-utils
 # 或
-sudo dnf install util-linux hdparm
+sudo dnf install util-linux hdparm cifs-utils nfs-utils
 ```
 
 #### Arch Linux
 ```bash
-sudo pacman -S util-linux hdparm
+sudo pacman -S util-linux hdparm cifs-utils nfs-utils
 ```
 
 ### 权限要求
@@ -150,6 +194,38 @@ username ALL=(ALL) NOPASSWD: /bin/mount, /bin/umount, /sbin/hdparm
 
 系统会自动将配置写入 `/etc/fstab`，重启后自动挂载。
 
+### 挂载Windows共享（CIFS/SMB）
+
+1. 访问"磁盘管理"页面
+2. 在"网络磁盘"区域点击"挂载网络磁盘"按钮
+3. 在网络磁盘挂载向导中：
+   - 网络磁盘类型：选择"CIFS/SMB (Windows共享)"
+   - 服务器地址：`192.168.1.100` 或 `nas.local`
+   - 共享路径：`share` 或 `Documents`
+   - 挂载点：`/mnt/windows-share`
+   - 用户名：`your_username`（可选）
+   - 密码：`your_password`（可选）
+   - 域：`WORKGROUP`（可选）
+   - 挂载类型：选择"临时挂载"或"永久挂载"
+4. 点击"挂载"按钮
+
+### 挂载NFS共享
+
+1. 访问"磁盘管理"页面
+2. 在"网络磁盘"区域点击"挂载网络磁盘"按钮
+3. 在网络磁盘挂载向导中：
+   - 网络磁盘类型：选择"NFS (Linux共享)"
+   - 服务器地址：`192.168.1.200` 或 `fileserver.local`
+   - 共享路径：`export/data` 或 `mnt/storage`
+   - 挂载点：`/mnt/nfs-share`
+   - 挂载选项：`rw,sync` 或保持默认
+   - 挂载类型：选择"临时挂载"或"永久挂载"
+4. 点击"挂载"按钮
+
+注意：
+- CIFS永久挂载会自动创建安全的凭据文件存储密码
+- NFS挂载不需要用户名密码，依赖服务器端的权限配置
+
 ### 设置磁盘休眠
 
 1. 访问"磁盘管理"页面
@@ -169,6 +245,10 @@ username ALL=(ALL) NOPASSWD: /bin/mount, /bin/umount, /sbin/hdparm
 3. **权限控制**：仅授予必要的 sudo 权限
 4. **内网使用**：本功能建议仅在内网环境使用
 5. **验证设备**：挂载前请仔细确认设备路径，避免操作错误的磁盘
+6. **网络凭据安全**：
+   - 永久挂载CIFS时，凭据会保存在 `/etc/cifs-credentials-*` 文件中
+   - 凭据文件权限设置为 600（仅root可读写）
+   - 建议使用只读账户挂载共享以降低安全风险
 
 ## 故障排除
 
@@ -187,6 +267,33 @@ username ALL=(ALL) NOPASSWD: /bin/mount, /bin/umount, /sbin/hdparm
 - 解决：安装相应的文件系统支持包，例如：
   - NTFS: `sudo apt-get install ntfs-3g`
   - exFAT: `sudo apt-get install exfat-fuse exfat-utils`
+
+### 网络磁盘挂载失败
+
+**错误：mount error(13): Permission denied**
+- CIFS：用户名或密码错误，或服务器拒绝访问
+- NFS：服务器端未正确配置导出权限
+- 解决：检查认证凭据和服务器配置
+
+**错误：mount.cifs: command not found**
+- 解决：安装 cifs-utils：`sudo apt-get install cifs-utils`
+
+**错误：mount.nfs: command not found**
+- 解决：安装 nfs-common：`sudo apt-get install nfs-common`
+
+**错误：No route to host**
+- 解决：检查网络连接和服务器地址是否正确
+- 测试连接：`ping <server_address>`
+
+**错误：mount error(112): Host is down**
+- 解决：目标服务器未运行或防火墙阻止连接
+- CIFS：确保服务器的445端口开放
+- NFS：确保服务器的2049端口开放
+
+**错误：mount error(115): Operation now in progress**
+- 解决：网络延迟过高，尝试添加超时选项
+- CIFS：添加选项 `timeout=60`
+- NFS：添加选项 `timeo=600`
 
 ### 卸载失败
 
