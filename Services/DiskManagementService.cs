@@ -563,14 +563,9 @@ public class DiskManagementService : IDiskManagementService
                 var output = await process.StandardOutput.ReadToEndAsync();
                 var error = await process.StandardError.ReadToEndAsync();
 
-                if (process.ExitCode == 0)
-                {
-                    return $"Set APM level to {level} for {devicePath}";
-                }
-                else
-                {
-                    return $"Failed to set APM level: {error}";
-                }
+                return process.ExitCode == 0
+                    ? $"Set APM level to {level} for {devicePath}"
+                    : $"Failed to set APM level: {error}";
             }
 
             return "Failed to start hdparm process";
