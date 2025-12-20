@@ -89,7 +89,22 @@
 
             // Validate return URL to prevent open redirect
             var redirectUrl = GetSafeRedirectUrl(ReturnUrl);
-            Navigation.NavigateTo(redirectUrl, forceLoad: true);
+            
+            // NOTE: Using forceLoad: false to preserve the current Blazor circuit
+            // 
+            // Other parts of the app (logout, unauthorized redirects) use forceLoad: true
+            // to force a full page reload. Here we intentionally use forceLoad: false to keep
+            // the existing Blazor Server circuit alive after successful login.
+            //
+            // The authenticated state is stored in the circuit-scoped AuthenticationStateService.
+            // Using forceLoad: true would create a new circuit without authentication state,
+            // causing the login redirect loop that this change fixes.
+            //
+            // Trade-off: Post-login experience depends on the current circuit remaining valid.
+            // If the circuit is lost (network issues, server restart, etc.), the user will need
+            // to authenticate again. For more resilience, consider implementing session or
+            // cookie-based authentication persistence in addition to circuit-scoped state.
+            Navigation.NavigateTo(redirectUrl, forceLoad: false);
         }
         catch (Exception ex)
         {
