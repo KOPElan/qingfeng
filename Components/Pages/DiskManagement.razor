@@ -437,9 +437,14 @@
                     string.IsNullOrWhiteSpace(wizardOptions) ? null : wizardOptions);
             }
 
-            wizardMessage = result;
-            wizardError = !result.Contains("Successfully");
+            var operationResult = new
+            {
+                Success = result.Contains("Successfully", StringComparison.OrdinalIgnoreCase),
+                Message = result
+            };
 
+            wizardMessage = operationResult.Message;
+            wizardError = !operationResult.Success;
             if (!wizardError)
             {
                 await RefreshData();
