@@ -329,8 +329,23 @@ public class FileManagerService : IFileManagerService
 
         if (File.Exists(sourcePath))
         {
-            // Copy file
-            File.Copy(sourcePath, destinationPath, overwrite: false);
+            // Copy file - if destination exists, generate a new name
+            var finalDestPath = destinationPath;
+            if (File.Exists(finalDestPath))
+            {
+                var directory = Path.GetDirectoryName(finalDestPath) ?? string.Empty;
+                var fileName = Path.GetFileNameWithoutExtension(finalDestPath);
+                var extension = Path.GetExtension(finalDestPath);
+                var counter = 1;
+                
+                do
+                {
+                    finalDestPath = Path.Combine(directory, $"{fileName} ({counter}){extension}");
+                    counter++;
+                } while (File.Exists(finalDestPath));
+            }
+            
+            File.Copy(sourcePath, finalDestPath, overwrite: false);
         }
         else if (Directory.Exists(sourcePath))
         {
@@ -461,6 +476,21 @@ public class FileManagerService : IFileManagerService
         foreach (var file in dir.GetFiles())
         {
             var targetPath = Path.Combine(destDir, file.Name);
+            
+            // Handle file conflicts by generating a new name
+            if (File.Exists(targetPath))
+            {
+                var fileName = Path.GetFileNameWithoutExtension(file.Name);
+                var extension = Path.GetExtension(file.Name);
+                var counter = 1;
+                
+                do
+                {
+                    targetPath = Path.Combine(destDir, $"{fileName} ({counter}){extension}");
+                    counter++;
+                } while (File.Exists(targetPath));
+            }
+            
             file.CopyTo(targetPath, false);
         }
 

@@ -947,8 +947,10 @@
             {
                 try
                 {
-                    var buffer = new byte[file.Size];
-                    await file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 100).ReadAsync(buffer); // 100MB max
+                    using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 100); // 100MB max
+                    using var memoryStream = new MemoryStream();
+                    await stream.CopyToAsync(memoryStream);
+                    var buffer = memoryStream.ToArray();
                     
                     await FileManagerService.UploadFileAsync(currentPath, file.Name, buffer);
                     uploadMessage += $"成功上传: {file.Name}\n";
@@ -1178,7 +1180,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"搜索失败: {ex.Message}");
+            ShowNotification($"搜索失败: {ex.Message}", true);
             searchResults = new List<FileItemInfo>();
         }
     }
@@ -1247,7 +1249,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"预览文件失败: {ex.Message}");
+            ShowNotification($"预览文件失败: {ex.Message}", true);
         }
     }
 
