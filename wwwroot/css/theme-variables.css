@@ -34,12 +34,18 @@
     /* Text Colors */
     --text-primary: #181811;
     --text-secondary: #333;
+    --text-secondary-light: #666;
     --text-muted: #8c8b5f;
+    --text-muted-dark: #555;
     --text-light: #94a3b8;
+    --text-light-gray: #e5e7eb;
     --text-lighter: #64748b;
     --text-white: #ffffff;
     --text-white-muted: rgba(255, 255, 255, 0.8);
     --text-white-light: rgba(255, 255, 255, 0.6);
+    
+    /* Accent Colors */
+    --color-primary-blue: #60a5fa;
     
     /* Border & Divider Colors */
     --border-light: rgba(255, 255, 255, 0.4);
@@ -97,6 +103,15 @@
     --transition-fast: 0.2s ease;
     --transition-normal: 0.3s ease;
     --transition-slow: 0.5s ease;
+    
+    /* Bootstrap Colors */
+    --bootstrap-link-color: #006bb7;
+    --bootstrap-primary-bg: #1b6ec2;
+    --bootstrap-primary-border: #1861ac;
+    --bootstrap-focus-shadow: #258cfb;
+    --bootstrap-valid-border: #26b050;
+    --bootstrap-invalid-border: #e50000;
+    --bootstrap-checkbox-border: #929292;
     
     /* Z-Index Layers */
     --z-base: 0;
