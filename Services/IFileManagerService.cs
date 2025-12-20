@@ -15,4 +15,12 @@ public interface IFileManagerService
     Task<List<DriveItemInfo>> GetDrivesAsync();
     Task<List<ShortcutItemInfo>> GetShortcutsAsync();
     Task<(long total, long available)> GetStorageInfoAsync(string path);
+    
+    // New methods for complete file management
+    Task RenameAsync(string oldPath, string newPath);
+    Task CopyAsync(string sourcePath, string destinationPath);
+    Task MoveAsync(string sourcePath, string destinationPath);
+    Task<List<FileItemInfo>> SearchFilesAsync(string path, string searchPattern);
+    Task UploadFileAsync(string directoryPath, string fileName, byte[] content);
+    Task<byte[]> DownloadFileAsync(string filePath);
 }

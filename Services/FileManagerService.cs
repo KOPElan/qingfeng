@@ -1,13 +1,17 @@
 using QingFeng.Models;
+using Microsoft.Extensions.Logging;
 
 namespace QingFeng.Services;
 
 public class FileManagerService : IFileManagerService
 {
     private readonly string _rootPath;
+    private readonly ILogger<FileManagerService> _logger;
 
-    public FileManagerService()
+    public FileManagerService(ILogger<FileManagerService> logger)
     {
+        _logger = logger;
+        
         // Set root path based on OS
         if (OperatingSystem.IsWindows())
         {
@@ -299,5 +303,235 @@ public class FileManagerService : IFileManagerService
         }
 
         return Task.FromResult((0L, 0L));
+    }
+
+    public Task RenameAsync(string oldPath, string newPath)
+    {
+        if (!IsPathAllowed(oldPath) || !IsPathAllowed(newPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        if (File.Exists(oldPath))
+        {
+            File.Move(oldPath, newPath);
+        }
+        else if (Directory.Exists(oldPath))
+        {
+            Directory.Move(oldPath, newPath);
+        }
+        else
+        {
+            throw new FileNotFoundException("Source file or directory not found", oldPath);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public async Task CopyAsync(string sourcePath, string destinationPath)
+    {
+        if (!IsPathAllowed(sourcePath) || !IsPathAllowed(destinationPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        if (File.Exists(sourcePath))
+        {
+            // Copy file - if destination exists, generate a new name
+            var finalDestPath = destinationPath;
+            if (File.Exists(finalDestPath))
+            {
+                var directory = Path.GetDirectoryName(finalDestPath) ?? string.Empty;
+                var fileName = Path.GetFileNameWithoutExtension(finalDestPath);
+                var extension = Path.GetExtension(finalDestPath);
+                var counter = 1;
+                
+                do
+                {
+                    finalDestPath = Path.Combine(directory, $"{fileName} ({counter}){extension}");
+                    counter++;
+                } while (File.Exists(finalDestPath));
+            }
+            
+            // Validate the final path after conflict resolution
+            if (!IsPathAllowed(finalDestPath))
+                throw new UnauthorizedAccessException("Access to this path is not allowed");
+            
+            File.Copy(sourcePath, finalDestPath, overwrite: false);
+        }
+        else if (Directory.Exists(sourcePath))
+        {
+            // Copy directory recursively
+            await CopyDirectoryAsync(sourcePath, destinationPath);
+        }
+        else
+        {
+            throw new FileNotFoundException("Source file or directory not found", sourcePath);
+        }
+    }
+
+    public Task MoveAsync(string sourcePath, string destinationPath)
+    {
+        if (!IsPathAllowed(sourcePath) || !IsPathAllowed(destinationPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        // Check if destination already exists
+        if (File.Exists(destinationPath) || Directory.Exists(destinationPath))
+            throw new IOException($"Destination already exists: {Path.GetFileName(destinationPath)}");
+
+        if (File.Exists(sourcePath))
+        {
+            File.Move(sourcePath, destinationPath);
+        }
+        else if (Directory.Exists(sourcePath))
+        {
+            Directory.Move(sourcePath, destinationPath);
+        }
+        else
+        {
+            throw new FileNotFoundException("Source file or directory not found", sourcePath);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<List<FileItemInfo>> SearchFilesAsync(string path, string searchPattern)
+    {
+        var results = new List<FileItemInfo>();
+
+        try
+        {
+            if (!IsPathAllowed(path))
+                return Task.FromResult(results);
+
+            var directory = new DirectoryInfo(path);
+            if (!directory.Exists)
+                return Task.FromResult(results);
+
+            // Search for files matching pattern
+            var files = directory.GetFiles(searchPattern, SearchOption.AllDirectories);
+            foreach (var file in files)
+            {
+                try
+                {
+                    results.Add(new FileItemInfo
+                    {
+                        Name = file.Name,
+                        Path = file.FullName,
+                        IsDirectory = false,
+                        Size = file.Length,
+                        LastModified = file.LastWriteTime,
+                        Extension = file.Extension
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // Skip files we can't access, but log for diagnostics
+                    _logger.LogDebug(ex, "Failed to access file '{FilePath}' during search", file.FullName);
+                }
+            }
+
+            // Search for directories matching pattern
+            var directories = directory.GetDirectories(searchPattern, SearchOption.AllDirectories);
+            foreach (var dir in directories)
+            {
+                try
+                {
+                    results.Add(new FileItemInfo
+                    {
+                        Name = dir.Name,
+                        Path = dir.FullName,
+                        IsDirectory = true,
+                        LastModified = dir.LastWriteTime
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // Skip directories we can't access, but log for diagnostics
+                    _logger.LogDebug(ex, "Failed to access directory '{DirectoryPath}' during search", dir.FullName);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Return empty list on error, but log for diagnostics
+            _logger.LogWarning(ex, "Error while searching files in '{Path}' with pattern '{SearchPattern}'", path, searchPattern);
+        }
+
+        return Task.FromResult(results);
+    }
+
+    public async Task UploadFileAsync(string directoryPath, string fileName, byte[] content)
+    {
+        if (!IsPathAllowed(directoryPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        // Sanitize filename to prevent path traversal attacks
+        var sanitizedFileName = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(sanitizedFileName) || 
+            sanitizedFileName.Contains("..") || 
+            sanitizedFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            throw new ArgumentException("Invalid file name", nameof(fileName));
+        }
+
+        var fullPath = Path.Combine(directoryPath, sanitizedFileName);
+        
+        if (!IsPathAllowed(fullPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        await File.WriteAllBytesAsync(fullPath, content);
+    }
+
+    public async Task<byte[]> DownloadFileAsync(string filePath)
+    {
+        if (!IsPathAllowed(filePath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException("File not found", filePath);
+
+        return await File.ReadAllBytesAsync(filePath);
+    }
+
+    private async Task CopyDirectoryAsync(string sourceDir, string destDir)
+    {
+        // Validate destination directory path
+        if (!IsPathAllowed(destDir))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        // Create destination directory
+        Directory.CreateDirectory(destDir);
+
+        // Copy all files
+        var dir = new DirectoryInfo(sourceDir);
+        foreach (var file in dir.GetFiles())
+        {
+            var targetPath = Path.Combine(destDir, file.Name);
+            
+            // Handle file conflicts by generating a new name
+            if (File.Exists(targetPath))
+            {
+                var fileName = Path.GetFileNameWithoutExtension(file.Name);
+                var extension = Path.GetExtension(file.Name);
+                var counter = 1;
+                
+                do
+                {
+                    targetPath = Path.Combine(destDir, $"{fileName} ({counter}){extension}");
+                    counter++;
+                } while (File.Exists(targetPath));
+            }
+            
+            // Validate the final target path after conflict resolution
+            if (!IsPathAllowed(targetPath))
+                throw new UnauthorizedAccessException("Access to this path is not allowed");
+            
+            file.CopyTo(targetPath, false);
+        }
+
+        // Copy all subdirectories
+        foreach (var subDir in dir.GetDirectories())
+        {
+            var targetPath = Path.Combine(destDir, subDir.Name);
+            // Recursive call will validate the subdirectory path
+            await CopyDirectoryAsync(subDir.FullName, targetPath);
+        }
     }
 }
