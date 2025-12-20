@@ -24,14 +24,14 @@
                            Placeholder="请输入用户名" 
                            Label="用户名"
                            Style="width: 100%; margin-bottom: 1rem;"
-                           @onkeypress="HandleKeyPress" />
+                           @onkeydown="HandleKeyDown" />
 
             <FluentTextField @bind-Value="password" 
                            Type="TextFieldType.Password"
                            Placeholder="请输入密码" 
                            Label="密码"
                            Style="width: 100%; margin-bottom: 1.5rem;"
-                           @onkeypress="HandleKeyPress" />
+                           @onkeydown="HandleKeyDown" />
 
             <FluentButton Appearance="Appearance.Accent" 
                          OnClick="LoginAsync" 
@@ -119,7 +119,7 @@
         return returnUrl;
     }
 
-    private async Task HandleKeyPress(KeyboardEventArgs e)
+    private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !isLoggingIn)
         {

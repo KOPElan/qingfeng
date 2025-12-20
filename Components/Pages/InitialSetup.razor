@@ -24,17 +24,15 @@
             <FluentTextField @bind-Value="username" 
                            Placeholder="请输入管理员用户名" 
                            Label="用户名"
-                           Style="width: 100%; margin-bottom: 1rem;">
-                <FluentLabel Typo="Typography.Body" Style="color: #6c757d;">用户名将用于登录系统</FluentLabel>
-            </FluentTextField>
+                           Hint="用户名将用于登录系统"
+                           Style="width: 100%; margin-bottom: 1rem;" />
 
             <FluentTextField @bind-Value="password" 
                            Type="TextFieldType.Password"
                            Placeholder="请输入密码" 
                            Label="密码"
-                           Style="width: 100%; margin-bottom: 1rem;">
-                <FluentLabel Typo="Typography.Body" Style="color: #6c757d;">建议使用强密码保护您的账号安全</FluentLabel>
-            </FluentTextField>
+                           Hint="建议使用强密码保护您的账号安全"
+                           Style="width: 100%; margin-bottom: 1rem;" />
 
             <FluentTextField @bind-Value="confirmPassword" 
                            Type="TextFieldType.Password"
