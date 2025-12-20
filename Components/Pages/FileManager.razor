@@ -224,23 +224,20 @@
                 }
             </div>
             
-            <button type="button" class="btn btn-link text-white">
-                <i class="@Icons.Material.Filled.Help"></i>
+            <button type="button" class="btn btn-link text-white" @onclick="ShowUploadDialog" title="上传文件">
+                <i class="@Icons.Material.Filled.Upload"></i>
             </button>
-            <button type="button" class="btn btn-link text-white">
-                <i class="@Icons.Material.Filled.VideoLibrary"></i>
+            <button type="button" class="btn btn-link text-white" @onclick="ShowCreateFolderDialog" title="新建文件夹">
+                <i class="@Icons.Material.Filled.CreateNewFolder"></i>
             </button>
-            <button type="button" class="btn btn-link text-white">
-                <i class="@Icons.Material.Filled.FolderShared"></i>
+            <button type="button" class="btn btn-link text-white" @onclick="ShowSearchDialog" title="搜索">
+                <i class="@Icons.Material.Filled.Search"></i>
             </button>
-            <button type="button" class="btn btn-custom-primary">
-                导入
+            <button type="button" class="btn btn-link text-white" @onclick="RefreshFiles" title="刷新">
+                <i class="@Icons.Material.Filled.Refresh"></i>
             </button>
-            <button type="button" class="btn btn-link text-white" @onclick="ToggleViewMode">
+            <button type="button" class="btn btn-link text-white" @onclick="ToggleViewMode" title="切换视图">
                 <i class="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"></i>
-            </button>
-            <button type="button" class="btn btn-link text-white">
-                <i class="@Icons.Material.Filled.GridView"></i>
             </button>
         </div>
         
@@ -316,13 +313,31 @@
                                     <td>@file.SizeDisplay</td>
                                     <td>@file.LastModified.ToString("yyyy-MM-dd HH:mm:ss")</td>
                                     <td>
-                                        @if (!file.IsDirectory)
+                                        @if (!file.IsDirectory && file.Name != "..")
+                                        {
+                                            <button type="button" class="btn btn-sm btn-link text-white" @onclick="(() => DownloadFile(file.Path))" title="下载">
+                                                <i class="@Icons.Material.Filled.Download"></i>
+                                            </button>
+                                        }
+                                        @if (file.Name != "..")
+                                        {
+                                            <button type="button" class="btn btn-sm btn-link text-white" @onclick="(() => ShowRenameDialog(file))" title="重命名">
+                                                <i class="@Icons.Material.Filled.Edit"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-link text-white" @onclick="(() => ShowCopyDialog(file))" title="复制">
+                                                <i class="@Icons.Material.Filled.ContentCopy"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-link text-white" @onclick="(() => ShowMoveDialog(file))" title="移动">
+                                                <i class="@Icons.Material.Filled.DriveFileMove"></i>
+                                            </button>
+                                        }
+                                        @if (!file.IsDirectory && file.Name != "..")
                                         {
                                             <button type="button" class="btn btn-sm btn-link text-danger" @onclick="(() => DeleteFile(file.Path))" title="删除">
                                                 <i class="@Icons.Material.Filled.Delete"></i>
                                             </button>
                                         }
-                                        else
+                                        @if (file.IsDirectory && file.Name != "..")
                                         {
                                             <button type="button" class="btn btn-sm btn-link text-danger" @onclick="(() => DeleteDirectory(file.Path))" title="删除">
                                                 <i class="@Icons.Material.Filled.Delete"></i>
@@ -362,6 +377,210 @@
     </div>
 </div>
 
+<!-- Upload File Dialog -->
+@if (showUploadDialog)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content-custom">
+                <div class="modal-header-custom">
+                    <h6>上传文件</h6>
+                </div>
+                <div class="modal-body-custom">
+                    <label class="form-label">选择文件</label>
+                    <InputFile OnChange="HandleFileUpload" class="form-control-custom" multiple />
+                    @if (!string.IsNullOrEmpty(uploadMessage))
+                    {
+                        <div class="alert @(uploadSuccess ? "alert-success" : "alert-danger") mt-3">
+                            @uploadMessage
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-custom" @onclick="CloseUploadDialog">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Create Folder Dialog -->
+@if (showCreateFolderDialog)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content-custom">
+                <div class="modal-header-custom">
+                    <h6>新建文件夹</h6>
+                </div>
+                <div class="modal-body-custom">
+                    <label class="form-label">文件夹名称</label>
+                    <input type="text" class="form-control-custom" @bind="newFolderName" placeholder="输入文件夹名称" />
+                    @if (!string.IsNullOrEmpty(createFolderMessage))
+                    {
+                        <div class="alert @(createFolderSuccess ? "alert-success" : "alert-danger") mt-3">
+                            @createFolderMessage
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-custom" @onclick="CloseCreateFolderDialog">取消</button>
+                    <button type="button" class="btn btn-custom-primary" @onclick="CreateFolder">创建</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Rename Dialog -->
+@if (showRenameDialog)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content-custom">
+                <div class="modal-header-custom">
+                    <h6>重命名</h6>
+                </div>
+                <div class="modal-body-custom">
+                    <label class="form-label">新名称</label>
+                    <input type="text" class="form-control-custom" @bind="renameNewName" placeholder="输入新名称" />
+                    @if (!string.IsNullOrEmpty(renameMessage))
+                    {
+                        <div class="alert @(renameSuccess ? "alert-success" : "alert-danger") mt-3">
+                            @renameMessage
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-custom" @onclick="CloseRenameDialog">取消</button>
+                    <button type="button" class="btn btn-custom-primary" @onclick="RenameItem">重命名</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Copy Dialog -->
+@if (showCopyDialog)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content-custom">
+                <div class="modal-header-custom">
+                    <h6>复制</h6>
+                </div>
+                <div class="modal-body-custom">
+                    <label class="form-label">目标路径</label>
+                    <input type="text" class="form-control-custom" @bind="copyDestination" placeholder="输入目标路径" />
+                    @if (!string.IsNullOrEmpty(copyMessage))
+                    {
+                        <div class="alert @(copySuccess ? "alert-success" : "alert-danger") mt-3">
+                            @copyMessage
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-custom" @onclick="CloseCopyDialog">取消</button>
+                    <button type="button" class="btn btn-custom-primary" @onclick="CopyItem">复制</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Move Dialog -->
+@if (showMoveDialog)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content-custom">
+                <div class="modal-header-custom">
+                    <h6>移动</h6>
+                </div>
+                <div class="modal-body-custom">
+                    <label class="form-label">目标路径</label>
+                    <input type="text" class="form-control-custom" @bind="moveDestination" placeholder="输入目标路径" />
+                    @if (!string.IsNullOrEmpty(moveMessage))
+                    {
+                        <div class="alert @(moveSuccess ? "alert-success" : "alert-danger") mt-3">
+                            @moveMessage
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-custom" @onclick="CloseMoveDialog">取消</button>
+                    <button type="button" class="btn btn-custom-primary" @onclick="MoveItem">移动</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Search Dialog -->
+@if (showSearchDialog)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content-custom">
+                <div class="modal-header-custom">
+                    <h6>搜索文件</h6>
+                </div>
+                <div class="modal-body-custom">
+                    <div class="mb-3">
+                        <label class="form-label">搜索关键词</label>
+                        <div class="d-flex gap-2">
+                            <input type="text" class="form-control-custom flex-grow-1" @bind="searchPattern" placeholder="输入文件名或模式，如 *.txt" />
+                            <button type="button" class="btn btn-custom-primary" @onclick="SearchFiles">搜索</button>
+                        </div>
+                    </div>
+                    @if (searchResults != null && searchResults.Any())
+                    {
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-custom">
+                                <thead>
+                                    <tr>
+                                        <th>名称</th>
+                                        <th>路径</th>
+                                        <th>类型</th>
+                                        <th>大小</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var result in searchResults)
+                                    {
+                                        <tr style="cursor: pointer;" @onclick="(() => NavigateToSearchResult(result))">
+                                            <td>
+                                                <i class="@(result.IsDirectory ? Icons.Material.Filled.Folder : Icons.Material.Filled.InsertDriveFile) me-2"></i>
+                                                @result.Name
+                                            </td>
+                                            <td>@result.Path</td>
+                                            <td>@(result.IsDirectory ? "文件夹" : "文件")</td>
+                                            <td>@result.SizeDisplay</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    @if (searchResults != null && !searchResults.Any())
+                    {
+                        <div class="alert alert-info">未找到匹配的文件</div>
+                    }
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-custom" @onclick="CloseSearchDialog">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
 @code {
     private List<FileItemInfo>? files;
     private List<DriveItemInfo>? drives;
@@ -373,6 +592,37 @@
     
     private Stack<string> navigationHistory = new Stack<string>();
     private Stack<string> forwardHistory = new Stack<string>();
+
+    // Dialog states
+    private bool showUploadDialog = false;
+    private bool showCreateFolderDialog = false;
+    private bool showRenameDialog = false;
+    private bool showCopyDialog = false;
+    private bool showMoveDialog = false;
+    private bool showSearchDialog = false;
+
+    // Dialog data
+    private string newFolderName = string.Empty;
+    private string renameNewName = string.Empty;
+    private FileItemInfo? renameItem = null;
+    private string copyDestination = string.Empty;
+    private FileItemInfo? copyItem = null;
+    private string moveDestination = string.Empty;
+    private FileItemInfo? moveItem = null;
+    private string searchPattern = string.Empty;
+    private List<FileItemInfo>? searchResults = null;
+
+    // Messages
+    private string uploadMessage = string.Empty;
+    private bool uploadSuccess = false;
+    private string createFolderMessage = string.Empty;
+    private bool createFolderSuccess = false;
+    private string renameMessage = string.Empty;
+    private bool renameSuccess = false;
+    private string copyMessage = string.Empty;
+    private bool copySuccess = false;
+    private string moveMessage = string.Empty;
+    private bool moveSuccess = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -551,5 +801,303 @@
             "backup" => Icons.Material.Filled.Backup,
             _ => Icons.Material.Filled.Folder
         };
+    }
+
+    // File operation methods
+    private async Task DownloadFile(string filePath)
+    {
+        try
+        {
+            var fileBytes = await FileManagerService.DownloadFileAsync(filePath);
+            var fileName = Path.GetFileName(filePath);
+            
+            // Note: For Blazor Server, we would need to implement a download endpoint
+            // For now, we'll just show a message
+            Console.WriteLine($"下载文件: {fileName}");
+            // TODO: Implement actual file download via HTTP endpoint
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"下载文件失败: {ex.Message}");
+        }
+    }
+
+    // Dialog methods
+    private void ShowUploadDialog()
+    {
+        showUploadDialog = true;
+        uploadMessage = string.Empty;
+        uploadSuccess = false;
+    }
+
+    private void CloseUploadDialog()
+    {
+        showUploadDialog = false;
+        uploadMessage = string.Empty;
+        uploadSuccess = false;
+    }
+
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            uploadMessage = string.Empty;
+            
+            foreach (var file in e.GetMultipleFiles())
+            {
+                try
+                {
+                    var buffer = new byte[file.Size];
+                    await file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 100).ReadAsync(buffer); // 100MB max
+                    
+                    await FileManagerService.UploadFileAsync(currentPath, file.Name, buffer);
+                    uploadMessage += $"成功上传: {file.Name}\n";
+                }
+                catch (Exception ex)
+                {
+                    uploadMessage += $"上传失败 {file.Name}: {ex.Message}\n";
+                }
+            }
+            
+            uploadSuccess = true;
+            await RefreshFiles();
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"上传失败: {ex.Message}";
+            uploadSuccess = false;
+        }
+    }
+
+    private void ShowCreateFolderDialog()
+    {
+        showCreateFolderDialog = true;
+        newFolderName = string.Empty;
+        createFolderMessage = string.Empty;
+        createFolderSuccess = false;
+    }
+
+    private void CloseCreateFolderDialog()
+    {
+        showCreateFolderDialog = false;
+        newFolderName = string.Empty;
+        createFolderMessage = string.Empty;
+        createFolderSuccess = false;
+    }
+
+    private async Task CreateFolder()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(newFolderName))
+            {
+                createFolderMessage = "请输入文件夹名称";
+                createFolderSuccess = false;
+                return;
+            }
+
+            var folderPath = Path.Combine(currentPath, newFolderName);
+            await FileManagerService.CreateDirectoryAsync(folderPath);
+            
+            createFolderMessage = "文件夹创建成功";
+            createFolderSuccess = true;
+            await RefreshFiles();
+            
+            await Task.Delay(1000);
+            CloseCreateFolderDialog();
+        }
+        catch (Exception ex)
+        {
+            createFolderMessage = $"创建文件夹失败: {ex.Message}";
+            createFolderSuccess = false;
+        }
+    }
+
+    private void ShowRenameDialog(FileItemInfo item)
+    {
+        showRenameDialog = true;
+        renameItem = item;
+        renameNewName = item.Name;
+        renameMessage = string.Empty;
+        renameSuccess = false;
+    }
+
+    private void CloseRenameDialog()
+    {
+        showRenameDialog = false;
+        renameItem = null;
+        renameNewName = string.Empty;
+        renameMessage = string.Empty;
+        renameSuccess = false;
+    }
+
+    private async Task RenameItem()
+    {
+        try
+        {
+            if (renameItem == null || string.IsNullOrWhiteSpace(renameNewName))
+            {
+                renameMessage = "请输入新名称";
+                renameSuccess = false;
+                return;
+            }
+
+            var newPath = Path.Combine(Path.GetDirectoryName(renameItem.Path) ?? currentPath, renameNewName);
+            await FileManagerService.RenameAsync(renameItem.Path, newPath);
+            
+            renameMessage = "重命名成功";
+            renameSuccess = true;
+            await RefreshFiles();
+            
+            await Task.Delay(1000);
+            CloseRenameDialog();
+        }
+        catch (Exception ex)
+        {
+            renameMessage = $"重命名失败: {ex.Message}";
+            renameSuccess = false;
+        }
+    }
+
+    private void ShowCopyDialog(FileItemInfo item)
+    {
+        showCopyDialog = true;
+        copyItem = item;
+        copyDestination = currentPath;
+        copyMessage = string.Empty;
+        copySuccess = false;
+    }
+
+    private void CloseCopyDialog()
+    {
+        showCopyDialog = false;
+        copyItem = null;
+        copyDestination = string.Empty;
+        copyMessage = string.Empty;
+        copySuccess = false;
+    }
+
+    private async Task CopyItem()
+    {
+        try
+        {
+            if (copyItem == null || string.IsNullOrWhiteSpace(copyDestination))
+            {
+                copyMessage = "请输入目标路径";
+                copySuccess = false;
+                return;
+            }
+
+            var destPath = Path.Combine(copyDestination, copyItem.Name);
+            await FileManagerService.CopyAsync(copyItem.Path, destPath);
+            
+            copyMessage = "复制成功";
+            copySuccess = true;
+            await RefreshFiles();
+            
+            await Task.Delay(1000);
+            CloseCopyDialog();
+        }
+        catch (Exception ex)
+        {
+            copyMessage = $"复制失败: {ex.Message}";
+            copySuccess = false;
+        }
+    }
+
+    private void ShowMoveDialog(FileItemInfo item)
+    {
+        showMoveDialog = true;
+        moveItem = item;
+        moveDestination = currentPath;
+        moveMessage = string.Empty;
+        moveSuccess = false;
+    }
+
+    private void CloseMoveDialog()
+    {
+        showMoveDialog = false;
+        moveItem = null;
+        moveDestination = string.Empty;
+        moveMessage = string.Empty;
+        moveSuccess = false;
+    }
+
+    private async Task MoveItem()
+    {
+        try
+        {
+            if (moveItem == null || string.IsNullOrWhiteSpace(moveDestination))
+            {
+                moveMessage = "请输入目标路径";
+                moveSuccess = false;
+                return;
+            }
+
+            var destPath = Path.Combine(moveDestination, moveItem.Name);
+            await FileManagerService.MoveAsync(moveItem.Path, destPath);
+            
+            moveMessage = "移动成功";
+            moveSuccess = true;
+            await RefreshFiles();
+            
+            await Task.Delay(1000);
+            CloseMoveDialog();
+        }
+        catch (Exception ex)
+        {
+            moveMessage = $"移动失败: {ex.Message}";
+            moveSuccess = false;
+        }
+    }
+
+    private void ShowSearchDialog()
+    {
+        showSearchDialog = true;
+        searchPattern = string.Empty;
+        searchResults = null;
+    }
+
+    private void CloseSearchDialog()
+    {
+        showSearchDialog = false;
+        searchPattern = string.Empty;
+        searchResults = null;
+    }
+
+    private async Task SearchFiles()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(searchPattern))
+            {
+                searchPattern = "*";
+            }
+
+            searchResults = await FileManagerService.SearchFilesAsync(currentPath, searchPattern);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"搜索失败: {ex.Message}");
+            searchResults = new List<FileItemInfo>();
+        }
+    }
+
+    private async Task NavigateToSearchResult(FileItemInfo result)
+    {
+        CloseSearchDialog();
+        
+        if (result.IsDirectory)
+        {
+            await NavigateTo(result.Path);
+        }
+        else
+        {
+            var directory = Path.GetDirectoryName(result.Path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                await NavigateTo(directory);
+            }
+        }
     }
 }

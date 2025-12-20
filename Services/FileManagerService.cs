@@ -300,4 +300,175 @@ public class FileManagerService : IFileManagerService
 
         return Task.FromResult((0L, 0L));
     }
+
+    public Task RenameAsync(string oldPath, string newPath)
+    {
+        if (!IsPathAllowed(oldPath) || !IsPathAllowed(newPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        if (File.Exists(oldPath))
+        {
+            File.Move(oldPath, newPath);
+        }
+        else if (Directory.Exists(oldPath))
+        {
+            Directory.Move(oldPath, newPath);
+        }
+        else
+        {
+            throw new FileNotFoundException("Source file or directory not found", oldPath);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public async Task CopyAsync(string sourcePath, string destinationPath)
+    {
+        if (!IsPathAllowed(sourcePath) || !IsPathAllowed(destinationPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        if (File.Exists(sourcePath))
+        {
+            // Copy file
+            File.Copy(sourcePath, destinationPath, overwrite: false);
+        }
+        else if (Directory.Exists(sourcePath))
+        {
+            // Copy directory recursively
+            await CopyDirectoryAsync(sourcePath, destinationPath);
+        }
+        else
+        {
+            throw new FileNotFoundException("Source file or directory not found", sourcePath);
+        }
+    }
+
+    public Task MoveAsync(string sourcePath, string destinationPath)
+    {
+        if (!IsPathAllowed(sourcePath) || !IsPathAllowed(destinationPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        if (File.Exists(sourcePath))
+        {
+            File.Move(sourcePath, destinationPath);
+        }
+        else if (Directory.Exists(sourcePath))
+        {
+            Directory.Move(sourcePath, destinationPath);
+        }
+        else
+        {
+            throw new FileNotFoundException("Source file or directory not found", sourcePath);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<List<FileItemInfo>> SearchFilesAsync(string path, string searchPattern)
+    {
+        var results = new List<FileItemInfo>();
+
+        try
+        {
+            if (!IsPathAllowed(path))
+                return Task.FromResult(results);
+
+            var directory = new DirectoryInfo(path);
+            if (!directory.Exists)
+                return Task.FromResult(results);
+
+            // Search for files matching pattern
+            var files = directory.GetFiles(searchPattern, SearchOption.AllDirectories);
+            foreach (var file in files)
+            {
+                try
+                {
+                    results.Add(new FileItemInfo
+                    {
+                        Name = file.Name,
+                        Path = file.FullName,
+                        IsDirectory = false,
+                        Size = file.Length,
+                        LastModified = file.LastWriteTime,
+                        Extension = file.Extension
+                    });
+                }
+                catch
+                {
+                    // Skip files we can't access
+                }
+            }
+
+            // Search for directories matching pattern
+            var directories = directory.GetDirectories(searchPattern, SearchOption.AllDirectories);
+            foreach (var dir in directories)
+            {
+                try
+                {
+                    results.Add(new FileItemInfo
+                    {
+                        Name = dir.Name,
+                        Path = dir.FullName,
+                        IsDirectory = true,
+                        LastModified = dir.LastWriteTime
+                    });
+                }
+                catch
+                {
+                    // Skip directories we can't access
+                }
+            }
+        }
+        catch
+        {
+            // Return empty list on error
+        }
+
+        return Task.FromResult(results);
+    }
+
+    public async Task UploadFileAsync(string directoryPath, string fileName, byte[] content)
+    {
+        if (!IsPathAllowed(directoryPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        var fullPath = Path.Combine(directoryPath, fileName);
+        
+        if (!IsPathAllowed(fullPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        await File.WriteAllBytesAsync(fullPath, content);
+    }
+
+    public async Task<byte[]> DownloadFileAsync(string filePath)
+    {
+        if (!IsPathAllowed(filePath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException("File not found", filePath);
+
+        return await File.ReadAllBytesAsync(filePath);
+    }
+
+    private async Task CopyDirectoryAsync(string sourceDir, string destDir)
+    {
+        // Create destination directory
+        Directory.CreateDirectory(destDir);
+
+        // Copy all files
+        var dir = new DirectoryInfo(sourceDir);
+        foreach (var file in dir.GetFiles())
+        {
+            var targetPath = Path.Combine(destDir, file.Name);
+            file.CopyTo(targetPath, false);
+        }
+
+        // Copy all subdirectories
+        foreach (var subDir in dir.GetDirectories())
+        {
+            var targetPath = Path.Combine(destDir, subDir.Name);
+            await CopyDirectoryAsync(subDir.FullName, targetPath);
+        }
+    }
 }
