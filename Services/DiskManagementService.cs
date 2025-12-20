@@ -1,11 +1,15 @@
 using QingFeng.Models;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace QingFeng.Services;
 
 public class DiskManagementService : IDiskManagementService
 {
+    private static readonly string[] InvalidChars = ["&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r"];
+
     public Task<List<DiskInfo>> GetAllDisksAsync()
     {
         var disks = new List<DiskInfo>();
@@ -17,6 +21,7 @@ public class DiskManagementService : IDiskManagementService
                 var diskInfo = new DiskInfo
                 {
                     Name = drive.Name,
+                    DevicePath = drive.Name,
                     MountPoint = drive.RootDirectory.FullName,
                     FileSystem = drive.IsReady ? drive.DriveFormat : "Unknown",
                     IsReady = drive.IsReady
@@ -44,36 +49,191 @@ public class DiskManagementService : IDiskManagementService
         return Task.FromResult(disks);
     }
 
-    public async Task<string> MountDiskAsync(string devicePath, string mountPoint)
+    public async Task<List<DiskInfo>> GetAllBlockDevicesAsync()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            // Fall back to basic disk info on non-Linux systems
+            return await GetAllDisksAsync();
+        }
+
+        try
+        {
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "lsblk",
+                Arguments = "-J -b -o NAME,TYPE,SIZE,MOUNTPOINT,FSTYPE,UUID,LABEL,RM,RO,MODEL,SERIAL",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(processInfo);
+            if (process == null)
+            {
+                return await GetAllDisksAsync();
+            }
+
+            await process.WaitForExitAsync();
+            var output = await process.StandardOutput.ReadToEndAsync();
+
+            if (process.ExitCode != 0)
+            {
+                return await GetAllDisksAsync();
+            }
+
+            var lsblkData = JsonSerializer.Deserialize<LsblkOutput>(
+                output,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (lsblkData?.Blockdevices == null)
+            {
+                return await GetAllDisksAsync();
+            }
+
+            var disks = new List<DiskInfo>();
+            foreach (var device in lsblkData.Blockdevices)
+            {
+                var diskInfo = ConvertLsblkDevice(device);
+                disks.Add(diskInfo);
+            }
+
+            // Get usage information for mounted disks
+            await EnrichWithUsageInfo(disks);
+
+            return disks;
+        }
+        catch
+        {
+            return await GetAllDisksAsync();
+        }
+    }
+
+    private DiskInfo ConvertLsblkDevice(LsblkDevice device)
+    {
+        var diskInfo = new DiskInfo
+        {
+            Name = device.Name ?? "",
+            DevicePath = $"/dev/{device.Name}",
+            Type = device.Type ?? "",
+            TotalBytes = device.Size,
+            FileSystem = device.Fstype ?? "",
+            UUID = device.Uuid ?? "",
+            Label = device.Label ?? "",
+            IsRemovable = device.Rm,
+            IsReadOnly = device.Ro,
+            Model = device.Model ?? "",
+            Serial = device.Serial ?? "",
+            MountPoint = device.Mountpoint ?? "",
+            IsReady = !string.IsNullOrEmpty(device.Mountpoint)
+        };
+
+        if (device.Children != null)
+        {
+            foreach (var child in device.Children)
+            {
+                diskInfo.Children.Add(ConvertLsblkDevice(child));
+            }
+        }
+
+        return diskInfo;
+    }
+
+    private async Task EnrichWithUsageInfo(List<DiskInfo> disks)
+    {
+        foreach (var disk in disks)
+        {
+            if (!string.IsNullOrEmpty(disk.MountPoint) && Directory.Exists(disk.MountPoint))
+            {
+                try
+                {
+                    var driveInfo = new DriveInfo(disk.MountPoint);
+                    if (driveInfo.IsReady)
+                    {
+                        disk.TotalBytes = driveInfo.TotalSize;
+                        disk.AvailableBytes = driveInfo.AvailableFreeSpace;
+                        disk.UsedBytes = driveInfo.TotalSize - driveInfo.AvailableFreeSpace;
+                        disk.UsagePercent = disk.TotalBytes > 0
+                            ? Math.Round((double)disk.UsedBytes / disk.TotalBytes * 100, 2)
+                            : 0;
+                    }
+                }
+                catch
+                {
+                    // Ignore errors getting usage info
+                }
+            }
+
+            if (disk.Children.Count > 0)
+            {
+                await EnrichWithUsageInfo(disk.Children);
+            }
+        }
+    }
+
+    public async Task<DiskInfo?> GetDiskInfoAsync(string devicePath)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return null;
+        }
+
+        if (!ValidateDevicePath(devicePath))
+        {
+            return null;
+        }
+
+        var allDisks = await GetAllBlockDevicesAsync();
+        return FindDiskByPath(allDisks, devicePath);
+    }
+
+    private DiskInfo? FindDiskByPath(List<DiskInfo> disks, string devicePath)
+    {
+        foreach (var disk in disks)
+        {
+            if (disk.DevicePath == devicePath)
+            {
+                return disk;
+            }
+
+            if (disk.Children.Count > 0)
+            {
+                var found = FindDiskByPath(disk.Children, devicePath);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public async Task<string> MountDiskAsync(string devicePath, string mountPoint, string? fileSystem = null, string? options = null)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             return "Disk mounting is only supported on Linux";
         }
 
-        // Validate input parameters to prevent command injection
-        if (string.IsNullOrWhiteSpace(devicePath) || string.IsNullOrWhiteSpace(mountPoint))
+        if (!ValidateDevicePath(devicePath))
         {
-            return "Device path and mount point cannot be empty";
+            return "Invalid device path";
         }
 
-        // Enhanced validation to prevent command injection
-        var invalidChars = new[] { "&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r" };
-        if (invalidChars.Any(c => devicePath.Contains(c) || mountPoint.Contains(c)))
+        if (!ValidateMountPoint(mountPoint))
         {
-            return "Invalid characters in device path or mount point";
+            return "Invalid mount point";
         }
 
-        // Validate device path format (should start with /dev/)
-        if (!devicePath.StartsWith("/dev/", StringComparison.Ordinal))
+        if (fileSystem != null && InvalidChars.Any(c => fileSystem.Contains(c)))
         {
-            return "Device path must start with /dev/";
+            return "Invalid characters in filesystem type";
         }
 
-        // Validate mount point is an absolute path
-        if (!Path.IsPathRooted(mountPoint))
+        if (options != null && InvalidChars.Any(c => options.Contains(c)))
         {
-            return "Mount point must be an absolute path";
+            return "Invalid characters in mount options";
         }
 
         try
@@ -84,10 +244,20 @@ public class DiskManagementService : IDiskManagementService
                 Directory.CreateDirectory(mountPoint);
             }
 
+            var arguments = devicePath + " " + mountPoint;
+            if (!string.IsNullOrEmpty(fileSystem))
+            {
+                arguments = $"-t {fileSystem} {arguments}";
+            }
+            if (!string.IsNullOrEmpty(options))
+            {
+                arguments = $"-o {options} {arguments}";
+            }
+
             var processInfo = new ProcessStartInfo
             {
                 FileName = "mount",
-                Arguments = $"{devicePath} {mountPoint}",
+                Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -119,6 +289,81 @@ public class DiskManagementService : IDiskManagementService
         }
     }
 
+    public async Task<string> MountDiskPermanentAsync(string devicePath, string mountPoint, string? fileSystem = null, string? options = null)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Permanent disk mounting is only supported on Linux";
+        }
+
+        // First mount temporarily
+        var mountResult = await MountDiskAsync(devicePath, mountPoint, fileSystem, options);
+        if (!mountResult.Contains("Successfully"))
+        {
+            return mountResult;
+        }
+
+        try
+        {
+            // Get disk info to find UUID
+            var diskInfo = await GetDiskInfoAsync(devicePath);
+            if (diskInfo == null)
+            {
+                return "Could not get disk information";
+            }
+
+            var fstabEntry = string.IsNullOrEmpty(diskInfo.UUID)
+                ? devicePath
+                : $"UUID={diskInfo.UUID}";
+
+            fstabEntry += $" {mountPoint}";
+            fstabEntry += $" {(string.IsNullOrEmpty(fileSystem) ? (diskInfo.FileSystem ?? "auto") : fileSystem)}";
+            fstabEntry += $" {(string.IsNullOrEmpty(options) ? "defaults" : options)}";
+            fstabEntry += " 0 2";
+
+            // Use File.AppendAllText for safer file writing instead of shell command
+            try
+            {
+                var fstabPath = "/etc/fstab";
+                string[] existingLines;
+
+                try
+                {
+                    existingLines = await File.ReadAllLinesAsync(fstabPath);
+                }
+                catch (FileNotFoundException)
+                {
+                    existingLines = Array.Empty<string>();
+                }
+
+                foreach (var line in existingLines)
+                {
+                    if (line.Trim() == fstabEntry)
+                    {
+                        return $"Successfully mounted {devicePath} to {mountPoint}; matching entry already exists in /etc/fstab";
+                    }
+                }
+
+                await File.AppendAllTextAsync(fstabPath, fstabEntry + Environment.NewLine);
+                return $"Successfully mounted {devicePath} to {mountPoint} and added to /etc/fstab";
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return $"Mounted successfully but permission denied writing to /etc/fstab. Entry: {fstabEntry}";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error appending to /etc/fstab for device '{devicePath}' at mount point '{mountPoint}'. Exception: {ex}");
+                return $"Mounted successfully but error updating /etc/fstab: {ex.Message}. Entry: {fstabEntry}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error during permanent mount setup for device '{devicePath}' at mount point '{mountPoint}'. Exception: {ex}");
+            return $"Mounted successfully but error updating /etc/fstab: {ex.Message}";
+        }
+    }
+
     public async Task<string> UnmountDiskAsync(string mountPoint)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -126,23 +371,9 @@ public class DiskManagementService : IDiskManagementService
             return "Disk unmounting is only supported on Linux";
         }
 
-        // Validate input parameter to prevent command injection
-        if (string.IsNullOrWhiteSpace(mountPoint))
+        if (!ValidateMountPoint(mountPoint))
         {
-            return "Mount point cannot be empty";
-        }
-
-        // Enhanced validation to prevent command injection
-        var invalidChars = new[] { "&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r" };
-        if (invalidChars.Any(c => mountPoint.Contains(c)))
-        {
-            return "Invalid characters in mount point";
-        }
-
-        // Validate mount point is an absolute path
-        if (!Path.IsPathRooted(mountPoint))
-        {
-            return "Mount point must be an absolute path";
+            return "Invalid mount point";
         }
 
         try
@@ -216,4 +447,311 @@ public class DiskManagementService : IDiskManagementService
 
         return shares;
     }
+
+    public Task<List<string>> GetAvailableFileSystemsAsync()
+    {
+        // Common Linux file systems
+        var fileSystems = new List<string>
+        {
+            "ext4",
+            "ext3",
+            "ext2",
+            "btrfs",
+            "xfs",
+            "ntfs",
+            "vfat",
+            "exfat"
+        };
+
+        return Task.FromResult(fileSystems);
+    }
+
+    public async Task<string> SetDiskSpinDownAsync(string devicePath, int timeoutMinutes)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Disk power management is only supported on Linux";
+        }
+
+        if (!ValidateDevicePath(devicePath))
+        {
+            return "Invalid device path";
+        }
+
+        if (timeoutMinutes < 0 || timeoutMinutes > 240)
+        {
+            return "Timeout must be between 0 and 240 minutes";
+        }
+
+        try
+        {
+            // Convert minutes to hdparm units
+            // hdparm uses 5-second units, so: minutes * 60 seconds / 5 = minutes * 12
+            var hdparmValue = timeoutMinutes == 0 ? "0" : (timeoutMinutes * 12).ToString();
+
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "hdparm",
+                Arguments = $"-S {hdparmValue} {devicePath}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(processInfo);
+            if (process != null)
+            {
+                await process.WaitForExitAsync();
+                var output = await process.StandardOutput.ReadToEndAsync();
+                var error = await process.StandardError.ReadToEndAsync();
+
+                if (process.ExitCode == 0)
+                {
+                    var msg = timeoutMinutes == 0
+                        ? $"Disabled spin-down for {devicePath}"
+                        : $"Set spin-down timeout to {timeoutMinutes} minutes for {devicePath}";
+                    return msg;
+                }
+                else
+                {
+                    return $"Failed to set spin-down: {error}";
+                }
+            }
+
+            return "Failed to start hdparm process";
+        }
+        catch (Exception ex)
+        {
+            return $"Error setting disk spin-down: {ex.Message}";
+        }
+    }
+
+    public async Task<string> SetDiskApmLevelAsync(string devicePath, int level)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Disk power management is only supported on Linux";
+        }
+
+        if (!ValidateDevicePath(devicePath))
+        {
+            return "Invalid device path";
+        }
+
+        if (level < 1 || level > 255)
+        {
+            return "APM level must be between 1 and 255 (1=minimum power, 255=maximum performance)";
+        }
+
+        try
+        {
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "hdparm",
+                Arguments = $"-B {level} {devicePath}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(processInfo);
+            if (process != null)
+            {
+                await process.WaitForExitAsync();
+                var output = await process.StandardOutput.ReadToEndAsync();
+                var error = await process.StandardError.ReadToEndAsync();
+
+                return process.ExitCode == 0
+                    ? $"Set APM level to {level} for {devicePath}"
+                    : $"Failed to set APM level: {error}";
+            }
+
+            return "Failed to start hdparm process";
+        }
+        catch (Exception ex)
+        {
+            return $"Error setting APM level: {ex.Message}";
+        }
+    }
+
+    public async Task<string> GetDiskPowerStatusAsync(string devicePath)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Disk power status check is only supported on Linux";
+        }
+
+        if (!ValidateDevicePath(devicePath))
+        {
+            return "Invalid device path";
+        }
+
+        try
+        {
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "hdparm",
+                Arguments = $"-C {devicePath}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(processInfo);
+            if (process != null)
+            {
+                await process.WaitForExitAsync();
+                var output = await process.StandardOutput.ReadToEndAsync();
+                var error = await process.StandardError.ReadToEndAsync();
+
+                if (process.ExitCode == 0)
+                {
+                    return output;
+                }
+                else
+                {
+                    return $"Failed to get power status: {error}";
+                }
+            }
+
+            return "Failed to start hdparm process";
+        }
+        catch (Exception ex)
+        {
+            return $"Error getting disk power status: {ex.Message}";
+        }
+    }
+
+    private static bool ValidateDevicePath(string devicePath)
+    {
+        if (string.IsNullOrWhiteSpace(devicePath))
+        {
+            return false;
+        }
+
+        if (InvalidChars.Any(c => devicePath.Contains(c)))
+        {
+            return false;
+        }
+
+        if (!devicePath.StartsWith("/dev/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool ValidateMountPoint(string mountPoint)
+    {
+        if (string.IsNullOrWhiteSpace(mountPoint))
+        {
+            return false;
+        }
+
+        if (InvalidChars.Any(c => mountPoint.Contains(c)))
+        {
+            return false;
+        }
+
+        if (!Path.IsPathRooted(mountPoint))
+        {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+// JSON models for lsblk output
+/// <summary>
+/// Represents the root object of the JSON output produced by the <c>lsblk</c> command.
+/// </summary>
+internal class LsblkOutput
+{
+    /// <summary>
+    /// Gets or sets the collection of top-level block devices returned by <c>lsblk</c> in the
+    /// <c>"blockdevices"</c> array.
+    /// </summary>
+    public List<LsblkDevice>? Blockdevices { get; set; }
+}
+
+/// <summary>
+/// Represents a single block device entry from the JSON output of the <c>lsblk</c> command.
+/// </summary>
+internal class LsblkDevice
+{
+    /// <summary>
+    /// Gets or sets the device name (for example, <c>sda</c> or <c>sda1</c>), corresponding to the
+    /// <c>"name"</c> field in <c>lsblk</c> JSON output.
+    /// </summary>
+    public string? Name { get; set; }
+
+    /// <summary>
+    /// Gets or sets the device type (for example, <c>disk</c>, <c>part</c>, or <c>rom</c>),
+    /// corresponding to the <c>"type"</c> field.
+    /// </summary>
+    public string? Type { get; set; }
+
+    /// <summary>
+    /// Gets or sets the size of the device in bytes, corresponding to the <c>"size"</c> field.
+    /// </summary>
+    public long Size { get; set; }
+
+    /// <summary>
+    /// Gets or sets the mount point of the device, if any, corresponding to the
+    /// <c>"mountpoint"</c> field.
+    /// </summary>
+    public string? Mountpoint { get; set; }
+
+    /// <summary>
+    /// Gets or sets the filesystem type on the device, such as <c>ext4</c> or <c>ntfs</c>,
+    /// corresponding to the <c>"fstype"</c> field.
+    /// </summary>
+    public string? Fstype { get; set; }
+
+    /// <summary>
+    /// Gets or sets the filesystem UUID associated with the device, corresponding to the
+    /// <c>"uuid"</c> field.
+    /// </summary>
+    public string? Uuid { get; set; }
+
+    /// <summary>
+    /// Gets or sets the filesystem label assigned to the device, corresponding to the
+    /// <c>"label"</c> field.
+    /// </summary>
+    public string? Label { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the device is removable,
+    /// corresponding to the <c>"rm"</c> field.
+    /// </summary>
+    public bool Rm { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the device is read-only,
+    /// corresponding to the <c>"ro"</c> field.
+    /// </summary>
+    public bool Ro { get; set; }
+
+    /// <summary>
+    /// Gets or sets the device model string reported by the system, corresponding to the
+    /// <c>"model"</c> field.
+    /// </summary>
+    public string? Model { get; set; }
+
+    /// <summary>
+    /// Gets or sets the device serial number, if available, corresponding to the
+    /// <c>"serial"</c> field.
+    /// </summary>
+    public string? Serial { get; set; }
+
+    /// <summary>
+    /// Gets or sets the collection of child devices for this block device, such as partitions
+    /// or logical volumes, corresponding to the nested <c>"children"</c> array.
+    /// </summary>
+    public List<LsblkDevice>? Children { get; set; }
 }

@@ -8,10 +8,16 @@
 
 <h3 class="mb-4">磁盘管理</h3>
 
-<button type="button" class="btn btn-custom-primary mb-4" @onclick="RefreshData">
-    <i class="@Icons.Material.Filled.Refresh me-2"></i>
-    刷新
-</button>
+<div class="d-flex gap-2 mb-4">
+    <button type="button" class="btn btn-custom-primary" @onclick="RefreshData">
+        <i class="@Icons.Material.Filled.Refresh me-2"></i>
+        刷新
+    </button>
+    <button type="button" class="btn btn-outline-primary" @onclick="ShowMountWizard">
+        <i class="@Icons.Material.Filled.AddCircle me-2"></i>
+        挂载向导
+    </button>
+</div>
 
 @if (!string.IsNullOrEmpty(message))
 {
@@ -21,60 +27,141 @@
     </div>
 }
 
-<!-- Disk Information -->
+<!-- All Block Devices -->
 <div class="card-custom p-4 mb-4">
     <h5 class="mb-3">
         <i class="@Icons.Material.Filled.Storage me-2"></i>
-        磁盘列表
+        所有磁盘设备
     </h5>
-    @if (disks != null && disks.Any())
+    @if (allDisks != null && allDisks.Any())
     {
-        <table class="table table-custom">
-            <thead>
-                <tr>
-                    <th>名称</th>
-                    <th>挂载点</th>
-                    <th>文件系统</th>
-                    <th>总容量</th>
-                    <th>已使用</th>
-                    <th>可用</th>
-                    <th>使用率</th>
-                    <th>状态</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var disk in disks)
-                {
+        <div class="table-responsive">
+            <table class="table table-custom">
+                <thead>
                     <tr>
-                        <td>@disk.Name</td>
-                        <td>@disk.MountPoint</td>
-                        <td>@disk.FileSystem</td>
-                        <td>@(disk.IsReady ? disk.TotalGB : "N/A")</td>
-                        <td>@(disk.IsReady ? disk.UsedGB : "N/A")</td>
-                        <td>@(disk.IsReady ? disk.AvailableGB : "N/A")</td>
-                        <td>
-                            @if (disk.IsReady)
-                            {
-                                <div class="progress-custom" style="height: 20px;">
-                                    <div class="progress-bar-custom" style="width: @disk.UsagePercent%">
-                                        <small>@disk.UsagePercent%</small>
-                                    </div>
-                                </div>
-                            }
-                            else
-                            {
-                                <span>-</span>
-                            }
-                        </td>
-                        <td>
-                            <span class="badge @(disk.IsReady ? "badge-success" : "badge-custom")">
-                                @(disk.IsReady ? "就绪" : "未就绪")
-                            </span>
-                        </td>
+                        <th>设备</th>
+                        <th>类型</th>
+                        <th>大小</th>
+                        <th>文件系统</th>
+                        <th>挂载点</th>
+                        <th>使用率</th>
+                        <th>UUID</th>
+                        <th>操作</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var disk in allDisks)
+                    {
+                        <tr class="@(disk.Type == "disk" ? "fw-bold" : "")">
+                            <td>
+                                @if (disk.Type == "disk")
+                                {
+                                    <i class="@Icons.Material.Filled.Storage me-1"></i>
+                                }
+                                else
+                                {
+                                    <span class="ms-3"></span>
+                                }
+                                @disk.DevicePath
+                                @if (disk.IsRemovable)
+                                {
+                                    <span class="badge bg-info ms-1">可移动</span>
+                                }
+                            </td>
+                            <td>@disk.Type</td>
+                            <td>@disk.SizeDisplay</td>
+                            <td>@(string.IsNullOrEmpty(disk.FileSystem) ? "-" : disk.FileSystem)</td>
+                            <td>@(string.IsNullOrEmpty(disk.MountPoint) ? "-" : disk.MountPoint)</td>
+                            <td>
+                                @if (disk.IsReady && disk.TotalBytes > 0)
+                                {
+                                    <div class="progress-custom" style="height: 20px;">
+                                        <div class="progress-bar-custom" style="width: @disk.UsagePercent%">
+                                            <small>@disk.UsagePercent%</small>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </td>
+                            <td><small>@FormatUuid(disk.UUID)</small></td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(disk.MountPoint))
+                                {
+                                    <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => UnmountDiskAction(disk.MountPoint)">
+                                        <i class="@Icons.Material.Filled.Eject me-1"></i>
+                                        卸载
+                                    </button>
+                                }
+                                else if (disk.Type == "part" || disk.Type == "disk")
+                                {
+                                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="() => ShowMountWizardForDisk(disk)">
+                                        <i class="@Icons.Material.Filled.AddCircle me-1"></i>
+                                        挂载
+                                    </button>
+                                }
+                                @if (disk.Type == "disk")
+                                {
+                                    <button type="button" class="btn btn-outline-secondary btn-sm ms-1" @onclick="() => ShowPowerManagement(disk)">
+                                        <i class="@Icons.Material.Filled.Power me-1"></i>
+                                        电源
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                        @if (disk.Children != null)
+                        {
+                            @foreach (var child in disk.Children)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="ms-3">└─ </span>
+                                        @child.DevicePath
+                                    </td>
+                                    <td>@child.Type</td>
+                                    <td>@child.SizeDisplay</td>
+                                    <td>@(string.IsNullOrEmpty(child.FileSystem) ? "-" : child.FileSystem)</td>
+                                    <td>@(string.IsNullOrEmpty(child.MountPoint) ? "-" : child.MountPoint)</td>
+                                    <td>
+                                        @if (child.IsReady && child.TotalBytes > 0)
+                                        {
+                                            <div class="progress-custom" style="height: 20px;">
+                                                <div class="progress-bar-custom" style="width: @child.UsagePercent%">
+                                                    <small>@child.UsagePercent%</small>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                    <td><small>@FormatUuid(child.UUID)</small></td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(child.MountPoint))
+                                        {
+                                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => UnmountDiskAction(child.MountPoint)">
+                                                <i class="@Icons.Material.Filled.Eject me-1"></i>
+                                                卸载
+                                            </button>
+                                        }
+                                        else if (child.Type == "part")
+                                        {
+                                            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="() => ShowMountWizardForDisk(child)">
+                                                <i class="@Icons.Material.Filled.AddCircle me-1"></i>
+                                                挂载
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
     }
     else if (isLoading)
     {
@@ -91,73 +178,231 @@
     }
 </div>
 
-<!-- Mount/Unmount Operations -->
-<div class="row">
-    <div class="col-md-6">
-        <div class="card-custom p-4 mb-4">
-            <h5 class="mb-3">
-                <i class="@Icons.Material.Filled.AddCircle me-2"></i>
-                挂载磁盘
-            </h5>
-            <div class="mb-3">
-                <label class="form-label">设备路径或挂载点</label>
-                <input type="text" class="form-control-custom" @bind="mountPoint" placeholder="例如: /dev/sdb1 或 /mnt/disk" />
-            </div>
-            <button type="button" class="btn btn-custom-primary" @onclick="MountDisk" disabled="@(string.IsNullOrWhiteSpace(mountPoint) || isProcessing)">
-                @if (isProcessing && currentOperation == "mount")
-                {
-                    <div class="spinner-border spinner-border-sm me-2" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                }
-                else
-                {
-                    <i class="@Icons.Material.Filled.Upload me-2"></i>
-                }
-                挂载
-            </button>
-        </div>
-    </div>
+<!-- Mount Wizard Modal -->
+@if (showMountWizard)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="@Icons.Material.Filled.AddCircle me-2"></i>
+                        磁盘挂载向导
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="HideMountWizard"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(wizardMessage))
+                    {
+                        <div class="alert @(wizardError ? "alert-danger" : "alert-success") mb-3">
+                            @wizardMessage
+                            <button type="button" class="btn-close" @onclick="@(() => wizardMessage = string.Empty)"></button>
+                        </div>
+                    }
 
-    <div class="col-md-6">
-        <div class="card-custom p-4 mb-4">
-            <h5 class="mb-3">
-                <i class="@Icons.Material.Filled.RemoveCircle me-2"></i>
-                卸载磁盘
-            </h5>
-            <div class="mb-3">
-                <label class="form-label">挂载点</label>
-                <input type="text" class="form-control-custom" @bind="unmountPoint" placeholder="例如: /mnt/disk" />
-            </div>
-            <button type="button" class="btn btn-outline-danger" @onclick="UnmountDisk" disabled="@(string.IsNullOrWhiteSpace(unmountPoint) || isProcessing)">
-                @if (isProcessing && currentOperation == "unmount")
-                {
-                    <div class="spinner-border spinner-border-sm me-2" role="status">
-                        <span class="visually-hidden">Loading...</span>
+                    <div class="mb-3">
+                        <label class="form-label">设备路径 *</label>
+                        <input type="text" class="form-control-custom" @bind="wizardDevicePath" placeholder="/dev/sdb1" />
+                        <small class="form-text text-muted-custom">例如: /dev/sdb1</small>
                     </div>
-                }
-                else
-                {
-                    <i class="@Icons.Material.Filled.Eject me-2"></i>
-                }
-                卸载
-            </button>
+
+                    <div class="mb-3">
+                        <label class="form-label">挂载点 *</label>
+                        <input type="text" class="form-control-custom" @bind="wizardMountPoint" placeholder="/mnt/mydisk" />
+                        <small class="form-text text-muted-custom">例如: /mnt/mydisk</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">文件系统类型（可选）</label>
+                        <select class="form-control-custom" @bind="wizardFileSystem">
+                            <option value="">自动检测</option>
+                            @foreach (var fs in availableFileSystems)
+                            {
+                                <option value="@fs">@fs</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">挂载选项（可选）</label>
+                        <input type="text" class="form-control-custom" @bind="wizardOptions" placeholder="defaults" />
+                        <small class="form-text text-muted-custom">例如: defaults, rw, noatime</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">挂载类型 *</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mountType" id="tempMount" value="temp" @onchange="@(() => wizardPermanent = false)" checked="@(!wizardPermanent)">
+                            <label class="form-check-label" for="tempMount">
+                                临时挂载（仅当前会话，重启后失效）
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="mountType" id="permMount" value="perm" @onchange="@(() => wizardPermanent = true)" checked="@wizardPermanent">
+                            <label class="form-check-label" for="permMount">
+                                永久挂载（写入 /etc/fstab，重启后自动挂载）
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideMountWizard">取消</button>
+                    <button type="button" class="btn btn-custom-primary" @onclick="ExecuteMountWizard" disabled="@(string.IsNullOrWhiteSpace(wizardDevicePath) || string.IsNullOrWhiteSpace(wizardMountPoint) || isProcessing)">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="@Icons.Material.Filled.Check me-1"></i>
+                        挂载
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
-</div>
+    <div class="modal-backdrop show"></div>
+}
+
+<!-- Power Management Modal -->
+@if (showPowerManagement)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="@Icons.Material.Filled.Power me-2"></i>
+                        磁盘电源管理 - @selectedDiskForPower?.Name
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="HidePowerManagement"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(powerMessage))
+                    {
+                        <div class="alert @(powerError ? "alert-danger" : "alert-success") mb-3">
+                            @powerMessage
+                            <button type="button" class="btn-close" @onclick="@(() => powerMessage = string.Empty)"></button>
+                        </div>
+                    }
+
+                    <h6>当前状态</h6>
+                    @if (!string.IsNullOrEmpty(powerStatus))
+                    {
+                        @{
+                            // 尝试从 hdparm 输出中解析关键信息
+                            var lines = powerStatus
+                                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                            string deviceLine = lines.Length > 0 ? lines[0].Trim() : string.Empty;
+                            string stateLine = lines.FirstOrDefault(
+                                l => l.Contains("drive state is", StringComparison.OrdinalIgnoreCase)
+                                  || l.Contains("drive state:", StringComparison.OrdinalIgnoreCase)
+                            );
+                            string driveState = string.Empty;
+                            if (!string.IsNullOrEmpty(stateLine))
+                            {
+                                var idx = stateLine.IndexOf(':');
+                                driveState = idx >= 0 && idx + 1 < stateLine.Length
+                                    ? stateLine[(idx + 1)..].Trim()
+                                    : stateLine.Trim();
+                            }
+                        }
+                        <div class="border rounded p-2 mb-2 bg-light">
+                            @if (!string.IsNullOrEmpty(deviceLine))
+                            {
+                                <div><strong>设备:</strong> @deviceLine</div>
+                            }
+                            @if (!string.IsNullOrEmpty(driveState))
+                            {
+                                <div class="mt-1">
+                                    <strong>电源状态:</strong> @driveState
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="mt-1 text-muted">
+                                    无法从输出中解析详细电源状态，以下为原始信息。
+                                </div>
+                            }
+                        </div>
+                        <details class="mb-3">
+                            <summary class="text-muted" style="cursor: pointer;">查看原始 hdparm 输出</summary>
+                            <pre class="bg-light p-2 rounded mt-2 mb-0"><code>@powerStatus</code></pre>
+                        </details>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary mb-3" @onclick="CheckPowerStatus">
+                            查询状态
+                        </button>
+                    }
+
+                    <h6 class="mt-3">自动休眠设置</h6>
+                    <div class="mb-3">
+                        <label class="form-label">休眠超时时间（分钟）</label>
+                        <input type="number" class="form-control-custom" @bind="spinDownTimeout" min="0" max="240" />
+                        <small class="form-text text-muted-custom">0 = 禁用自动休眠，1-240 分钟</small>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="SetSpinDown" disabled="@isProcessing">
+                        @if (isProcessing && currentOperation == "spindown")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        设置休眠超时
+                    </button>
+
+                    <h6 class="mt-4">APM 电源管理级别</h6>
+                    <div class="mb-3">
+                        <label class="form-label">APM 级别（1-255）</label>
+                        <input type="number" class="form-control-custom" @bind="apmLevel" min="1" max="255" />
+                        <small class="form-text text-muted-custom">1 = 最省电，255 = 最高性能</small>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="SetApmLevel" disabled="@isProcessing">
+                        @if (isProcessing && currentOperation == "apm")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        设置 APM 级别
+                    </button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HidePowerManagement">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
 
 @code {
-    private List<DiskInfo> disks = new();
+    private List<DiskInfo> allDisks = new();
+    private List<string> availableFileSystems = new();
     private string message = string.Empty;
     private bool isError = false;
     private bool isLoading = false;
     private bool isProcessing = false;
     private string currentOperation = string.Empty;
-    private string mountPoint = string.Empty;
-    private string unmountPoint = string.Empty;
+
+    // Mount Wizard
+    private bool showMountWizard = false;
+    private string wizardDevicePath = string.Empty;
+    private string wizardMountPoint = string.Empty;
+    private string wizardFileSystem = string.Empty;
+    private string wizardOptions = string.Empty;
+    private bool wizardPermanent = false;
+    private string wizardMessage = string.Empty;
+    private bool wizardError = false;
+
+    // Power Management
+    private bool showPowerManagement = false;
+    private DiskInfo? selectedDiskForPower = null;
+    private string powerStatus = string.Empty;
+    private string powerMessage = string.Empty;
+    private bool powerError = false;
+    private int spinDownTimeout = 0;
+    private int apmLevel = 128;
 
     protected override async Task OnInitializedAsync()
     {
+        availableFileSystems = await DiskManagementService.GetAvailableFileSystemsAsync();
         await RefreshData();
     }
 
@@ -166,7 +411,7 @@
         isLoading = true;
         try
         {
-            disks = await DiskManagementService.GetAllDisksAsync();
+            allDisks = await DiskManagementService.GetAllBlockDevicesAsync();
         }
         finally
         {
@@ -174,55 +419,102 @@
         }
     }
 
-    private async Task MountDisk()
+    private void ShowMountWizard()
+    {
+        wizardDevicePath = string.Empty;
+        wizardMountPoint = string.Empty;
+        wizardFileSystem = string.Empty;
+        wizardOptions = string.Empty;
+        wizardPermanent = false;
+        wizardMessage = string.Empty;
+        wizardError = false;
+        showMountWizard = true;
+    }
+
+    private void ShowMountWizardForDisk(DiskInfo disk)
+    {
+        wizardDevicePath = disk.DevicePath;
+        wizardMountPoint = $"/mnt/{disk.Name}";
+        wizardFileSystem = disk.FileSystem ?? string.Empty;
+        wizardOptions = string.Empty;
+        wizardPermanent = false;
+        wizardMessage = string.Empty;
+        wizardError = false;
+        showMountWizard = true;
+    }
+
+    private void HideMountWizard()
+    {
+        showMountWizard = false;
+    }
+
+    private async Task ExecuteMountWizard()
+    {
+        if (string.IsNullOrWhiteSpace(wizardDevicePath) || string.IsNullOrWhiteSpace(wizardMountPoint))
+            return;
+
+        isProcessing = true;
+        wizardMessage = string.Empty;
+
+        try
+        {
+            string result;
+            if (wizardPermanent)
+            {
+                result = await DiskManagementService.MountDiskPermanentAsync(
+                    wizardDevicePath, 
+                    wizardMountPoint, 
+                    string.IsNullOrWhiteSpace(wizardFileSystem) ? null : wizardFileSystem,
+                    string.IsNullOrWhiteSpace(wizardOptions) ? null : wizardOptions);
+            }
+            else
+            {
+                result = await DiskManagementService.MountDiskAsync(
+                    wizardDevicePath, 
+                    wizardMountPoint, 
+                    string.IsNullOrWhiteSpace(wizardFileSystem) ? null : wizardFileSystem,
+                    string.IsNullOrWhiteSpace(wizardOptions) ? null : wizardOptions);
+            }
+
+            var operationResult = new
+            {
+                Success = result.Contains("Successfully", StringComparison.OrdinalIgnoreCase),
+                Message = result
+            };
+
+            wizardMessage = operationResult.Message;
+            wizardError = !operationResult.Success;
+            if (!wizardError)
+            {
+                await RefreshData();
+                await Task.Delay(2000);
+                HideMountWizard();
+            }
+        }
+        catch (Exception ex)
+        {
+            wizardMessage = $"挂载失败: {ex.Message}";
+            wizardError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task UnmountDiskAction(string mountPoint)
     {
         if (string.IsNullOrWhiteSpace(mountPoint))
             return;
 
         isProcessing = true;
-        currentOperation = "mount";
         message = string.Empty;
-        
+
         try
         {
-            // Parse device and mount point from input (format: "/dev/sdb1 /mnt/disk")
-            var parts = mountPoint.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var device = parts.Length > 0 ? parts[0] : mountPoint;
-            var mount = parts.Length > 1 ? parts[1] : "/mnt/" + System.IO.Path.GetFileName(device);
-            
-            var result = await DiskManagementService.MountDiskAsync(device, mount);
+            var result = await DiskManagementService.UnmountDiskAsync(mountPoint);
             message = result;
-            isError = false;
-            mountPoint = string.Empty;
-            await RefreshData();
-        }
-        catch (Exception ex)
-        {
-            message = $"挂载失败: {ex.Message}";
-            isError = true;
-        }
-        finally
-        {
-            isProcessing = false;
-            currentOperation = string.Empty;
-        }
-    }
-
-    private async Task UnmountDisk()
-    {
-        if (string.IsNullOrWhiteSpace(unmountPoint))
-            return;
-
-        isProcessing = true;
-        currentOperation = "unmount";
-        message = string.Empty;
-        
-        try
-        {
-            var result = await DiskManagementService.UnmountDiskAsync(unmountPoint);
-            message = result;
-            isError = false;
-            unmountPoint = string.Empty;
+            isError = !result.Contains("Successfully");
             await RefreshData();
         }
         catch (Exception ex)
@@ -233,7 +525,104 @@
         finally
         {
             isProcessing = false;
+        }
+    }
+
+    private void ShowPowerManagement(DiskInfo disk)
+    {
+        selectedDiskForPower = disk;
+        powerStatus = string.Empty;
+        powerMessage = string.Empty;
+        powerError = false;
+        spinDownTimeout = 0;
+        apmLevel = 128;
+        showPowerManagement = true;
+    }
+
+    private void HidePowerManagement()
+    {
+        showPowerManagement = false;
+        selectedDiskForPower = null;
+    }
+
+    private async Task CheckPowerStatus()
+    {
+        if (selectedDiskForPower == null)
+            return;
+
+        powerMessage = string.Empty;
+        try
+        {
+            powerStatus = await DiskManagementService.GetDiskPowerStatusAsync(selectedDiskForPower.DevicePath);
+        }
+        catch (Exception ex)
+        {
+            powerMessage = $"查询失败: {ex.Message}";
+            powerError = true;
+        }
+    }
+
+    private async Task SetSpinDown()
+    {
+        if (selectedDiskForPower == null)
+            return;
+
+        isProcessing = true;
+        currentOperation = "spindown";
+        powerMessage = string.Empty;
+
+        try
+        {
+            var result = await DiskManagementService.SetDiskSpinDownAsync(selectedDiskForPower.DevicePath, spinDownTimeout);
+            powerMessage = result;
+            powerError = !result.Contains("Set") && !result.Contains("Disabled");
+        }
+        catch (Exception ex)
+        {
+            powerMessage = $"设置失败: {ex.Message}";
+            powerError = true;
+        }
+        finally
+        {
+            isProcessing = false;
             currentOperation = string.Empty;
         }
+    }
+
+    private async Task SetApmLevel()
+    {
+        if (selectedDiskForPower == null)
+            return;
+
+        isProcessing = true;
+        currentOperation = "apm";
+        powerMessage = string.Empty;
+
+        try
+        {
+            var result = await DiskManagementService.SetDiskApmLevelAsync(selectedDiskForPower.DevicePath, apmLevel);
+            powerMessage = result;
+            powerError = !result.Contains("Set");
+        }
+        catch (Exception ex)
+        {
+            powerMessage = $"设置失败: {ex.Message}";
+            powerError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+            currentOperation = string.Empty;
+        }
+    }
+
+    private string FormatUuid(string uuid)
+    {
+        if (string.IsNullOrEmpty(uuid))
+        {
+            return "-";
+        }
+        
+        return uuid.Length > 8 ? uuid[..8] + "..." : uuid;
     }
 }

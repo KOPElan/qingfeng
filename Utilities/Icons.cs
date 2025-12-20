@@ -121,6 +121,7 @@ public static class Icons
             public const string AddCircle = "bi bi-plus-circle-fill";
             public const string RemoveCircle = "bi bi-dash-circle-fill";
             public const string Eject = "bi bi-eject-fill";
+            public const string Power = "bi bi-power";
             
             // Misc
             public const string Lock = "bi bi-lock-fill";

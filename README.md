@@ -20,8 +20,10 @@
   - 网络接口状态和流量统计
 
 - **磁盘管理**：管理磁盘挂载和共享
-  - 查看所有磁盘信息
+  - 查看所有磁盘信息（已挂载和未挂载）
   - 挂载/卸载磁盘（Linux）
+  - 磁盘挂载向导（支持临时和永久挂载）
+  - 磁盘电源管理（休眠/APM设置）
   - 查看Samba共享配置
 
 - **Docker管理**：管理Docker容器和镜像
@@ -51,6 +53,26 @@
 
 - .NET SDK 10.0 或更高版本
 - （可选）Docker（用于容器管理功能）
+- （Linux）磁盘管理功能需要以下系统工具：
+  - `lsblk` - 列出块设备信息
+  - `mount` / `umount` - 挂载和卸载文件系统
+  - `hdparm` - 磁盘电源管理和性能调优（可选）
+
+**注意**：磁盘挂载和电源管理功能需要 sudo 权限。建议使用以下方式之一运行：
+
+1. 使用 sudo 运行应用程序：
+   ```bash
+   sudo dotnet run --urls "http://0.0.0.0:5000"
+   ```
+
+2. 或者配置 sudoers 文件允许特定用户无密码执行 mount/umount/hdparm 命令：
+   ```bash
+   # 编辑 sudoers 文件
+   sudo visudo
+   
+   # 添加以下行（将 username 替换为实际用户名）
+   username ALL=(ALL) NOPASSWD: /bin/mount, /bin/umount, /sbin/hdparm
+   ```
 
 ### 运行应用
 
@@ -131,6 +153,31 @@ qingfeng/
 出于安全考虑，文件管理器默认只允许访问：
 - Windows: 用户目录及其子目录
 - Linux: 根目录及其子目录
+
+### 磁盘管理功能说明
+
+磁盘管理功能仅在 Linux 系统上可用，提供以下功能：
+
+1. **查看所有磁盘**：使用 `lsblk` 命令列出所有块设备，包括未挂载的磁盘和分区
+2. **临时挂载**：将磁盘挂载到指定挂载点，重启后失效
+3. **永久挂载**：将磁盘挂载并自动写入 `/etc/fstab` 文件，重启后自动挂载
+4. **磁盘电源管理**：
+   - **休眠超时**：使用 `hdparm -S` 设置磁盘自动休眠时间（0-240分钟）
+   - **APM 级别**：使用 `hdparm -B` 设置高级电源管理级别（1=最省电，255=最高性能）
+   - **电源状态查询**：使用 `hdparm -C` 查看磁盘当前电源状态
+
+**安装必需工具**（Ubuntu/Debian）：
+```bash
+sudo apt-get update
+sudo apt-get install util-linux hdparm
+```
+
+**安装必需工具**（CentOS/RHEL/Fedora）：
+```bash
+sudo yum install util-linux hdparm
+# 或
+sudo dnf install util-linux hdparm
+```
 
 ## 安全注意事项
 
