@@ -155,7 +155,7 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !isCheckingAuth)
+        if (firstRender && isCheckingAuth)
         {
             // Check authentication first
             var hasAdmin = await AuthService.HasAdminUserAsync();
