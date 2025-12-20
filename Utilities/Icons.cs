@@ -148,6 +148,7 @@ public static class Icons
             public const string Help = "bi bi-question-circle";
             public const string CreateNewFolder = "bi bi-folder-plus";
             public const string DriveFileMove = "bi bi-arrow-left-right";
+            public const string Archive = "bi bi-file-zip";
         }
     }
 }

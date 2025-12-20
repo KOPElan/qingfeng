@@ -203,6 +203,15 @@
     
     <!-- Main Content -->
     <div class="main-content">
+        <!-- Notification Area -->
+        @if (!string.IsNullOrEmpty(notificationMessage))
+        {
+            <div class="alert @(notificationIsError ? "alert-danger" : "alert-success") alert-dismissible fade show m-3" role="alert">
+                @notificationMessage
+                <button type="button" class="btn-close" @onclick="ClearNotification" aria-label="Close"></button>
+            </div>
+        }
+        
         <!-- Toolbar -->
         <div class="toolbar">
             <button type="button" class="btn btn-link text-white" @onclick="GoBack" disabled="@(navigationHistory.Count <= 1)">
@@ -252,16 +261,20 @@
                 {
                     @foreach (var file in files.Where(f => f.Name != ".."))
                     {
-                        <div class="file-item" @onclick="@(() => NavigateTo(file.Path))">
+                        <div class="file-item" @onclick="@(() => NavigateTo(file.Path))" title="@file.Path">
                             @if (file.IsDirectory)
                             {
-                                <i class="@Icons.Material.Filled.Folder"></i>
+                                <i class="@Icons.Material.Filled.Folder folder-icon"></i>
                             }
                             else
                             {
-                                <i class="@Icons.Material.Filled.InsertDriveFile"></i>
+                                <i class="@GetFileIcon(file.Extension) file-icon"></i>
                             }
                             <div class="file-name">@file.Name</div>
+                            @if (!file.IsDirectory)
+                            {
+                                <div class="file-date">@file.SizeDisplay</div>
+                            }
                             <div class="file-date">@file.LastModified.ToString("dd/MM HH:mm")</div>
                         </div>
                     }
@@ -302,8 +315,8 @@
                                         }
                                         else
                                         {
-                                            <div class="d-flex align-items-center">
-                                                <i class="@Icons.Material.Filled.InsertDriveFile me-2"></i>
+                                            <div class="d-flex align-items-center" style="cursor: pointer;" @onclick="(() => NavigateTo(file.Path))">
+                                                <i class="@GetFileIcon(file.Extension) me-2"></i>
                                                 <span>@file.Name</span>
                                             </div>
                                         }
@@ -670,6 +683,8 @@
     private bool copySuccess = false;
     private string moveMessage = string.Empty;
     private bool moveSuccess = false;
+    private string notificationMessage = string.Empty;
+    private bool notificationIsError = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -706,9 +721,21 @@
         }
         catch (Exception ex)
         {
-            // Log error silently or handle as needed
-            Console.WriteLine($"加载文件列表失败: {ex.Message}");
+            ShowNotification($"加载文件列表失败: {ex.Message}", true);
         }
+    }
+
+    private void ShowNotification(string message, bool isError = false)
+    {
+        notificationMessage = message;
+        notificationIsError = isError;
+        StateHasChanged();
+    }
+
+    private void ClearNotification()
+    {
+        notificationMessage = string.Empty;
+        notificationIsError = false;
     }
 
     private async Task NavigateTo(string path)
@@ -772,11 +799,12 @@
         try
         {
             await FileManagerService.DeleteFileAsync(path);
+            ShowNotification($"文件已删除: {Path.GetFileName(path)}", false);
             await RefreshFiles();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"删除文件失败: {ex.Message}");
+            ShowNotification($"删除文件失败: {ex.Message}", true);
         }
     }
 
@@ -785,11 +813,12 @@
         try
         {
             await FileManagerService.DeleteDirectoryAsync(path);
+            ShowNotification($"文件夹已删除: {Path.GetFileName(path)}", false);
             await RefreshFiles();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"删除文件夹失败: {ex.Message}");
+            ShowNotification($"删除文件夹失败: {ex.Message}", true);
         }
     }
 
@@ -859,6 +888,22 @@
         };
     }
 
+    private string GetFileIcon(string extension)
+    {
+        return extension.ToLowerInvariant() switch
+        {
+            ".pdf" => Icons.Material.Filled.PictureAsPdf,
+            ".doc" or ".docx" => Icons.Material.Filled.Description,
+            ".xls" or ".xlsx" => Icons.Material.Filled.TableChart,
+            ".txt" or ".log" => Icons.Material.Filled.Description,
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" or ".svg" or ".webp" => Icons.Material.Filled.Image,
+            ".mp3" or ".wav" or ".flac" => Icons.Material.Filled.AudioFile,
+            ".mp4" or ".avi" or ".mkv" or ".mov" => Icons.Material.Filled.VideoFile,
+            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" => Icons.Material.Filled.Archive,
+            _ => Icons.Material.Filled.InsertDriveFile
+        };
+    }
+
     // File operation methods
     private async Task DownloadFile(string filePath)
     {
@@ -869,10 +914,11 @@
             
             // Trigger download using JavaScript
             await JSRuntime.InvokeVoidAsync("open", downloadUrl, "_blank");
+            ShowNotification($"开始下载: {Path.GetFileName(filePath)}", false);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"下载文件失败: {ex.Message}");
+            ShowNotification($"下载文件失败: {ex.Message}", true);
         }
     }
 
