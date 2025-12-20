@@ -237,54 +237,7 @@ public class FileManagerService : IFileManagerService
         }
 
         return Task.FromResult(drives);
-    }
-
-    public Task<List<ShortcutItemInfo>> GetShortcutsAsync()
-    {
-        var shortcuts = new List<ShortcutItemInfo>();
-
-        try
-        {
-            // Add common shortcuts
-            shortcuts.Add(new ShortcutItemInfo
-            {
-                Name = "Documents",
-                Path = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                Icon = "description",
-                Type = "documents"
-            });
-
-            shortcuts.Add(new ShortcutItemInfo
-            {
-                Name = "Downloads",
-                Path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
-                Icon = "download",
-                Type = "downloads"
-            });
-
-            shortcuts.Add(new ShortcutItemInfo
-            {
-                Name = "Gallery",
-                Path = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
-                Icon = "photo_library",
-                Type = "gallery"
-            });
-
-            shortcuts.Add(new ShortcutItemInfo
-            {
-                Name = "Media",
-                Path = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic),
-                Icon = "movie",
-                Type = "media"
-            });
-        }
-        catch
-        {
-            // Return empty list on error
-        }
-
-        return Task.FromResult(shortcuts);
-    }
+    }    
 
     public Task<(long total, long available)> GetStorageInfoAsync(string path)
     {
