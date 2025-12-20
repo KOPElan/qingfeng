@@ -2,12 +2,16 @@ using QingFeng.Components;
 using QingFeng.Services;
 using QingFeng.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.FluentUI.AspNetCore.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Add Fluent UI services
+builder.Services.AddFluentUIComponents();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -32,7 +36,7 @@ builder.Services.AddSingleton<IDiskManagementService, DiskManagementService>();
 builder.Services.AddScoped<IDockItemService, DockItemService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
-builder.Services.AddSingleton<IDialogService, DialogService>();
+builder.Services.AddSingleton<QingFeng.Services.IDialogService, QingFeng.Services.DialogService>();
 builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 builder.Services.AddScoped<AuthenticationStateService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
