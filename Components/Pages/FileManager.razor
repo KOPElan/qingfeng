@@ -942,6 +942,9 @@
         try
         {
             uploadMessage = string.Empty;
+            var uploadResults = new System.Text.StringBuilder();
+            var successCount = 0;
+            var failCount = 0;
             
             foreach (var file in e.GetMultipleFiles())
             {
@@ -953,15 +956,18 @@
                     var buffer = memoryStream.ToArray();
                     
                     await FileManagerService.UploadFileAsync(currentPath, file.Name, buffer);
-                    uploadMessage += $"成功上传: {file.Name}\n";
+                    uploadResults.AppendLine($"成功上传: {file.Name}");
+                    successCount++;
                 }
                 catch (Exception ex)
                 {
-                    uploadMessage += $"上传失败 {file.Name}: {ex.Message}\n";
+                    uploadResults.AppendLine($"上传失败 {file.Name}: {ex.Message}");
+                    failCount++;
                 }
             }
             
-            uploadSuccess = true;
+            uploadMessage = uploadResults.ToString();
+            uploadSuccess = failCount == 0; // Only success if all files uploaded
             await RefreshFiles();
         }
         catch (Exception ex)
@@ -1003,9 +1009,17 @@
             
             createFolderMessage = "文件夹创建成功";
             createFolderSuccess = true;
-            await RefreshFiles();
             
-            await Task.Delay(1000);
+            // Refresh files list separately to avoid overwriting success message
+            try
+            {
+                await RefreshFiles();
+            }
+            catch
+            {
+                // Ignore refresh errors - folder was created successfully
+            }
+            
             CloseCreateFolderDialog();
         }
         catch (Exception ex)
@@ -1049,9 +1063,16 @@
             
             renameMessage = "重命名成功";
             renameSuccess = true;
-            await RefreshFiles();
             
-            await Task.Delay(1000);
+            try
+            {
+                await RefreshFiles();
+            }
+            catch
+            {
+                // Ignore refresh errors - rename was successful
+            }
+            
             CloseRenameDialog();
         }
         catch (Exception ex)
@@ -1065,7 +1086,7 @@
     {
         showCopyDialog = true;
         copyItem = item;
-        copyDestination = currentPath;
+        copyDestination = string.Empty; // Empty by default to avoid confusion
         copyMessage = string.Empty;
         copySuccess = false;
     }
@@ -1095,9 +1116,16 @@
             
             copyMessage = "复制成功";
             copySuccess = true;
-            await RefreshFiles();
             
-            await Task.Delay(1000);
+            try
+            {
+                await RefreshFiles();
+            }
+            catch
+            {
+                // Ignore refresh errors - copy was successful
+            }
+            
             CloseCopyDialog();
         }
         catch (Exception ex)
@@ -1111,7 +1139,7 @@
     {
         showMoveDialog = true;
         moveItem = item;
-        moveDestination = currentPath;
+        moveDestination = string.Empty; // Empty by default to avoid confusion
         moveMessage = string.Empty;
         moveSuccess = false;
     }
@@ -1141,9 +1169,16 @@
             
             moveMessage = "移动成功";
             moveSuccess = true;
-            await RefreshFiles();
             
-            await Task.Delay(1000);
+            try
+            {
+                await RefreshFiles();
+            }
+            catch
+            {
+                // Ignore refresh errors - move was successful
+            }
+            
             CloseMoveDialog();
         }
         catch (Exception ex)
@@ -1173,10 +1208,17 @@
         {
             if (string.IsNullOrWhiteSpace(searchPattern))
             {
-                searchPattern = "*";
+                ShowNotification("请输入搜索内容", true);
+                return;
             }
 
             searchResults = await FileManagerService.SearchFilesAsync(currentPath, searchPattern);
+            
+            // Warn if large number of results
+            if (searchResults.Count > 1000)
+            {
+                ShowNotification($"找到 {searchResults.Count} 个结果，显示可能较慢", false);
+            }
         }
         catch (Exception ex)
         {
@@ -1241,7 +1283,15 @@
                 else
                 {
                     var bytes = await FileManagerService.ReadFileAsync(filePath);
-                    previewTextContent = System.Text.Encoding.UTF8.GetString(bytes);
+                    try
+                    {
+                        var utf8 = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+                        previewTextContent = utf8.GetString(bytes);
+                    }
+                    catch (System.Text.DecoderFallbackException)
+                    {
+                        previewTextContent = "无法以 UTF-8 解码该文件内容，请下载后使用合适的程序打开。";
+                    }
                 }
             }
             

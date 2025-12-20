@@ -69,6 +69,8 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 // Add file download endpoint
+// TODO: Add authentication/authorization when implementing user management
+// Currently relies on FileManagerService.IsPathAllowed() for security
 app.MapGet("/api/files/download", async (string path, IFileManagerService fileManager) =>
 {
     try
@@ -87,9 +89,10 @@ app.MapGet("/api/files/download", async (string path, IFileManagerService fileMa
     {
         return Results.NotFound();
     }
-    catch (Exception ex)
+    catch (Exception)
     {
-        return Results.Problem(ex.Message);
+        // Don't expose internal error details for security
+        return Results.Problem("An error occurred while downloading the file.");
     }
 });
 

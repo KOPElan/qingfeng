@@ -1,13 +1,17 @@
 using QingFeng.Models;
+using Microsoft.Extensions.Logging;
 
 namespace QingFeng.Services;
 
 public class FileManagerService : IFileManagerService
 {
     private readonly string _rootPath;
+    private readonly ILogger<FileManagerService> _logger;
 
-    public FileManagerService()
+    public FileManagerService(ILogger<FileManagerService> logger)
     {
+        _logger = logger;
+        
         // Set root path based on OS
         if (OperatingSystem.IsWindows())
         {
@@ -345,6 +349,10 @@ public class FileManagerService : IFileManagerService
                 } while (File.Exists(finalDestPath));
             }
             
+            // Validate the final path after conflict resolution
+            if (!IsPathAllowed(finalDestPath))
+                throw new UnauthorizedAccessException("Access to this path is not allowed");
+            
             File.Copy(sourcePath, finalDestPath, overwrite: false);
         }
         else if (Directory.Exists(sourcePath))
@@ -362,6 +370,10 @@ public class FileManagerService : IFileManagerService
     {
         if (!IsPathAllowed(sourcePath) || !IsPathAllowed(destinationPath))
             throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        // Check if destination already exists
+        if (File.Exists(destinationPath) || Directory.Exists(destinationPath))
+            throw new IOException($"Destination already exists: {Path.GetFileName(destinationPath)}");
 
         if (File.Exists(sourcePath))
         {
@@ -408,9 +420,10 @@ public class FileManagerService : IFileManagerService
                         Extension = file.Extension
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Skip files we can't access
+                    // Skip files we can't access, but log for diagnostics
+                    _logger.LogDebug(ex, "Failed to access file '{FilePath}' during search", file.FullName);
                 }
             }
 
@@ -428,15 +441,17 @@ public class FileManagerService : IFileManagerService
                         LastModified = dir.LastWriteTime
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Skip directories we can't access
+                    // Skip directories we can't access, but log for diagnostics
+                    _logger.LogDebug(ex, "Failed to access directory '{DirectoryPath}' during search", dir.FullName);
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Return empty list on error
+            // Return empty list on error, but log for diagnostics
+            _logger.LogWarning(ex, "Error while searching files in '{Path}' with pattern '{SearchPattern}'", path, searchPattern);
         }
 
         return Task.FromResult(results);
@@ -447,7 +462,16 @@ public class FileManagerService : IFileManagerService
         if (!IsPathAllowed(directoryPath))
             throw new UnauthorizedAccessException("Access to this path is not allowed");
 
-        var fullPath = Path.Combine(directoryPath, fileName);
+        // Sanitize filename to prevent path traversal attacks
+        var sanitizedFileName = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(sanitizedFileName) || 
+            sanitizedFileName.Contains("..") || 
+            sanitizedFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            throw new ArgumentException("Invalid file name", nameof(fileName));
+        }
+
+        var fullPath = Path.Combine(directoryPath, sanitizedFileName);
         
         if (!IsPathAllowed(fullPath))
             throw new UnauthorizedAccessException("Access to this path is not allowed");
@@ -468,6 +492,10 @@ public class FileManagerService : IFileManagerService
 
     private async Task CopyDirectoryAsync(string sourceDir, string destDir)
     {
+        // Validate destination directory path
+        if (!IsPathAllowed(destDir))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
         // Create destination directory
         Directory.CreateDirectory(destDir);
 
@@ -491,6 +519,10 @@ public class FileManagerService : IFileManagerService
                 } while (File.Exists(targetPath));
             }
             
+            // Validate the final target path after conflict resolution
+            if (!IsPathAllowed(targetPath))
+                throw new UnauthorizedAccessException("Access to this path is not allowed");
+            
             file.CopyTo(targetPath, false);
         }
 
@@ -498,6 +530,7 @@ public class FileManagerService : IFileManagerService
         foreach (var subDir in dir.GetDirectories())
         {
             var targetPath = Path.Combine(destDir, subDir.Name);
+            // Recursive call will validate the subdirectory path
             await CopyDirectoryAsync(subDir.FullName, targetPath);
         }
     }
