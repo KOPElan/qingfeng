@@ -47,11 +47,12 @@ else
                 <FluentButton Appearance="Appearance.Lightweight" 
                              OnClick="ToggleDarkMode" 
                              Title="切换主题 (Light/Dark/System)" 
-                             aria-label="切换主题">
+                             aria-label="切换主题 Light Dark System">
                     @(_mode switch 
                     {
                         DesignThemeModes.Light => "☀️",
                         DesignThemeModes.Dark => "🌙",
+                        DesignThemeModes.System => "💻",
                         _ => "💻"
                     })
                 </FluentButton>
@@ -136,6 +137,7 @@ else
         {
             DesignThemeModes.Light => DesignThemeModes.Dark,
             DesignThemeModes.Dark => DesignThemeModes.System,
+            DesignThemeModes.System => DesignThemeModes.Light,
             _ => DesignThemeModes.Light
         };
     }
