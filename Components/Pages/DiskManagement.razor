@@ -817,6 +817,8 @@
             {
                 await RefreshData();
                 await Task.Delay(2000);
+                // Clear sensitive data from memory
+                networkWizardPassword = string.Empty;
                 HideNetworkMountWizard();
             }
         }

@@ -8,7 +8,8 @@ namespace QingFeng.Services;
 
 public class DiskManagementService : IDiskManagementService
 {
-    private static readonly string[] InvalidChars = ["&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r"];
+    private static readonly string[] InvalidChars = ["&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r", " "];
+    private static readonly char[] InvalidCredentialChars = ['\n', '\r', '='];
 
     public Task<List<DiskInfo>> GetAllDisksAsync()
     {
@@ -790,6 +791,20 @@ public class DiskManagementService : IDiskManagementService
             return "Invalid characters in mount options";
         }
         
+        // Validate credentials don't contain invalid characters
+        if (!string.IsNullOrEmpty(username) && username.Any(c => InvalidCredentialChars.Contains(c)))
+        {
+            return "Username contains invalid characters (newline or equals sign)";
+        }
+        if (!string.IsNullOrEmpty(password) && password.Any(c => InvalidCredentialChars.Contains(c)))
+        {
+            return "Password contains invalid characters (newline or equals sign)";
+        }
+        if (!string.IsNullOrEmpty(domain) && domain.Any(c => InvalidCredentialChars.Contains(c)))
+        {
+            return "Domain contains invalid characters (newline or equals sign)";
+        }
+        
         try
         {
             // Create mount point if it doesn't exist
@@ -799,97 +814,106 @@ public class DiskManagementService : IDiskManagementService
             }
             
             string device;
-            string mountCommand;
-            string arguments;
             string? tempCredFile = null;
+            
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "mount",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
             
             if (diskType == NetworkDiskType.CIFS)
             {
                 // CIFS mount
                 device = $"//{server}/{sharePath}";
                 
+                processInfo.ArgumentList.Add("-t");
+                processInfo.ArgumentList.Add("cifs");
+                
                 // Build credentials using a temporary credentials file for security
                 var credOptions = new List<string>();
                 
-                // If credentials are provided, create a temporary credential file
+                // If credentials are provided, create a temporary credential file with secure permissions
                 if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
                 {
                     try
                     {
-                        // Create a temporary credential file
-                        tempCredFile = Path.Combine("/tmp", $"cifs-cred-{Guid.NewGuid()}");
+                        // Use SHA256 hash for better collision resistance
+                        var hashInput = $"{Guid.NewGuid()}-{DateTime.UtcNow.Ticks}";
+                        var hashBytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(hashInput));
+                        var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant()[..16];
+                        tempCredFile = Path.Combine("/tmp", $"cifs-cred-{hashString}");
+                        
                         var credContent = $"username={username}\npassword={password}\n";
                         if (!string.IsNullOrEmpty(domain))
                         {
                             credContent += $"domain={domain}\n";
                         }
-                        await File.WriteAllTextAsync(tempCredFile, credContent);
                         
-                        // Set secure permissions on credential file
-                        var chmodInfo = new ProcessStartInfo
+                        // Create the credential file with secure permissions atomically
+                        var fsOptions = new FileStreamOptions
                         {
-                            FileName = "chmod",
-                            Arguments = $"600 {tempCredFile}",
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            UseShellExecute = false,
-                            CreateNoWindow = true
+                            Mode = FileMode.CreateNew,
+                            Access = FileAccess.Write,
+                            Share = FileShare.None,
+                            Options = FileOptions.Asynchronous,
+                            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
                         };
-                        using var chmodProcess = Process.Start(chmodInfo);
-                        if (chmodProcess != null)
+
+                        await using (var fs = new FileStream(tempCredFile, fsOptions))
+                        await using (var writer = new StreamWriter(fs))
                         {
-                            await chmodProcess.WaitForExitAsync();
+                            await writer.WriteAsync(credContent);
                         }
                         
                         credOptions.Add($"credentials={tempCredFile}");
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // If we can't create credential file, skip credentials
-                        // This is safer than putting passwords in command line
+                        // Clean up the credential file if it was created
                         if (tempCredFile != null && File.Exists(tempCredFile))
                         {
                             try { File.Delete(tempCredFile); } catch { }
                             tempCredFile = null;
                         }
+                        Debug.WriteLine($"Failed to create secure credential file: {ex}");
+                        return $"Failed to create secure credential file: {ex.Message}";
                     }
                 }
                 
-                var allOptions = string.IsNullOrEmpty(options) 
-                    ? string.Join(",", credOptions)
-                    : string.Join(",", credOptions.Concat(options.Split(',')));
-                
-                arguments = $"-t cifs {device} {mountPoint}";
-                if (!string.IsNullOrEmpty(allOptions))
+                // Add custom options
+                if (!string.IsNullOrEmpty(options))
                 {
-                    arguments = $"-o {allOptions} {arguments}";
+                    credOptions.AddRange(options.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(o => o.Trim()));
                 }
                 
-                mountCommand = "mount";
+                if (credOptions.Count > 0)
+                {
+                    processInfo.ArgumentList.Add("-o");
+                    processInfo.ArgumentList.Add(string.Join(",", credOptions));
+                }
+                
+                processInfo.ArgumentList.Add(device);
+                processInfo.ArgumentList.Add(mountPoint);
             }
             else // NFS
             {
-                // NFS mount
-                device = $"{server}:/{sharePath.TrimStart('/')}";
-                arguments = $"{device} {mountPoint}";
+                // NFS mount - normalize share path
+                var normalizedSharePath = sharePath.StartsWith("/") ? sharePath : "/" + sharePath;
+                device = $"{server}:{normalizedSharePath}";
                 
                 if (!string.IsNullOrEmpty(options))
                 {
-                    arguments = $"-o {options} {arguments}";
+                    processInfo.ArgumentList.Add("-o");
+                    processInfo.ArgumentList.Add(options);
                 }
                 
-                mountCommand = "mount";
+                processInfo.ArgumentList.Add(device);
+                processInfo.ArgumentList.Add(mountPoint);
             }
-            
-            var processInfo = new ProcessStartInfo
-            {
-                FileName = mountCommand,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
             
             try
             {
@@ -897,17 +921,11 @@ public class DiskManagementService : IDiskManagementService
                 if (process != null)
                 {
                     await process.WaitForExitAsync();
-                    var output = await process.StandardOutput.ReadToEndAsync();
                     var error = await process.StandardError.ReadToEndAsync();
                     
-                    if (process.ExitCode == 0)
-                    {
-                        return $"Successfully mounted {device} to {mountPoint}";
-                    }
-                    else
-                    {
-                        return $"Failed to mount: {error}";
-                    }
+                    return process.ExitCode == 0
+                        ? $"Successfully mounted {device} to {mountPoint}"
+                        : $"Failed to mount: {error}";
                 }
                 
                 return "Failed to start mount process";
@@ -917,7 +935,14 @@ public class DiskManagementService : IDiskManagementService
                 // Clean up temporary credential file
                 if (tempCredFile != null && File.Exists(tempCredFile))
                 {
-                    try { File.Delete(tempCredFile); } catch { }
+                    try
+                    {
+                        File.Delete(tempCredFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to delete temporary credential file '{tempCredFile}': {ex}");
+                    }
                 }
             }
         }
@@ -955,10 +980,10 @@ public class DiskManagementService : IDiskManagementService
                 // For CIFS, we should use a credentials file for security
                 if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
                 {
-                    // Use a hash-based naming scheme to avoid special character issues
+                    // Use SHA256 hash for better collision resistance
                     var hashInput = $"{server}-{sharePath}";
-                    var hashBytes = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(hashInput));
-                    var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                    var hashBytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(hashInput));
+                    var hashString = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant()[..32];
                     var credFile = $"/etc/cifs-credentials-{hashString}";
                     try
                     {
@@ -967,47 +992,114 @@ public class DiskManagementService : IDiskManagementService
                         {
                             credContent += $"domain={domain}\n";
                         }
-                        await File.WriteAllTextAsync(credFile, credContent);
                         
-                        // Set secure permissions on credential file
+                        // Create the credential file with secure permissions atomically
+                        var fsOptions = new FileStreamOptions
+                        {
+                            Mode = FileMode.Create,
+                            Access = FileAccess.Write,
+                            Share = FileShare.None,
+                            Options = FileOptions.Asynchronous,
+                            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+                        };
+
+                        await using (var fs = new FileStream(credFile, fsOptions))
+                        await using (var writer = new StreamWriter(fs))
+                        {
+                            await writer.WriteAsync(credContent);
+                        }
+                        
+                        // Verify file permissions were set correctly
                         var chmodInfo = new ProcessStartInfo
                         {
                             FileName = "chmod",
-                            Arguments = $"600 {credFile}",
                             RedirectStandardOutput = true,
                             RedirectStandardError = true,
                             UseShellExecute = false,
                             CreateNoWindow = true
                         };
+                        chmodInfo.ArgumentList.Add("600");
+                        chmodInfo.ArgumentList.Add(credFile);
+                        
                         using var chmodProcess = Process.Start(chmodInfo);
-                        if (chmodProcess != null)
+                        if (chmodProcess == null)
                         {
-                            await chmodProcess.WaitForExitAsync();
+                            throw new InvalidOperationException("Failed to start chmod process to secure credential file.");
+                        }
+
+                        await chmodProcess.WaitForExitAsync();
+                        if (chmodProcess.ExitCode != 0)
+                        {
+                            var errorOutput = await chmodProcess.StandardError.ReadToEndAsync();
+                            // Remove potentially insecure credential file
+                            try
+                            {
+                                if (File.Exists(credFile))
+                                {
+                                    File.Delete(credFile);
+                                }
+                            }
+                            catch
+                            {
+                                // Ignore file deletion errors
+                            }
+                            throw new InvalidOperationException($"chmod failed for credential file '{credFile}' with exit code {chmodProcess.ExitCode}: {errorOutput}");
                         }
                         
                         fstabOptions.Add($"credentials={credFile}");
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // If we can't write credentials file, fall back to username in fstab
-                        fstabOptions.Add($"username={username}");
-                        if (!string.IsNullOrEmpty(domain))
+                        // If we can't securely write credentials file, fail the operation
+                        try
                         {
-                            fstabOptions.Add($"domain={domain}");
+                            if (File.Exists(credFile))
+                            {
+                                File.Delete(credFile);
+                            }
                         }
+                        catch
+                        {
+                            // Ignore file deletion errors
+                        }
+                        Debug.WriteLine($"Failed to create CIFS credentials file: {ex}");
+                        return $"Failed to create secure CIFS credentials file '{credFile}'. Refusing to store credentials insecurely in /etc/fstab. Error: {ex.Message}";
                     }
                 }
             }
             else // NFS
             {
-                device = $"{server}:/{sharePath.TrimStart('/')}";
+                // NFS mount - normalize share path
+                var normalizedSharePath = sharePath.Trim().TrimStart('/');
+                if (string.IsNullOrEmpty(normalizedSharePath))
+                {
+                    return "Invalid NFS share path: share path must not be empty or consist only of '/'.";
+                }
+                
+                device = $"{server}:/{normalizedSharePath}";
                 fsType = "nfs";
             }
             
-            // Add custom options
+            // Add custom options with validation
             if (!string.IsNullOrEmpty(options))
             {
-                fstabOptions.AddRange(options.Split(','));
+                foreach (var rawOption in options.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var option = rawOption.Trim();
+                    if (string.IsNullOrEmpty(option))
+                    {
+                        continue;
+                    }
+                    
+                    // Reject options containing invalid characters or whitespace
+                    if (InvalidChars.Any(c => option.Contains(c)) || option.Any(char.IsWhiteSpace))
+                    {
+                        Debug.WriteLine($"Ignoring invalid fstab option: '{rawOption}' after trimming to '{option}'.");
+                        continue;
+                    }
+                    
+                    fstabOptions.Add(option);
+                }
             }
             
             // Add default options if none specified
@@ -1032,13 +1124,17 @@ public class DiskManagementService : IDiskManagementService
                     existingLines = Array.Empty<string>();
                 }
                 
-                // Check if entry already exists
-                foreach (var line in existingLines)
+                // Check if entry already exists using proper field parsing
+                var hasExistingEntry = existingLines
+                    .Select(line => line.Trim())
+                    .Where(trimmed => !string.IsNullOrEmpty(trimmed) && !trimmed.StartsWith("#"))
+                    .Select(trimmed => Regex.Split(trimmed, @"\s+"))
+                    .Where(fields => fields.Length >= 2)
+                    .Any(fields => fields[0] == device && fields[1] == mountPoint);
+
+                if (hasExistingEntry)
                 {
-                    if (line.Trim().StartsWith(device) && line.Contains(mountPoint))
-                    {
-                        return $"Successfully mounted {device} to {mountPoint}; matching entry already exists in /etc/fstab";
-                    }
+                    return $"Successfully mounted {device} to {mountPoint}; matching entry already exists in /etc/fstab";
                 }
                 
                 await File.AppendAllTextAsync(fstabPath, fstabEntry + Environment.NewLine);

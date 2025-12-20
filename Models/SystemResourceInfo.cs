@@ -96,5 +96,7 @@ public class NetworkDiskInfo
     public string UsedGB => $"{UsedBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string AvailableGB => $"{AvailableBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string SizeDisplay => TotalBytes > 0 ? TotalGB : "N/A";
-    public string FullPath => $"//{Server}/{SharePath}";
+    public string FullPath => DiskType == NetworkDiskType.NFS
+        ? $"{Server}:/{SharePath}"
+        : $"//{Server}/{SharePath}";
 }
