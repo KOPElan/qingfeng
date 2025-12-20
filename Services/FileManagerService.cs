@@ -2,6 +2,7 @@ using QingFeng.Models;
 using QingFeng.Data;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
 
 namespace QingFeng.Services;
 
@@ -551,6 +552,8 @@ public class FileManagerService : IFileManagerService
 
     public async Task<FavoriteFolder> AddFavoriteFolderAsync(string name, string path, string icon = "folder")
     {
+        ValidateFavoriteInputs(name, icon);
+
         if (!IsPathAllowed(path))
             throw new UnauthorizedAccessException("Access to this path is not allowed");
 
@@ -559,13 +562,6 @@ public class FileManagerService : IFileManagerService
 
         using var context = await _dbContextFactory.CreateDbContextAsync();
         
-        // Check if already exists
-        var existing = await context.FavoriteFolders
-            .FirstOrDefaultAsync(f => f.Path == path);
-        
-        if (existing != null)
-            throw new InvalidOperationException($"Folder '{existing.Name}' is already in favorites at this path");
-
         // Get next order value
         var maxOrder = await context.FavoriteFolders.MaxAsync(f => (int?)f.Order) ?? 0;
 
@@ -574,8 +570,7 @@ public class FileManagerService : IFileManagerService
             Name = name,
             Path = path,
             Icon = icon,
-            Order = maxOrder + 1,
-            CreatedAt = DateTime.UtcNow
+            Order = maxOrder + 1
         };
 
         context.FavoriteFolders.Add(favorite);
@@ -584,8 +579,9 @@ public class FileManagerService : IFileManagerService
         {
             await context.SaveChangesAsync();
         }
-        catch (DbUpdateException ex) when (ex.InnerException?.Message?.Contains("UNIQUE constraint") == true)
+        catch (DbUpdateException ex) when (ex.InnerException is SqliteException sqliteEx && sqliteEx.SqliteErrorCode == 19)
         {
+            // SQLite error code 19 is SQLITE_CONSTRAINT (unique constraint violation)
             throw new InvalidOperationException("This folder is already in favorites");
         }
 
@@ -606,6 +602,8 @@ public class FileManagerService : IFileManagerService
 
     public async Task UpdateFavoriteFolderAsync(int id, string name, string icon)
     {
+        ValidateFavoriteInputs(name, icon);
+
         using var context = await _dbContextFactory.CreateDbContextAsync();
         
         var favorite = await context.FavoriteFolders.FindAsync(id);
@@ -616,5 +614,20 @@ public class FileManagerService : IFileManagerService
         favorite.Icon = icon;
 
         await context.SaveChangesAsync();
+    }
+
+    private void ValidateFavoriteInputs(string name, string icon)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty", nameof(name));
+        
+        if (name.Length > 200)
+            throw new ArgumentException("Name cannot exceed 200 characters", nameof(name));
+        
+        if (string.IsNullOrWhiteSpace(icon))
+            throw new ArgumentException("Icon cannot be empty", nameof(icon));
+        
+        if (icon.Length > 100)
+            throw new ArgumentException("Icon cannot exceed 100 characters", nameof(icon));
     }
 }

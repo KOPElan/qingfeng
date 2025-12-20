@@ -1460,6 +1460,13 @@
                 return;
             }
 
+            if (favoriteName.Length > 200)
+            {
+                favoriteMessage = "收藏夹名称不能超过200个字符";
+                favoriteSuccess = false;
+                return;
+            }
+
             if (editingFavorite == null)
             {
                 // Add new favorite

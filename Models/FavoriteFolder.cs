@@ -7,5 +7,10 @@ public class FavoriteFolder
     public string Path { get; set; } = string.Empty;
     public string Icon { get; set; } = "folder";
     public int Order { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
+
+    public FavoriteFolder()
+    {
+        CreatedAt = DateTime.UtcNow;
+    }
 }
