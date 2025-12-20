@@ -579,6 +579,6 @@
             return "-";
         }
         
-        return uuid.Length > 8 ? uuid.Substring(0, 8) + "..." : uuid;
+        return uuid.Length > 8 ? uuid[..8] + "..." : uuid;
     }
 }
