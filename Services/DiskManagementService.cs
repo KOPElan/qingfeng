@@ -10,6 +10,8 @@ public class DiskManagementService : IDiskManagementService
 {
     private static readonly string[] InvalidChars = ["&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r", " "];
     private static readonly char[] InvalidCredentialChars = ['\n', '\r', '='];
+    private static readonly HashSet<char> InvalidCredentialCharsSet = new(InvalidCredentialChars);
+    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 
     public Task<List<DiskInfo>> GetAllDisksAsync()
     {
@@ -792,15 +794,15 @@ public class DiskManagementService : IDiskManagementService
         }
         
         // Validate credentials don't contain invalid characters
-        if (!string.IsNullOrEmpty(username) && username.Any(c => InvalidCredentialChars.Contains(c)))
+        if (!string.IsNullOrEmpty(username) && username.Any(c => InvalidCredentialCharsSet.Contains(c)))
         {
             return "Username contains invalid characters (newline or equals sign)";
         }
-        if (!string.IsNullOrEmpty(password) && password.Any(c => InvalidCredentialChars.Contains(c)))
+        if (!string.IsNullOrEmpty(password) && password.Any(c => InvalidCredentialCharsSet.Contains(c)))
         {
             return "Password contains invalid characters (newline or equals sign)";
         }
-        if (!string.IsNullOrEmpty(domain) && domain.Any(c => InvalidCredentialChars.Contains(c)))
+        if (!string.IsNullOrEmpty(domain) && domain.Any(c => InvalidCredentialCharsSet.Contains(c)))
         {
             return "Domain contains invalid characters (newline or equals sign)";
         }
@@ -864,9 +866,11 @@ public class DiskManagementService : IDiskManagementService
                         };
 
                         await using (var fs = new FileStream(tempCredFile, fsOptions))
-                        await using (var writer = new StreamWriter(fs))
                         {
-                            await writer.WriteAsync(credContent);
+                            await using (var writer = new StreamWriter(fs))
+                            {
+                                await writer.WriteAsync(credContent);
+                            }
                         }
                         
                         credOptions.Add($"credentials={tempCredFile}");
@@ -1004,9 +1008,11 @@ public class DiskManagementService : IDiskManagementService
                         };
 
                         await using (var fs = new FileStream(credFile, fsOptions))
-                        await using (var writer = new StreamWriter(fs))
                         {
-                            await writer.WriteAsync(credContent);
+                            await using (var writer = new StreamWriter(fs))
+                            {
+                                await writer.WriteAsync(credContent);
+                            }
                         }
                         
                         // Verify file permissions were set correctly
@@ -1128,7 +1134,7 @@ public class DiskManagementService : IDiskManagementService
                 var hasExistingEntry = existingLines
                     .Select(line => line.Trim())
                     .Where(trimmed => !string.IsNullOrEmpty(trimmed) && !trimmed.StartsWith("#"))
-                    .Select(trimmed => Regex.Split(trimmed, @"\s+"))
+                    .Select(trimmed => WhitespaceRegex.Split(trimmed))
                     .Where(fields => fields.Length >= 2)
                     .Any(fields => fields[0] == device && fields[1] == mountPoint);
 
