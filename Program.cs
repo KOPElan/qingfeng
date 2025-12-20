@@ -9,14 +9,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Add session support for authentication
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromHours(1);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
 builder.Services.AddHttpContextAccessor();
 
 // Add SQLite database
@@ -86,8 +78,6 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
-
-app.UseSession();
 
 app.UseAntiforgery();
 
