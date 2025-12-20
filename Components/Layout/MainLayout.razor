@@ -2,9 +2,12 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JS
 @implements IDisposable
-@using QingFeng.Utilities
 @using QingFeng.Services
 @inject IAuthenticationService AuthService
+
+<FluentDesignTheme @bind-Mode="@_mode" 
+                   @bind-OfficeColor="@_officeColor"
+                   StorageName="theme" />
 
 @if (_isAuthPage)
 {
@@ -19,7 +22,7 @@ else if (_isHomePage)
 }
 else
 {
-    <div class="modern-homepage-container">
+    <FluentLayout>
         <!-- Background Gradient Blobs for all pages -->
         <div class="gradient-bg">
             <div class="gradient-blob gradient-blob-1"></div>
@@ -27,49 +30,53 @@ else
             <div class="gradient-blob gradient-blob-3"></div>
         </div>
 
-        <div class="layout-container">
-            <!-- Header -->
-            <header class="modern-header">
-                <div class="header-brand">
-                    <div class="brand-icon">
-                        <span class="material-symbols-outlined">dns</span>
-                    </div>
-                    <h2 class="brand-title">个人门户</h2>
-                </div>
-                <div class="header-actions">
-                    @if (!string.IsNullOrEmpty(_currentUsername))
-                    {
-                        <span class="header-username">@_currentUsername</span>
-                        <button class="header-btn" @onclick="Logout" title="退出登录" aria-label="退出登录">
-                            <span class="material-symbols-outlined icon-sm">logout</span>
-                        </button>
-                    }
-                    <button class="header-btn" @onclick="ToggleDarkMode" title="切换主题" aria-label="切换主题">
-                        <span class="material-symbols-outlined icon-sm">@(_isDarkMode ? "light_mode" : "dark_mode")</span>
-                    </button>
-                    <button class="header-btn" @onclick="NavigateToSettings" title="设置" aria-label="设置">
-                        <span class="material-symbols-outlined icon-sm">settings</span>
-                    </button>
-                </div>
-            </header>
+        <FluentHeader>
+            <div class="header-brand">
+                <FluentLabel Typo="Typography.H5">🖥️ 个人门户</FluentLabel>
+            </div>
+            <FluentSpacer />
+            <div class="header-actions">
+                @if (!string.IsNullOrEmpty(_currentUsername))
+                {
+                    <FluentLabel>@_currentUsername</FluentLabel>
+                    <FluentButton Appearance="Appearance.Lightweight" 
+                                 OnClick="Logout" 
+                                 Title="退出登录" 
+                                 aria-label="退出登录">退出</FluentButton>
+                }
+                <FluentButton Appearance="Appearance.Lightweight" 
+                             OnClick="ToggleDarkMode" 
+                             Title="切换主题" 
+                             aria-label="切换主题">
+                    @(_mode == DesignThemeModes.Dark ? "☀️" : "🌙")
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Lightweight" 
+                             OnClick="NavigateToSettings" 
+                             Title="设置" 
+                             aria-label="设置">⚙️</FluentButton>
+            </div>
+        </FluentHeader>
 
-            <!-- Main Content -->
-            <main class="main-content">
-                <div class="content-wrapper">
-                    @Body
-                </div>
-            </main>
+        <FluentBodyContent>
+            <div class="content-wrapper">
+                @Body
+            </div>
+        </FluentBodyContent>
 
-            <!-- Footer -->
-            <footer class="modern-footer">
-                <p>© @DateTime.Now.Year 个人家庭实验室门户. Designed for efficiency.</p>
-            </footer>
-        </div>
+        <FluentFooter>
+            © @DateTime.Now.Year 个人家庭实验室门户. Designed for efficiency.
+        </FluentFooter>
 
         <!-- Navigation Dock -->
         <NavMenu />
-    </div>
+    </FluentLayout>
 }
+
+<!-- Fluent UI Providers -->
+<FluentDialogProvider />
+<FluentToastProvider />
+<FluentTooltipProvider />
+<FluentMessageBarProvider />
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -78,7 +85,8 @@ else
 </div>
 
 @code {
-    private bool _isDarkMode = false;
+    private DesignThemeModes _mode = DesignThemeModes.System;
+    private OfficeColor? _officeColor = OfficeColor.Default;
     private bool _isHomePage = false;
     private bool _isAuthPage = false;
     private string? _currentUsername;
@@ -117,12 +125,9 @@ else
                       path.StartsWith("initial-setup", StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task ToggleDarkMode()
+    private void ToggleDarkMode()
     {
-        _isDarkMode = !_isDarkMode;
-        // TODO: Theme toggle functionality to be implemented in future release
-        // This will require adding CSS classes for dark mode and persisting user preference
-        await Task.CompletedTask;
+        _mode = _mode == DesignThemeModes.Dark ? DesignThemeModes.Light : DesignThemeModes.Dark;
     }
 
     private async Task Logout()
