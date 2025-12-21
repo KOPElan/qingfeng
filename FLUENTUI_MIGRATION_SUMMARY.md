@@ -3,7 +3,7 @@
 ## Overview
 This document summarizes the migration of the QingFeng project from Bootstrap components to Microsoft FluentUI Blazor components.
 
-## Migration Status: 61.5% Complete (8/13 pages)
+## Migration Status: 84.6% Complete (11/13 pages)
 
 ### ✅ Completed Migrations
 
@@ -39,34 +39,36 @@ The following pages have been successfully migrated to FluentUI:
    - Components: FluentCard, FluentStack, FluentLabel, FluentButton, FluentBadge, FluentDialog
    - Features: Dock item management, app selector dialog with custom styling
 
-### 🚧 Remaining Pages (5 pages)
+9. **Home.razor** ✓ (Newly Migrated)
+   - Components: FluentCard, FluentStack, FluentProgress, FluentButton, FluentProgressRing
+   - Features: Dashboard with clock, weather card, CPU/RAM usage, network stats, application grid
+   - Migration: Replaced Bootstrap spinner with FluentProgressRing, progress bars with FluentProgress, cards with FluentCard
+   
+10. **Docker.razor** ✓ (Newly Migrated)
+    - Components: FluentCard, FluentStack, FluentLabel, FluentButton, FluentBadge, FluentProgress, FluentMessageBar
+    - Features: Container and image management with tables
+    - Migration: Full FluentUI implementation with custom table styling
+    
+11. **AppManagement.razor** ✓ (Newly Migrated)
+    - Components: FluentCard, FluentStack, FluentLabel, FluentButton, FluentBadge, FluentDialog, FluentTextField, FluentSwitch
+    - Features: Application CRUD with grid layout and modal dialogs
+    - Migration: Complete modal and form migration to FluentUI
+
+### 🚧 Remaining Pages (2 pages)
 
 The following pages still use Bootstrap components and need migration:
 
-1. **Home.razor** (269 lines)
-   - Current: Bootstrap cards, custom progress bars, custom styling
-   - Needed: FluentCard, FluentProgress, custom dashboard layout
-   - Complexity: Medium (custom dashboard design)
+1. **DiskManagement.razor** (944 lines)
+   - Current: Bootstrap tables, buttons, badges, progress bars, complex forms, multiple modals
+   - Needed: FluentCard, FluentButton, FluentBadge, FluentProgress, FluentTextField, FluentDialog
+   - Complexity: Very High (complex disk management with multiple wizards and operations)
+   - Challenge: Multiple nested modals for mount wizard, network mount wizard, and power management
    
-2. **Docker.razor** (272 lines)
-   - Current: Bootstrap tables, buttons, badges, cards
-   - Needed: FluentCard, FluentButton, FluentBadge, table styling
-   - Complexity: Medium (container/image management UI)
-   
-3. **AppManagement.razor** (380 lines)
-   - Current: Bootstrap cards, buttons, custom modal, forms
-   - Needed: FluentCard, FluentButton, FluentDialog, FluentTextField
-   - Complexity: Medium (app management grid with CRUD)
-   
-4. **DiskManagement.razor** (944 lines)
-   - Current: Bootstrap tables, buttons, badges, progress bars, complex forms
-   - Needed: FluentCard, FluentButton, FluentBadge, FluentProgress, FluentTextField
-   - Complexity: High (complex disk management with multiple operations)
-   
-5. **FileManager.razor** (1,621 lines)
+2. **FileManager.razor** (1,621 lines)
    - Current: Bootstrap components throughout, complex file browser UI
    - Needed: Comprehensive FluentUI component replacement
-   - Complexity: Very High (large complex file manager with tree view, context menus, file operations)
+   - Complexity: Extremely High (large complex file manager with tree view, context menus, file operations)
+   - Challenge: Complex state management, file tree navigation, multiple context menus
 
 ## Key Changes Made
 
@@ -126,7 +128,52 @@ Since FluentUI's icon component system is complex, we used:
 
 ✅ **Build: SUCCESSFUL**
 - 0 Errors
-- 1 Warning (pre-existing in DiskManagement.razor, unrelated to migration)
+- 1 Warning (pre-existing in DiskManagement.razor line 386, unrelated to migration)
+
+## Migration Progress Summary
+
+### Phase 1: Initial Pages (Already Complete - 61.5%)
+- Login, InitialSetup, Settings, UserManagement, SystemMonitor, NotFound, Error, DockManagement
+
+### Phase 2: Medium Complexity Pages (Newly Complete - 84.6%)
+- ✅ Home.razor - Dashboard migration complete
+- ✅ Docker.razor - Container management migration complete  
+- ✅ AppManagement.razor - Application management migration complete
+
+### Phase 3: High Complexity Pages (Remaining - 15.4%)
+- 🚧 DiskManagement.razor - Requires careful modal migration
+- 🚧 FileManager.razor - Largest file, needs significant refactoring
+
+## Successful Migration Examples
+
+### Home.razor Migration Highlights
+**Key Changes:**
+- Loading spinner: `<div class="spinner-border">` → `<FluentProgressRing />`
+- Progress bars: Custom CSS progress bars → `<FluentProgress Value="@value" Max="100" />`
+- Status cards: `<div class="status-card">` → `<FluentCard class="status-card">`
+- Settings button: `<button class="settings-btn">` → `<FluentButton Appearance="Appearance.Stealth">`
+
+**Preserved:**
+- Custom gradient background animations
+- Clock display styling
+- App grid layout with custom CSS
+
+### Docker.razor Migration Highlights
+**Key Changes:**
+- Page layout: Wrapped in `<FluentStack Orientation="Orientation.Vertical">`
+- Tables: Migrated to `<table class="fluent-table">` with FluentUI theme variables
+- Action buttons: Converted to `<FluentButton>` with emoji icons
+- Badges: `<span class="badge">` → `<FluentBadge BackgroundColor="var(--success)">`
+- Alerts: `<div class="alert">` → `<FluentMessageBar Intent="...">`
+
+### AppManagement.razor Migration Highlights
+**Key Changes:**
+- Modal dialog: Complete Bootstrap modal → `<FluentDialog>` with Header/Body/Footer
+- Form controls: All inputs → `<FluentTextField>`, checkbox → `<FluentSwitch>`
+- Color picker: Kept as HTML `<input type="color">` (no FluentUI equivalent)
+- App grid: Maintained custom CSS grid, wrapped cards in `<FluentCard>`
+- Icon buttons: Migrated to emoji-based `<FluentButton IconOnly="true">`
+
 
 ## Benefits of FluentUI Migration
 
@@ -139,16 +186,40 @@ Since FluentUI's icon component system is complex, we used:
 
 ## Next Steps
 
-### Priority 1: Core Functionality Pages
-1. **Docker.razor** - Critical for Docker management functionality
-2. **DiskManagement.razor** - Critical for disk operations
+### Recommendations for Completing Migration
 
-### Priority 2: User-Facing Pages  
-3. **Home.razor** - Main dashboard, high visibility
-4. **AppManagement.razor** - Application management functionality
+#### For DiskManagement.razor (944 lines)
+**Recommended Approach:**
+1. Start with the page header and main sections (already demonstrated in Home/Docker)
+2. Migrate disk tables to `fluent-table` styling (pattern established)
+3. **Critical**: Replace Bootstrap modals one at a time:
+   - Mount Wizard Modal → FluentDialog with FluentDialogHeader/Body/Footer
+   - Network Mount Wizard → FluentDialog
+   - Power Management Modal → FluentDialog
+4. Replace all form controls:
+   - `<input class="form-control">` → `<FluentTextField>`
+   - `<select>` → `<FluentSelect>`
+   - Radio buttons → `<FluentRadioGroup>` or keep as HTML radio for simplicity
+5. Test after each modal conversion
 
-### Priority 3: Complex Pages
-5. **FileManager.razor** - Largest and most complex, may require significant refactoring
+**Complexity Notes:**
+- The file has 3 major modals with complex forms
+- Each modal needs careful FluentDialog structure
+- Form bindings need to be updated to FluentUI component patterns
+
+#### For FileManager.razor (1,621 lines)
+**Recommended Approach:**
+1. This is the most complex file - consider breaking it into smaller components first
+2. File tree navigation might benefit from custom component
+3. Context menus need special attention (FluentMenu components or custom implementation)
+4. File operation modals follow same FluentDialog pattern as other pages
+5. **Suggestion**: Consider this as a Phase 4 task after runtime testing of other pages
+
+### Alternative Strategy
+Given the high complexity of the remaining pages:
+1. **Option A**: Complete migration manually following established patterns
+2. **Option B**: Keep DiskManagement and FileManager with Bootstrap for now, migrate after user feedback on other pages
+3. **Option C**: Create hybrid approach - migrate main UI, keep complex modals as-is temporarily
 
 ## Migration Guidelines for Remaining Pages
 
