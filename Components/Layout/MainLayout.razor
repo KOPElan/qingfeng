@@ -45,17 +45,9 @@ else
                                  aria-label="退出登录">退出</FluentButton>
                 }
                 <FluentButton Appearance="Appearance.Lightweight" 
-                             OnClick="ToggleDarkMode" 
-                             Title="切换主题 (Light/Dark/System)" 
-                             aria-label="切换主题 Light Dark System">
-                    @(_mode switch 
-                    {
-                        DesignThemeModes.Light => "☀️",
-                        DesignThemeModes.Dark => "🌙",
-                        DesignThemeModes.System => "💻",
-                        _ => "💻"
-                    })
-                </FluentButton>
+                             OnClick="ToggleThemePanel" 
+                             Title="主题设置" 
+                             aria-label="主题设置">🎨</FluentButton>
                 <FluentButton Appearance="Appearance.Lightweight" 
                              OnClick="NavigateToSettings" 
                              Title="设置" 
@@ -84,6 +76,19 @@ else
 <FluentTooltipProvider />
 <FluentMessageBarProvider />
 
+<!-- Theme Settings Dialog -->
+<FluentDialog Hidden="@_themePanelHidden" Modal="false" OnDismiss="@(() => _themePanelHidden = true)" Style="position: fixed; right: 0; top: 0; margin: 0; height: 100vh; max-height: 100vh; border-radius: 0; width: 400px; max-width: 90vw;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">🎨 主题设置</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <ThemePanel Mode="@_mode" 
+                    ModeChanged="@OnThemeModeChanged" 
+                    OfficeColor="@_officeColor" 
+                    OfficeColorChanged="@OnOfficeColorChanged" />
+    </FluentDialogBody>
+</FluentDialog>
+
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
@@ -96,6 +101,7 @@ else
     private bool _isHomePage = false;
     private bool _isAuthPage = false;
     private string? _currentUsername;
+    private bool _themePanelHidden = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -132,15 +138,19 @@ else
                       path.StartsWith("initial-setup", StringComparison.OrdinalIgnoreCase);
     }
 
-    private void ToggleDarkMode()
+    private void ToggleThemePanel()
     {
-        _mode = _mode switch
-        {
-            DesignThemeModes.Light => DesignThemeModes.Dark,
-            DesignThemeModes.Dark => DesignThemeModes.System,
-            DesignThemeModes.System => DesignThemeModes.Light,
-            _ => DesignThemeModes.Light
-        };
+        _themePanelHidden = !_themePanelHidden;
+    }
+
+    private void OnThemeModeChanged(DesignThemeModes mode)
+    {
+        _mode = mode;
+    }
+
+    private void OnOfficeColorChanged(OfficeColor? color)
+    {
+        _officeColor = color;
     }
 
     private async Task Logout()

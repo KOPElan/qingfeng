@@ -3,7 +3,6 @@
 @using QingFeng.Models
 @inherits AuthorizedPageBase
 @inject IDockerService DockerService
-@inject QingFeng.Services.IDialogService DialogService
 @rendermode InteractiveServer
 
 <PageTitle>Docker管理</PageTitle>
@@ -158,6 +157,40 @@
     </FluentCard>
 </FluentStack>
 
+<!-- Container Logs Dialog -->
+<FluentDialog Hidden="@(!showLogsDialog)" Modal="true" OnDismiss="CloseLogsDialog" Style="width: 90%; max-width: 1200px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">
+            📄 容器日志 - @selectedContainerName
+        </FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (isLoadingLogs)
+        {
+            <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="padding: 2rem;">
+                <FluentProgressRing />
+                <FluentLabel>加载日志中...</FluentLabel>
+            </FluentStack>
+        }
+        else if (!string.IsNullOrEmpty(containerLogs))
+        {
+            <div style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; padding: 1rem; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; border-radius: var(--control-corner-radius);">
+                @containerLogs
+            </div>
+        }
+        else
+        {
+            <FluentLabel>没有日志数据</FluentLabel>
+        }
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseLogsDialog">关闭</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="RefreshLogs" Disabled="@isLoadingLogs">
+            🔄 刷新
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
 @code {
     private List<DockerContainerInfo> containers = new();
     private List<DockerImageInfo> images = new();
@@ -165,6 +198,13 @@
     private bool isError = false;
     private bool isProcessing = false;
     private bool isDockerAvailable = true;
+    
+    // Container logs dialog state
+    private bool showLogsDialog = false;
+    private bool isLoadingLogs = false;
+    private string containerLogs = string.Empty;
+    private string selectedContainerId = string.Empty;
+    private string selectedContainerName = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -252,20 +292,48 @@
 
     private async Task ShowContainerLogs(DockerContainerInfo container)
     {
-        var parameters = new Dictionary<string, object>
+        selectedContainerId = container.Id;
+        selectedContainerName = container.Name;
+        showLogsDialog = true;
+        await LoadContainerLogs();
+    }
+
+    private async Task LoadContainerLogs()
+    {
+        if (string.IsNullOrEmpty(selectedContainerId))
+            return;
+
+        isLoadingLogs = true;
+        containerLogs = string.Empty;
+        
+        try
         {
-            { "ContainerId", container.Id },
-            { "ContainerName", container.Name }
-        };
-        
-        var options = new DialogOptions 
-        { 
-            MaxWidth = true, 
-            FullWidth = true,
-            CloseButton = true
-        };
-        
-        await DialogService.ShowAsync<QingFeng.Components.Dialogs.ContainerLogsDialog>(
-            $"容器日志 - {container.Name}", parameters, options);
+            containerLogs = await DockerService.GetContainerLogsAsync(selectedContainerId, 1000);
+            if (string.IsNullOrEmpty(containerLogs))
+            {
+                containerLogs = "没有日志数据";
+            }
+        }
+        catch (Exception ex)
+        {
+            containerLogs = $"加载日志失败: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingLogs = false;
+        }
+    }
+
+    private async Task RefreshLogs()
+    {
+        await LoadContainerLogs();
+    }
+
+    private void CloseLogsDialog()
+    {
+        showLogsDialog = false;
+        containerLogs = string.Empty;
+        selectedContainerId = string.Empty;
+        selectedContainerName = string.Empty;
     }
 }

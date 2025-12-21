@@ -1,0 +1,151 @@
+@using Microsoft.FluentUI.AspNetCore.Components
+@inject IJSRuntime JS
+
+<style>
+    .theme-panel-content {
+        padding: var(--design-unit);
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--design-unit) * 4px);
+    }
+
+    .theme-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: calc(var(--design-unit) * 3px);
+        border-radius: var(--control-corner-radius);
+        transition: background-color var(--duration-instant);
+    }
+
+    .theme-option:hover {
+        background-color: var(--neutral-fill-secondary-hover);
+    }
+
+    .theme-option-info {
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--design-unit) * 1px);
+    }
+
+    .theme-option-title {
+        font-weight: 600;
+        color: var(--neutral-foreground-rest);
+    }
+
+    .theme-option-description {
+        font-size: calc(var(--type-ramp-base-font-size) * 0.875);
+        color: var(--neutral-foreground-hint);
+    }
+</style>
+
+<div class="theme-panel-content">
+    <FluentStack Orientation="Orientation.Vertical">
+        <FluentLabel Typo="Typography.H5">🎨 主题设置</FluentLabel>
+        <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">
+            自定义您的视觉体验
+        </FluentLabel>
+    </FluentStack>
+
+    <FluentDivider Style="margin: calc(var(--design-unit) * 2px) 0;" />
+
+    <div class="theme-option">
+        <div class="theme-option-info">
+            <div class="theme-option-title">主题模式</div>
+            <div class="theme-option-description">选择亮色、暗色或跟随系统</div>
+        </div>
+        <FluentSelect TOption="string"
+                      Items="@themeModes"
+                      OptionText="@(item => item switch 
+                      {
+                          "Light" => "☀️ 亮色",
+                          "Dark" => "🌙 暗色",
+                          "System" => "💻 跟随系统",
+                          _ => item
+                      })"
+                      OptionValue="@(item => item)"
+                      Value="@CurrentMode"
+                      ValueChanged="@OnThemeModeChanged"
+                      Style="width: 150px;" />
+    </div>
+
+    <div class="theme-option">
+        <div class="theme-option-info">
+            <div class="theme-option-title">主题色</div>
+            <div class="theme-option-description">选择您喜欢的主色调</div>
+        </div>
+        <FluentSelect TOption="string"
+                      Items="@officeColors"
+                      OptionText="@(item => item)"
+                      OptionValue="@(item => item)"
+                      Value="@CurrentOfficeColor"
+                      ValueChanged="@OnOfficeColorChanged"
+                      Style="width: 150px;" />
+    </div>
+
+    <FluentDivider Style="margin: calc(var(--design-unit) * 2px) 0;" />
+
+    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: calc(var(--type-ramp-base-font-size) * 0.875);">
+        主题设置会自动保存并应用到所有页面
+    </FluentLabel>
+</div>
+
+@code {
+    [Parameter]
+    public DesignThemeModes Mode { get; set; } = DesignThemeModes.System;
+
+    [Parameter]
+    public EventCallback<DesignThemeModes> ModeChanged { get; set; }
+
+    [Parameter]
+    public OfficeColor? OfficeColor { get; set; } = Microsoft.FluentUI.AspNetCore.Components.OfficeColor.Default;
+
+    [Parameter]
+    public EventCallback<OfficeColor?> OfficeColorChanged { get; set; }
+
+    private string CurrentMode
+    {
+        get => Mode.ToString();
+        set
+        {
+            if (Enum.TryParse<DesignThemeModes>(value, out var mode))
+            {
+                Mode = mode;
+            }
+        }
+    }
+
+    private string CurrentOfficeColor
+    {
+        get => OfficeColor?.ToString() ?? "Default";
+        set
+        {
+            if (Enum.TryParse<OfficeColor>(value, out var color))
+            {
+                OfficeColor = color;
+            }
+        }
+    }
+
+    private string[] themeModes = new[] { "Light", "Dark", "System" };
+    
+    private string[] officeColors = Enum.GetNames(typeof(OfficeColor));
+
+    private async Task OnThemeModeChanged(string mode)
+    {
+        if (Enum.TryParse<DesignThemeModes>(mode, out var modeEnum))
+        {
+            Mode = modeEnum;
+            await ModeChanged.InvokeAsync(modeEnum);
+        }
+    }
+
+    private async Task OnOfficeColorChanged(string color)
+    {
+        if (Enum.TryParse<OfficeColor>(color, out var colorEnum))
+        {
+            OfficeColor = colorEnum;
+            await OfficeColorChanged.InvokeAsync(colorEnum);
+        }
+    }
+}
