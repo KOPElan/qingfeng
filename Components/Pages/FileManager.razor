@@ -3,6 +3,8 @@
 @using QingFeng.Models
 @using QingFeng.Utilities
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Icon = Microsoft.FluentUI.AspNetCore.Components.Icon
 @inject IFileManagerService FileManagerService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -15,10 +17,12 @@
         display: flex;
         height: calc(100vh - 180px);
         gap: 0;
+        max-width: 100%;
+        margin: 0 auto;
     }
     
     .sidebar {
-        width: 220px;
+        width: 200px;
         background-color: var(--neutral-layer-1);
         border-right: 1px solid var(--neutral-stroke-divider-rest);
         overflow-y: auto;
@@ -135,23 +139,12 @@
         background-color: var(--neutral-fill-secondary-hover);
     }
     
-    .folder-icon {
-        font-size: 80px !important;
-        color: #FFA726;
-        margin-bottom: 8px;
-    }
-    
-    .file-icon {
-        font-size: 80px !important;
-        color: #42A5F5;
-        margin-bottom: 8px;
-    }
-    
     .file-name {
         font-size: 13px;
         text-align: center;
         word-break: break-word;
         margin-bottom: 4px;
+        margin-top: 8px;
     }
     
     .file-date {
@@ -212,7 +205,7 @@
                               OnClick="ShowAddFavoriteDialog" 
                               Title="添加当前文件夹到收藏"
                               Style="padding: 0; min-width: auto;">
-                    <i class="@Icons.Material.Filled.Add" style="font-size: 16px;"></i>
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Add())" />
                 </FluentButton>
             </div>
             @if (favoriteFolders != null && favoriteFolders.Any())
@@ -229,14 +222,14 @@
                                           OnClick="@(() => ShowEditFavoriteDialog(favorite))" 
                                           Title="编辑"
                                           Style="padding: 0; min-width: auto;">
-                                <i class="@Icons.Material.Filled.Edit" style="font-size: 14px;"></i>
+                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Edit())" />
                             </FluentButton>
                             <FluentButton Appearance="Appearance.Stealth" 
                                           IconOnly="true"
                                           OnClick="@(() => RemoveFavorite(favorite.Id))" 
                                           Title="删除"
                                           Style="padding: 0; min-width: auto; color: var(--error);">
-                                <i class="@Icons.Material.Filled.Delete" style="font-size: 14px;"></i>
+                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
                             </FluentButton>
                         </div>
                     </div>
@@ -257,7 +250,7 @@
                 {
                     <div class="sidebar-item @(currentPath == drive.Path || currentPath.StartsWith(drive.Path) ? "selected" : "")" 
                          @onclick="@(() => NavigateTo(drive.Path))">
-                        <i class="@Icons.Material.Filled.Storage"></i>
+                        <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Storage())" />
                         <span>@drive.Name</span>
                     </div>
                 }
@@ -285,14 +278,14 @@
                           OnClick="GoBack" 
                           Disabled="@(navigationHistory.Count <= 1)"
                           Title="后退">
-                <i class="@Icons.Material.Filled.ArrowBack"></i>
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowLeft())" />
             </FluentButton>
             <FluentButton Appearance="Appearance.Stealth" 
                           IconOnly="true"
                           OnClick="GoForward" 
                           Disabled="@(forwardHistory.Count == 0)"
                           Title="前进">
-                <i class="@Icons.Material.Filled.ArrowForward"></i>
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowRight())" />
             </FluentButton>
             
             <div class="breadcrumb-container">
@@ -300,7 +293,7 @@
                     <span style="color: var(--neutral-foreground-hint);">Files</span>
                     @foreach (var part in GetPathParts())
                     {
-                        <i class="@Icons.Material.Filled.ChevronRight"></i>
+                        <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ChevronRight())" />
                         <a class="breadcrumb-link" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
                     }
                 </div>
@@ -314,31 +307,31 @@
                           IconOnly="true"
                           OnClick="ShowUploadDialog" 
                           Title="上传文件">
-                <i class="@Icons.Material.Filled.Upload"></i>
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowUpload())" />
             </FluentButton>
             <FluentButton Appearance="Appearance.Stealth" 
                           IconOnly="true"
                           OnClick="ShowCreateFolderDialog" 
                           Title="新建文件夹">
-                <i class="@Icons.Material.Filled.CreateNewFolder"></i>
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.FolderAdd())" />
             </FluentButton>
             <FluentButton Appearance="Appearance.Stealth" 
                           IconOnly="true"
                           OnClick="ShowSearchDialog" 
                           Title="搜索">
-                <i class="@Icons.Material.Filled.Search"></i>
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Search())" />
             </FluentButton>
             <FluentButton Appearance="Appearance.Stealth" 
                           IconOnly="true"
                           OnClick="RefreshFiles" 
                           Title="刷新">
-                <i class="@Icons.Material.Filled.Refresh"></i>
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowClockwise())" />
             </FluentButton>
             <FluentButton Appearance="Appearance.Stealth" 
                           IconOnly="true"
                           OnClick="ToggleViewMode" 
                           Title="切换视图">
-                <i class="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"></i>
+                <FluentIcon Value="@((Icon)(isGridView ? new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.List() : new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.GridDots()))" />
             </FluentButton>
         </div>
         
@@ -353,11 +346,11 @@
                         <div class="file-item" @onclick="@(() => NavigateTo(file.Path))" title="@file.Path">
                             @if (file.IsDirectory)
                             {
-                                <i class="@Icons.Material.Filled.Folder folder-icon"></i>
+                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Folder())" Color="@Color.Custom" CustomColor="#FFA726" />
                             }
                             else
                             {
-                                <i class="@GetFileIcon(file.Extension) file-icon"></i>
+                                <FluentIcon Value="@((Icon)GetFluentFileIcon(file.Extension))" Color="@Color.Custom" CustomColor="#42A5F5" />
                             }
                             <div class="file-name">@file.Name</div>
                             @if (!file.IsDirectory)
@@ -400,14 +393,14 @@
                                         @if (file.IsDirectory)
                                         {
                                             <a @onclick="(() => NavigateTo(file.Path))" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
-                                                <i class="@Icons.Material.Filled.Folder"></i>
+                                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Folder())" />
                                                 @file.Name
                                             </a>
                                         }
                                         else
                                         {
                                             <div style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;" @onclick="(() => NavigateTo(file.Path))">
-                                                <i class="@GetFileIcon(file.Extension)"></i>
+                                                <FluentIcon Value="@((Icon)GetFluentFileIcon(file.Extension))" />
                                                 <span>@file.Name</span>
                                             </div>
                                         }
@@ -426,7 +419,7 @@
                                                           IconOnly="true"
                                                           OnClick="(() => DownloadFile(file.Path))" 
                                                           Title="下载">
-                                                <i class="@Icons.Material.Filled.Download"></i>
+                                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowDownload())" />
                                             </FluentButton>
                                         }
                                         @if (file.Name != "..")
@@ -435,19 +428,19 @@
                                                           IconOnly="true"
                                                           OnClick="(() => ShowRenameDialog(file))" 
                                                           Title="重命名">
-                                                <i class="@Icons.Material.Filled.Edit"></i>
+                                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Rename())" />
                                             </FluentButton>
                                             <FluentButton Appearance="Appearance.Stealth" 
                                                           IconOnly="true"
                                                           OnClick="(() => ShowCopyDialog(file))" 
                                                           Title="复制">
-                                                <i class="@Icons.Material.Filled.ContentCopy"></i>
+                                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Copy())" />
                                             </FluentButton>
                                             <FluentButton Appearance="Appearance.Stealth" 
                                                           IconOnly="true"
                                                           OnClick="(() => ShowMoveDialog(file))" 
                                                           Title="移动">
-                                                <i class="@Icons.Material.Filled.DriveFileMove"></i>
+                                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowMove())" />
                                             </FluentButton>
                                         }
                                         @if (!file.IsDirectory && file.Name != "..")
@@ -457,7 +450,7 @@
                                                           OnClick="(() => DeleteFile(file.Path))" 
                                                           Title="删除"
                                                           Style="color: var(--error);">
-                                                <i class="@Icons.Material.Filled.Delete"></i>
+                                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Delete())" />
                                             </FluentButton>
                                         }
                                         @if (file.IsDirectory && file.Name != "..")
@@ -467,7 +460,7 @@
                                                           OnClick="(() => DeleteDirectory(file.Path))" 
                                                           Title="删除"
                                                           Style="color: var(--error);">
-                                                <i class="@Icons.Material.Filled.Delete"></i>
+                                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Delete())" />
                                             </FluentButton>
                                         }
                                     </td>
@@ -650,7 +643,7 @@
                                 <tr style="cursor: pointer;" @onclick="(() => NavigateToSearchResult(result))">
                                     <td>
                                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                            <i class="@(result.IsDirectory ? Icons.Material.Filled.Folder : Icons.Material.Filled.InsertDriveFile)"></i>
+                                            <FluentIcon Value="@((Icon)(result.IsDirectory ? new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Folder() : new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Document()))" />
                                             @result.Name
                                         </div>
                                     </td>
@@ -1031,6 +1024,23 @@
             ".zip" or ".rar" or ".7z" or ".tar" or ".gz" => Icons.Material.Filled.Archive,
             _ => Icons.Material.Filled.InsertDriveFile
         };
+    }
+    
+    private Icon GetFluentFileIcon(string extension)
+    {
+        Icon icon = extension.ToLowerInvariant() switch
+        {
+            ".pdf" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Document(),
+            ".doc" or ".docx" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Document(),
+            ".xls" or ".xlsx" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Table(),
+            ".txt" or ".log" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.DocumentText(),
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" or ".svg" or ".webp" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Image(),
+            ".mp3" or ".wav" or ".flac" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Speaker2(),
+            ".mp4" or ".avi" or ".mkv" or ".mov" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Video(),
+            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Archive(),
+            _ => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Document()
+        };
+        return icon;
     }
 
     // File operation methods
