@@ -1485,9 +1485,7 @@
                         var errorMsg = resultDict.Value.TryGetProperty("error", out var errorProp) 
                             ? errorProp.GetString() ?? "未知错误"
                             : "未知错误";
-                        await JSRuntime.InvokeVoidAsync("eval",
-                            $"var c = document.getElementById('documentPreviewContainer');" +
-                            $"if (c) {{ c.innerHTML = '<div style=\"padding:16px;color:var(--mud-palette-error);text-align:center;\">文档加载失败: {errorMsg}<br/>请下载文件后使用本地应用程序打开。</div>'; }}");
+                        await JSRuntime.InvokeVoidAsync("documentPreview.displayError", "documentPreviewContainer", $"文档加载失败: {errorMsg}");
                     }
                 }
             }
@@ -1497,9 +1495,7 @@
             // Display error in preview container instead of just showing notification
             try
             {
-                await JSRuntime.InvokeVoidAsync("eval",
-                    "var c = document.getElementById('documentPreviewContainer');" +
-                    "if (c) { c.innerHTML = '<div style=\"padding:16px;color:var(--mud-palette-error);text-align:center;\">文档预览失败，请稍后重试。<br/>请下载文件后使用本地应用程序打开。</div>'; }");
+                await JSRuntime.InvokeVoidAsync("documentPreview.displayError", "documentPreviewContainer", "文档预览失败，请稍后重试。");
             }
             catch
             {

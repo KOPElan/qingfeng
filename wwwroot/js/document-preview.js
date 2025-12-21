@@ -4,22 +4,39 @@
 window.documentPreview = {
     // Simple HTML sanitizer (basic XSS protection)
     sanitizeHtml: function(html) {
-        // If DOMPurify is available, use it
+        // If DOMPurify is available, use it (recommended)
         if (window.DOMPurify) {
             return window.DOMPurify.sanitize(html);
         }
         
-        // Basic sanitization: remove script tags and event handlers
-        const div = document.createElement('div');
-        div.textContent = html;
-        let sanitized = div.innerHTML;
-        
-        // Remove potentially dangerous tags
-        sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-        sanitized = sanitized.replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
-        sanitized = sanitized.replace(/on\w+\s*=\s*[^\s>]*/gi, '');
-        
-        return sanitized;
+        // Fallback: If DOMPurify is not loaded, return empty string for safety
+        // This ensures we don't attempt inadequate sanitization
+        console.warn('DOMPurify not loaded. Cannot safely sanitize HTML content.');
+        return '<div style="padding:16px;color:#c00;">无法安全地显示此文档内容。请确保 DOMPurify 库已加载。</div>';
+    },
+    
+    // Display error message in container
+    displayError: function(containerId, message) {
+        const container = document.getElementById(containerId);
+        if (container) {
+            // Safely set error message using textContent to prevent injection
+            const errorDiv = document.createElement('div');
+            errorDiv.style.padding = '16px';
+            errorDiv.style.color = 'var(--mud-palette-error)';
+            errorDiv.style.textAlign = 'center';
+            errorDiv.textContent = message;
+            
+            // Add download suggestion
+            const downloadHint = document.createElement('br');
+            const hintText = document.createElement('span');
+            hintText.textContent = '请下载文件后使用本地应用程序打开。';
+            
+            errorDiv.appendChild(downloadHint);
+            errorDiv.appendChild(hintText);
+            
+            container.innerHTML = '';
+            container.appendChild(errorDiv);
+        }
     },
     
     // Initialize PDF.js viewer
