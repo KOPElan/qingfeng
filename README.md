@@ -41,7 +41,12 @@
   - 文件下载
   - 文件复制和移动
   - 文件搜索（支持通配符模式）
-  - 文件预览（图片和文本文件）
+  - 文件预览（图片、文本文件、PDF和Office文档）
+    - 图片预览（JPG、PNG、GIF、BMP、SVG、WebP）
+    - 文本预览（TXT、JSON、XML、CSV、HTML、CSS、JS等）
+    - PDF预览（使用PDF.js）
+    - Word文档预览（DOC、DOCX，使用Mammoth.js）
+    - Excel表格预览（XLS、XLSX，使用SheetJS，支持多工作表切换）
   - 文件类型图标识别
   - 操作通知和错误提示
   - 自动处理文件名冲突

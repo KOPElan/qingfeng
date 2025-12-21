@@ -675,7 +675,7 @@
 @if (showPreviewDialog)
 {
     <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content-custom">
                 <div class="modal-header-custom">
                     <h6>文件预览: @previewFileName</h6>
@@ -691,6 +691,17 @@
                     {
                         <div style="max-height: 600px; overflow-y: auto;">
                             <pre style="background-color: var(--mud-palette-background); padding: 16px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word;">@previewTextContent</pre>
+                        </div>
+                    }
+                    else if (previewIsPdf || previewIsDocx || previewIsXlsx)
+                    {
+                        <div id="documentPreviewContainer" style="max-height: 600px; overflow-y: auto; background-color: var(--mud-palette-surface); color: var(--mud-palette-text-primary);">
+                            <div style="text-align: center; padding: 40px;">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">加载中...</span>
+                                </div>
+                                <p class="mt-3">正在加载文档预览...</p>
+                            </div>
                         </div>
                     }
                     else
@@ -746,6 +757,10 @@
     private string previewTextContent = string.Empty;
     private bool previewIsImage = false;
     private bool previewIsText = false;
+    private bool previewIsPdf = false;
+    private bool previewIsDocx = false;
+    private bool previewIsXlsx = false;
+    private string previewFileUrl = string.Empty;
 
     // Favorite dialog data
     private FavoriteFolder? editingFavorite = null;
@@ -1332,8 +1347,11 @@
     {
         var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".webp" };
         var textExtensions = new[] { ".txt", ".log", ".md", ".json", ".xml", ".csv", ".html", ".css", ".js", ".cs", ".razor", ".sh", ".conf", ".config", ".yml", ".yaml" };
+        var pdfExtensions = new[] { ".pdf" };
+        var officeExtensions = new[] { ".doc", ".docx", ".xls", ".xlsx" };
         
-        return imageExtensions.Contains(extension) || textExtensions.Contains(extension);
+        return imageExtensions.Contains(extension) || textExtensions.Contains(extension) || 
+               pdfExtensions.Contains(extension) || officeExtensions.Contains(extension);
     }
 
     private async Task ShowFilePreview(string filePath)
@@ -1349,6 +1367,19 @@
             
             previewIsImage = imageExtensions.Contains(extension);
             previewIsText = textExtensions.Contains(extension);
+            previewIsPdf = extension == ".pdf";
+            previewIsDocx = extension == ".docx" || extension == ".doc";
+            previewIsXlsx = extension == ".xlsx" || extension == ".xls";
+            
+            // Warn users about limited support for legacy formats
+            if (extension == ".doc")
+            {
+                ShowNotification("该文件为旧版 Word (.doc) 格式，在线预览可能不完整或无法显示。建议下载后使用本地应用程序打开。", false);
+            }
+            else if (extension == ".xls")
+            {
+                ShowNotification("该文件为旧版 Excel (.xls) 格式，在线预览可能不完整。建议下载后使用本地应用程序打开。", false);
+            }
             
             if (previewIsImage)
             {
@@ -1377,8 +1408,25 @@
                     }
                 }
             }
+            else if (previewIsPdf || previewIsDocx || previewIsXlsx)
+            {
+                // For PDF and Office documents, we need to provide the download URL
+                // Note: Path validation and access control is enforced by the backend API endpoint
+                // via FileManagerService.IsPathAllowed() to prevent unauthorized file access
+                var encodedPath = Uri.EscapeDataString(filePath);
+                previewFileUrl = $"/api/files/download?path={encodedPath}";
+            }
             
             showPreviewDialog = true;
+            
+            // Trigger JavaScript rendering for PDF and Office documents after dialog is shown
+            if (previewIsPdf || previewIsDocx || previewIsXlsx)
+            {
+                // Ensure the dialog is rendered before triggering JavaScript rendering
+                await InvokeAsync(StateHasChanged);
+                await Task.Yield();
+                await RenderDocument(extension);
+            }
         }
         catch (Exception ex)
         {
@@ -1386,15 +1434,75 @@
         }
     }
 
-    private void ClosePreviewDialog()
+    private async Task ClosePreviewDialog()
     {
         showPreviewDialog = false;
+        
+        // Cleanup document preview containers
+        if (previewIsPdf || previewIsDocx || previewIsXlsx)
+        {
+            await JSRuntime.InvokeVoidAsync("documentPreview.cleanup", "documentPreviewContainer");
+        }
+        
         previewFilePath = string.Empty;
         previewFileName = string.Empty;
         previewImageUrl = string.Empty;
         previewTextContent = string.Empty;
+        previewFileUrl = string.Empty;
         previewIsImage = false;
         previewIsText = false;
+        previewIsPdf = false;
+        previewIsDocx = false;
+        previewIsXlsx = false;
+    }
+    
+    private async Task RenderDocument(string extension)
+    {
+        try
+        {
+            object? result = null;
+            if (extension == ".pdf")
+            {
+                result = await JSRuntime.InvokeAsync<object>("documentPreview.initPdfViewer", "documentPreviewContainer", previewFileUrl);
+            }
+            else if (extension == ".docx" || extension == ".doc")
+            {
+                result = await JSRuntime.InvokeAsync<object>("documentPreview.initDocxViewer", "documentPreviewContainer", previewFileUrl);
+            }
+            else if (extension == ".xlsx" || extension == ".xls")
+            {
+                result = await JSRuntime.InvokeAsync<object>("documentPreview.initXlsxViewer", "documentPreviewContainer", previewFileUrl);
+            }
+            
+            // Check if rendering failed and display error in container
+            if (result != null)
+            {
+                var resultDict = result as System.Text.Json.JsonElement?;
+                if (resultDict.HasValue && resultDict.Value.TryGetProperty("success", out var successProp))
+                {
+                    if (!successProp.GetBoolean())
+                    {
+                        var errorMsg = resultDict.Value.TryGetProperty("error", out var errorProp) 
+                            ? errorProp.GetString() ?? "未知错误"
+                            : "未知错误";
+                        await JSRuntime.InvokeVoidAsync("documentPreview.displayError", "documentPreviewContainer", $"文档加载失败: {errorMsg}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Display error in preview container instead of just showing notification
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("documentPreview.displayError", "documentPreviewContainer", "文档预览失败，请稍后重试。");
+            }
+            catch
+            {
+                // Fallback to notification if JavaScript fails
+                ShowNotification($"渲染文档失败: {ex.Message}", true);
+            }
+        }
     }
 
     // Favorites management methods
