@@ -127,9 +127,9 @@
         }
     }
 
-    private string[] themeModes = new[] { "Light", "Dark", "System" };
+    private static readonly string[] themeModes = new[] { "Light", "Dark", "System" };
     
-    private string[] officeColors = Enum.GetNames(typeof(OfficeColor));
+    private static readonly string[] officeColors = Enum.GetNames(typeof(OfficeColor));
 
     private async Task OnThemeModeChanged(string mode)
     {
