@@ -695,7 +695,7 @@
                     }
                     else if (previewIsPdf || previewIsDocx || previewIsXlsx)
                     {
-                        <div id="documentPreviewContainer" style="max-height: 600px; overflow-y: auto; background: white; color: black;">
+                        <div id="documentPreviewContainer" style="max-height: 600px; overflow-y: auto; background-color: var(--mud-palette-surface); color: var(--mud-palette-text-primary);">
                             <div style="text-align: center; padding: 40px;">
                                 <div class="spinner-border" role="status">
                                     <span class="visually-hidden">加载中...</span>
@@ -760,7 +760,7 @@
     private bool previewIsPdf = false;
     private bool previewIsDocx = false;
     private bool previewIsXlsx = false;
-    private string previewDocumentUrl = string.Empty;
+    private string previewFileUrl = string.Empty;
 
     // Favorite dialog data
     private FavoriteFolder? editingFavorite = null;
@@ -1371,6 +1371,16 @@
             previewIsDocx = extension == ".docx" || extension == ".doc";
             previewIsXlsx = extension == ".xlsx" || extension == ".xls";
             
+            // Warn users about limited support for legacy formats
+            if (extension == ".doc")
+            {
+                ShowNotification("该文件为旧版 Word (.doc) 格式，在线预览可能不完整或无法显示。建议下载后使用本地应用程序打开。", false);
+            }
+            else if (extension == ".xls")
+            {
+                ShowNotification("该文件为旧版 Excel (.xls) 格式，在线预览可能不完整。建议下载后使用本地应用程序打开。", false);
+            }
+            
             if (previewIsImage)
             {
                 var encodedPath = Uri.EscapeDataString(filePath);
@@ -1401,8 +1411,10 @@
             else if (previewIsPdf || previewIsDocx || previewIsXlsx)
             {
                 // For PDF and Office documents, we need to provide the download URL
+                // Note: Path validation and access control is enforced by the backend API endpoint
+                // via FileManagerService.IsPathAllowed() to prevent unauthorized file access
                 var encodedPath = Uri.EscapeDataString(filePath);
-                previewDocumentUrl = $"/api/files/download?path={encodedPath}";
+                previewFileUrl = $"/api/files/download?path={encodedPath}";
             }
             
             showPreviewDialog = true;
@@ -1410,7 +1422,9 @@
             // Trigger JavaScript rendering for PDF and Office documents after dialog is shown
             if (previewIsPdf || previewIsDocx || previewIsXlsx)
             {
-                await Task.Delay(100); // Small delay to ensure dialog is rendered
+                // Ensure the dialog is rendered before triggering JavaScript rendering
+                await InvokeAsync(StateHasChanged);
+                await Task.Yield();
                 await RenderDocument(extension);
             }
         }
@@ -1434,7 +1448,7 @@
         previewFileName = string.Empty;
         previewImageUrl = string.Empty;
         previewTextContent = string.Empty;
-        previewDocumentUrl = string.Empty;
+        previewFileUrl = string.Empty;
         previewIsImage = false;
         previewIsText = false;
         previewIsPdf = false;
@@ -1446,22 +1460,52 @@
     {
         try
         {
+            object? result = null;
             if (extension == ".pdf")
             {
-                await JSRuntime.InvokeVoidAsync("documentPreview.initPdfViewer", "documentPreviewContainer", previewDocumentUrl);
+                result = await JSRuntime.InvokeAsync<object>("documentPreview.initPdfViewer", "documentPreviewContainer", previewFileUrl);
             }
             else if (extension == ".docx" || extension == ".doc")
             {
-                await JSRuntime.InvokeVoidAsync("documentPreview.initDocxViewer", "documentPreviewContainer", previewDocumentUrl);
+                result = await JSRuntime.InvokeAsync<object>("documentPreview.initDocxViewer", "documentPreviewContainer", previewFileUrl);
             }
             else if (extension == ".xlsx" || extension == ".xls")
             {
-                await JSRuntime.InvokeVoidAsync("documentPreview.initXlsxViewer", "documentPreviewContainer", previewDocumentUrl);
+                result = await JSRuntime.InvokeAsync<object>("documentPreview.initXlsxViewer", "documentPreviewContainer", previewFileUrl);
+            }
+            
+            // Check if rendering failed and display error in container
+            if (result != null)
+            {
+                var resultDict = result as System.Text.Json.JsonElement?;
+                if (resultDict.HasValue && resultDict.Value.TryGetProperty("success", out var successProp))
+                {
+                    if (!successProp.GetBoolean())
+                    {
+                        var errorMsg = resultDict.Value.TryGetProperty("error", out var errorProp) 
+                            ? errorProp.GetString() ?? "未知错误"
+                            : "未知错误";
+                        await JSRuntime.InvokeVoidAsync("eval",
+                            $"var c = document.getElementById('documentPreviewContainer');" +
+                            $"if (c) {{ c.innerHTML = '<div style=\"padding:16px;color:var(--mud-palette-error);text-align:center;\">文档加载失败: {errorMsg}<br/>请下载文件后使用本地应用程序打开。</div>'; }}");
+                    }
+                }
             }
         }
         catch (Exception ex)
         {
-            ShowNotification($"渲染文档失败: {ex.Message}", true);
+            // Display error in preview container instead of just showing notification
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("eval",
+                    "var c = document.getElementById('documentPreviewContainer');" +
+                    "if (c) { c.innerHTML = '<div style=\"padding:16px;color:var(--mud-palette-error);text-align:center;\">文档预览失败，请稍后重试。<br/>请下载文件后使用本地应用程序打开。</div>'; }");
+            }
+            catch
+            {
+                // Fallback to notification if JavaScript fails
+                ShowNotification($"渲染文档失败: {ex.Message}", true);
+            }
         }
     }
 

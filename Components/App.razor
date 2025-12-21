@@ -32,16 +32,30 @@
     <script src="@Assets["_content/Microsoft.FluentUI.AspNetCore.Components/js/FluentComponents.lib.module.js"]" type="module" async></script>
     <script src="@Assets["js/custom-components.js"]"></script>
     <!-- PDF.js for PDF preview -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" 
+            integrity="sha512-bcDL9p/1Ly8vJx1U0ckDDOvCLKHDYxNfL+v9JjNLJmXPqYy4Wvu6vYKvQQ4+3p8Z1qLOdEYEq3vEcvSCJLJPaw==" 
+            crossorigin="anonymous" 
+            referrerpolicy="no-referrer"></script>
     <script>
         if (typeof pdfjsLib !== 'undefined') {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
     </script>
     <!-- Mammoth.js for DOCX preview -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" 
+            integrity="sha512-hfKMrEJH7PEFmPN6RUF1fJDc6LZQZ1v3v8m1sJGzL8x8k3pAKyQJ4R0h8V7IqXJLZMpCdLKGAF9w/xX1mRAZYA==" 
+            crossorigin="anonymous" 
+            referrerpolicy="no-referrer"></script>
     <!-- SheetJS for Excel preview -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" 
+            integrity="sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9DA==" 
+            crossorigin="anonymous" 
+            referrerpolicy="no-referrer"></script>
+    <!-- DOMPurify for HTML sanitization (optional but recommended) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" 
+            integrity="sha512-HbsMXAluBzUt5h8DAjd/Hf8aMr+MdvNxPBRIwtKiViY3fWOY/KZ6Y9D6J/oaHc/POaVF4cULmO2cZlRFjLjvzA==" 
+            crossorigin="anonymous" 
+            referrerpolicy="no-referrer"></script>
     <!-- Document preview helper -->
     <script src="@Assets["js/document-preview.js"]"></script>
 </body>

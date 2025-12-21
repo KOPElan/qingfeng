@@ -2,6 +2,26 @@
 // Handles PDF and Office document rendering
 
 window.documentPreview = {
+    // Simple HTML sanitizer (basic XSS protection)
+    sanitizeHtml: function(html) {
+        // If DOMPurify is available, use it
+        if (window.DOMPurify) {
+            return window.DOMPurify.sanitize(html);
+        }
+        
+        // Basic sanitization: remove script tags and event handlers
+        const div = document.createElement('div');
+        div.textContent = html;
+        let sanitized = div.innerHTML;
+        
+        // Remove potentially dangerous tags
+        sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        sanitized = sanitized.replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+        sanitized = sanitized.replace(/on\w+\s*=\s*[^\s>]*/gi, '');
+        
+        return sanitized;
+    },
+    
     // Initialize PDF.js viewer
     initPdfViewer: async function (containerId, fileUrl) {
         try {
@@ -50,7 +70,17 @@ window.documentPreview = {
             return { success: true, pageCount: pdf.numPages };
         } catch (error) {
             console.error('Error loading PDF:', error);
-            return { success: false, error: error.message };
+            let errorMessage = 'PDF加载失败';
+            if (error.message) {
+                if (error.message.includes('CORS')) {
+                    errorMessage = 'PDF加载失败: 跨域请求被阻止';
+                } else if (error.message.includes('Invalid PDF')) {
+                    errorMessage = 'PDF加载失败: 文件已损坏或格式无效';
+                } else {
+                    errorMessage = `PDF加载失败: ${error.message}`;
+                }
+            }
+            return { success: false, error: errorMessage };
         }
     },
 
@@ -72,12 +102,23 @@ window.documentPreview = {
                 return { success: false, error: 'Container not found' };
             }
             
-            container.innerHTML = `<div class="docx-content" style="padding: 20px; background: white; color: black; max-width: 800px; margin: 0 auto;">${result.value}</div>`;
+            // Sanitize HTML before inserting to prevent XSS
+            const sanitizedHtml = this.sanitizeHtml(result.value);
+            
+            container.innerHTML = `<div class="docx-content" style="padding: 20px; max-width: 800px; margin: 0 auto;">${sanitizedHtml}</div>`;
             
             return { success: true, warnings: result.messages };
         } catch (error) {
             console.error('Error loading DOCX:', error);
-            return { success: false, error: error.message };
+            let errorMessage = 'Word文档加载失败';
+            if (error.message) {
+                if (error.message.includes('fetch')) {
+                    errorMessage = 'Word文档加载失败: 无法获取文件';
+                } else {
+                    errorMessage = `Word文档加载失败: ${error.message}`;
+                }
+            }
+            return { success: false, error: errorMessage };
         }
     },
 
@@ -128,6 +169,21 @@ window.documentPreview = {
                 }
             };
             
+            // Helper function to sanitize and render sheet
+            const renderSheet = function(sheetName) {
+                const sheet = workbook.Sheets[sheetName];
+                const html = XLSX.utils.sheet_to_html(sheet);
+                // Sanitize HTML from SheetJS to prevent XSS
+                const sanitizedHtml = window.documentPreview.sanitizeHtml(html);
+                contentDiv.innerHTML = `<div style="padding: 10px;">${sanitizedHtml}</div>`;
+                
+                // Style the table
+                const table = contentDiv.querySelector('table');
+                styleTable(table);
+            };
+            
+            let activeTabButton = null;
+            
             workbook.SheetNames.forEach((sheetName, index) => {
                 // Create tab button
                 const tabButton = document.createElement('button');
@@ -140,23 +196,22 @@ window.documentPreview = {
                 tabButton.style.cursor = 'pointer';
                 tabButton.style.marginRight = '5px';
                 
+                if (index === 0) {
+                    activeTabButton = tabButton;
+                }
+                
                 tabButton.onclick = function() {
-                    // Update tab styles
-                    document.querySelectorAll('.excel-tab-button').forEach(btn => {
-                        btn.style.background = '#f3f3f3';
-                        btn.style.color = 'black';
-                    });
+                    // Update tab styles - use stored reference instead of querying all buttons
+                    if (activeTabButton) {
+                        activeTabButton.style.background = '#f3f3f3';
+                        activeTabButton.style.color = 'black';
+                    }
                     this.style.background = '#0078d4';
                     this.style.color = 'white';
+                    activeTabButton = this;
                     
                     // Show corresponding sheet
-                    const sheet = workbook.Sheets[sheetName];
-                    const html = XLSX.utils.sheet_to_html(sheet);
-                    contentDiv.innerHTML = `<div style="padding: 10px;">${html}</div>`;
-                    
-                    // Style the table
-                    const table = contentDiv.querySelector('table');
-                    styleTable(table);
+                    renderSheet(sheetName);
                 };
                 
                 tabsDiv.appendChild(tabButton);
@@ -167,19 +222,21 @@ window.documentPreview = {
             
             // Show first sheet by default
             if (workbook.SheetNames.length > 0) {
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const html = XLSX.utils.sheet_to_html(firstSheet);
-                contentDiv.innerHTML = `<div style="padding: 10px;">${html}</div>`;
-                
-                // Style the table
-                const table = contentDiv.querySelector('table');
-                styleTable(table);
+                renderSheet(workbook.SheetNames[0]);
             }
             
             return { success: true, sheetCount: workbook.SheetNames.length };
         } catch (error) {
             console.error('Error loading Excel:', error);
-            return { success: false, error: error.message };
+            let errorMessage = 'Excel文件加载失败';
+            if (error.message) {
+                if (error.message.includes('fetch')) {
+                    errorMessage = 'Excel文件加载失败: 无法获取文件';
+                } else {
+                    errorMessage = `Excel文件加载失败: ${error.message}`;
+                }
+            }
+            return { success: false, error: errorMessage };
         }
     },
 
@@ -187,7 +244,15 @@ window.documentPreview = {
     cleanup: function (containerId) {
         const container = document.getElementById(containerId);
         if (container) {
-            container.innerHTML = '';
+            // Replace the container with a clone to remove all event listeners
+            // This prevents memory leaks from accumulated event handlers
+            if (container.parentNode) {
+                const newContainer = container.cloneNode(false); // shallow clone, keeps attributes (including id)
+                container.parentNode.replaceChild(newContainer, container);
+            } else {
+                // Fallback: if the container has no parent, just clear its contents
+                container.innerHTML = '';
+            }
         }
     }
 };
