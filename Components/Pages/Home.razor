@@ -14,11 +14,9 @@
 
 @if (isCheckingAuth)
 {
-    <div class="loading-container">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
+    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="min-height: 200px;">
+        <FluentProgressRing />
+    </FluentStack>
 }
 else
 {
@@ -37,9 +35,9 @@ else
                 <i class="bi bi-house-door-fill icon-md color-primary-blue"></i>
                 <span class="brand-title">@LocalizationService.GetString("HomePortal")</span>
             </div>
-            <button class="settings-btn" @onclick="NavigateToSettings" title="@LocalizationService.GetString("Settings")">
-                <i class="bi bi-gear-fill"></i>
-            </button>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="NavigateToSettings" Title="@LocalizationService.GetString("Settings")" IconOnly="true" Style="color: inherit;">
+                ⚙️
+            </FluentButton>
         </header>
 
         <!-- Clock and Date -->
@@ -51,7 +49,7 @@ else
         <!-- Status Cards Row -->
         <div class="status-cards-row">
             <!-- Weather Card -->
-            <div class="status-card weather-card">
+            <FluentCard class="status-card weather-card">
                 <div class="card-content">
                     <span class="card-label">@LocalizationService.GetString("Weather")</span>
                     <div class="weather-display">
@@ -60,22 +58,20 @@ else
                     </div>
                 </div>
                 <i class="bi bi-cloud-sun-fill weather-icon"></i>
-            </div>
+            </FluentCard>
 
             <!-- CPU Card -->
-            <div class="status-card cpu-card">
+            <FluentCard class="status-card cpu-card">
                 <div class="card-content">
                     <i class="bi bi-cpu-fill card-icon"></i>
                     <span class="card-label">@LocalizationService.GetString("CPU")</span>
-                    <div class="progress-container">
-                        <div class="progress-bar cpu-progress" style="width: @CpuUsage%"></div>
-                    </div>
-                    <span class="card-value">@CpuUsage%</span>
+                    <FluentProgress Value="@((int)CpuUsage)" Max="100" Style="width: 100%; margin: 0.5rem 0;" aria-label="@LocalizationService.GetString("CPU")" />
+                    <span class="card-value">@CpuUsage.ToString("F1")%</span>
                 </div>
-            </div>
+            </FluentCard>
 
             <!-- Network Card -->
-            <div class="status-card network-card">
+            <FluentCard class="status-card network-card">
                 <div class="card-content-network">
                     <div class="network-item">
                         <i class="bi bi-arrow-down"></i>
@@ -88,21 +84,19 @@ else
                         <span class="network-value">@UploadSpeed</span>
                     </div>
                 </div>
-            </div>
+            </FluentCard>
         </div>
 
         <div class="status-cards-row">
             <!-- RAM Card -->
-            <div class="status-card ram-card">
+            <FluentCard class="status-card ram-card">
                 <div class="card-content">
                     <i class="bi bi-memory card-icon"></i>
                     <span class="card-label">@LocalizationService.GetString("RAM")</span>
-                    <div class="progress-container">
-                        <div class="progress-bar ram-progress" style="width: @RamUsage%"></div>
-                    </div>
-                    <span class="card-value">@RamUsage%</span>
+                    <FluentProgress Value="@((int)RamUsage)" Max="100" Style="width: 100%; margin: 0.5rem 0;" aria-label="@LocalizationService.GetString("RAM")" />
+                    <span class="card-value">@RamUsage.ToString("F1")%</span>
                 </div>
-            </div>
+            </FluentCard>
         </div>
 
         <!-- Application Center -->

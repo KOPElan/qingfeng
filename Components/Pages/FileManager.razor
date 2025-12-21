@@ -19,8 +19,8 @@
     
     .sidebar {
         width: 220px;
-        background-color: var(--mud-palette-background);
-        border-right: 1px solid var(--mud-palette-divider);
+        background-color: var(--neutral-layer-1);
+        border-right: 1px solid var(--neutral-stroke-divider-rest);
         overflow-y: auto;
         flex-shrink: 0;
     }
@@ -31,7 +31,7 @@
     
     .sidebar-title {
         font-size: 12px;
-        color: var(--mud-palette-text-secondary);
+        color: var(--neutral-foreground-hint);
         padding: 4px 12px;
         margin-bottom: 4px;
         font-weight: 500;
@@ -50,11 +50,11 @@
     }
     
     .sidebar-item:hover {
-        background-color: var(--mud-palette-action-default-hover);
+        background-color: var(--neutral-fill-secondary-hover);
     }
     
     .sidebar-item.selected {
-        background-color: var(--mud-palette-primary);
+        background-color: var(--accent-fill-rest);
         color: white;
     }
     
@@ -71,11 +71,11 @@
     
     .toolbar {
         padding: 12px 24px;
-        border-bottom: 1px solid var(--mud-palette-divider);
+        border-bottom: 1px solid var(--neutral-stroke-divider-rest);
         display: flex;
         align-items: center;
         gap: 8px;
-        background-color: var(--mud-palette-surface);
+        background-color: var(--neutral-layer-2);
     }
     
     .breadcrumb-container {
@@ -94,7 +94,7 @@
     
     .file-count {
         font-size: 13px;
-        color: var(--mud-palette-text-secondary);
+        color: var(--neutral-foreground-hint);
         margin-left: 8px;
     }
     
@@ -119,7 +119,7 @@
     }
     
     .file-item:hover {
-        background-color: var(--mud-palette-action-default-hover);
+        background-color: var(--neutral-fill-secondary-hover);
     }
     
     .folder-icon {
@@ -143,25 +143,25 @@
     
     .file-date {
         font-size: 11px;
-        color: var(--mud-palette-text-secondary);
+        color: var(--neutral-foreground-hint);
     }
     
     .status-bar {
         padding: 8px 24px;
-        border-top: 1px solid var(--mud-palette-divider);
+        border-top: 1px solid var(--neutral-stroke-divider-rest);
         display: flex;
         justify-content: space-between;
         align-items: center;
         font-size: 13px;
-        background-color: var(--mud-palette-surface);
+        background-color: var(--neutral-layer-2);
     }
     
     .path-display {
-        color: var(--mud-palette-text-secondary);
+        color: var(--neutral-foreground-hint);
     }
     
     .storage-info {
-        color: var(--mud-palette-text-secondary);
+        color: var(--neutral-foreground-hint);
     }
 </style>
 
@@ -690,12 +690,12 @@
                     else if (previewIsText)
                     {
                         <div style="max-height: 600px; overflow-y: auto;">
-                            <pre style="background-color: var(--mud-palette-background); padding: 16px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word;">@previewTextContent</pre>
+                            <pre style="background-color: var(--neutral-layer-1); padding: 16px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word;">@previewTextContent</pre>
                         </div>
                     }
                     else if (previewIsPdf || previewIsDocx || previewIsXlsx)
                     {
-                        <div id="documentPreviewContainer" style="max-height: 600px; overflow-y: auto; background-color: var(--mud-palette-surface); color: var(--mud-palette-text-primary);">
+                        <div id="documentPreviewContainer" style="max-height: 600px; overflow-y: auto; background-color: var(--neutral-layer-2); color: var(--neutral-foreground-rest);">
                             <div style="text-align: center; padding: 40px;">
                                 <div class="spinner-border" role="status">
                                     <span class="visually-hidden">加载中...</span>

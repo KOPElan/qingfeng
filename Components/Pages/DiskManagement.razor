@@ -9,33 +9,32 @@
 
 @if (!IsAuthorized)
 {
-    <div class="loading-container">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
+    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="min-height: 200px;">
+        <FluentProgressRing />
+    </FluentStack>
     return;
 }
 
-<h3 class="mb-4">磁盘管理</h3>
+<FluentStack Orientation="Orientation.Vertical" Style="padding: 2rem;">
+<FluentLabel Typo="Typography.H3">💿 磁盘管理</FluentLabel>
 
-<div class="d-flex gap-2 mb-4">
-    <button type="button" class="btn btn-custom-primary" @onclick="RefreshData">
-        <i class="@Icons.Material.Filled.Refresh me-2"></i>
-        刷新
-    </button>
-    <button type="button" class="btn btn-outline-primary" @onclick="ShowMountWizard">
-        <i class="@Icons.Material.Filled.AddCircle me-2"></i>
-        挂载向导
-    </button>
-</div>
+<FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; margin-bottom: 1rem;">
+    <FluentButton Appearance="Appearance.Accent" OnClick="RefreshData">
+        🔄 刷新
+    </FluentButton>
+    <FluentButton Appearance="Appearance.Outline" OnClick="ShowMountWizard">
+        ➕ 挂载向导
+    </FluentButton>
+</FluentStack>
 
 @if (!string.IsNullOrEmpty(message))
 {
-    <div class="alert @(isError ? "alert-danger" : "alert-success") mb-4">
+    <FluentMessageBar Intent="@(isError ? MessageIntent.Error : MessageIntent.Success)" Style="margin-bottom: 1rem;">
         @message
-        <button type="button" class="btn-close" @onclick="@(() => message = string.Empty)" aria-label="Close"></button>
-    </div>
+        <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => message = string.Empty)" aria-label="Close" Style="margin-left: auto;">
+            ✕
+        </FluentButton>
+    </FluentMessageBar>
 }
 
 <!-- All Block Devices -->
@@ -269,6 +268,7 @@
         <p class="text-muted-custom">没有挂载的网络磁盘</p>
     }
 </div>
+</FluentStack>
 
 <!-- Mount Wizard Modal -->
 @if (showMountWizard)

@@ -10,154 +10,153 @@
 
 @if (!IsAuthorized)
 {
-    <div class="loading-container">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
+    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="min-height: 200px;">
+        <FluentProgressRing />
+    </FluentStack>
     return;
 }
 
-<h3 class="mb-4">Docker管理</h3>
+<FluentStack Orientation="Orientation.Vertical" Style="padding: 2rem;">
+    <FluentLabel Typo="Typography.H3">🐳 Docker管理</FluentLabel>
 
-<button type="button" class="btn btn-custom-primary mb-4" @onclick="RefreshData">
-    <i class="@Icons.Material.Filled.Refresh me-2"></i>
-    刷新
-</button>
+    <FluentButton Appearance="Appearance.Accent" OnClick="RefreshData" Style="align-self: flex-start; margin-bottom: 1rem;">
+        🔄 刷新
+    </FluentButton>
 
-@if (!string.IsNullOrEmpty(message))
-{
-    <div class="alert @(isError ? "alert-danger" : "alert-success") mb-4">
-        @message
-        <button type="button" class="btn-close" @onclick="@(() => message = string.Empty)" aria-label="Close"></button>
-    </div>
-}
-
-@if (!isDockerAvailable)
-{
-    <div class="alert alert-warning mb-4">
-        <strong>警告：</strong> Docker服务不可用。请确保Docker已安装并正在运行。
-    </div>
-}
-
-<!-- Containers Section -->
-<div class="card-custom p-4 mb-4">
-    <h5 class="mb-3">
-        <i class="@Icons.Material.Filled.Inventory me-2"></i>
-        容器列表
-    </h5>
-    @if (containers != null && containers.Any())
+    @if (!string.IsNullOrEmpty(message))
     {
-        <table class="table table-custom">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>名称</th>
-                    <th>镜像</th>
-                    <th>状态</th>
-                    <th>端口</th>
-                    <th>创建时间</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var container in containers)
-                {
+        <FluentMessageBar Intent="@(isError ? MessageIntent.Error : MessageIntent.Success)" Style="margin-bottom: 1rem;">
+            @message
+            <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => message = string.Empty)" aria-label="Close" Style="margin-left: auto;">
+                ✕
+            </FluentButton>
+        </FluentMessageBar>
+    }
+
+    @if (!isDockerAvailable)
+    {
+        <FluentMessageBar Intent="MessageIntent.Warning" Style="margin-bottom: 1rem;">
+            <strong>警告：</strong> Docker服务不可用。请确保Docker已安装并正在运行。
+        </FluentMessageBar>
+    }
+
+    <!-- Containers Section -->
+    <FluentCard Style="margin-bottom: 1.5rem;">
+        <FluentLabel Typo="Typography.H5">
+            📦 容器列表
+        </FluentLabel>
+        @if (containers != null && containers.Any())
+        {
+            <table class="fluent-table" style="width: 100%; margin-top: 1rem;" role="table" aria-label="容器列表">
+                <thead>
                     <tr>
-                        <td><small style="font-family: monospace;">@container.Id.Substring(0, Math.Min(12, container.Id.Length))</small></td>
-                        <td>@container.Name</td>
-                        <td>@container.Image</td>
-                        <td>
-                            <span class="badge @(container.State == "running" ? "badge-success" : "badge-custom")">
-                                @container.State
-                            </span>
-                            <br />
-                            <small class="text-muted-custom">@container.Status</small>
-                        </td>
-                        <td>
-                            @if (container.Ports.Any())
-                            {
-                                @foreach (var port in container.Ports)
+                        <th scope="col">ID</th>
+                        <th scope="col">名称</th>
+                        <th scope="col">镜像</th>
+                        <th scope="col">状态</th>
+                        <th scope="col">端口</th>
+                        <th scope="col">创建时间</th>
+                        <th scope="col">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var container in containers)
+                    {
+                        <tr>
+                            <td><small style="font-family: monospace;">@container.Id.Substring(0, Math.Min(12, container.Id.Length))</small></td>
+                            <td>@container.Name</td>
+                            <td>@container.Image</td>
+                            <td>
+                                <FluentBadge Appearance="Appearance.Accent" BackgroundColor="@(container.State == "running" ? "var(--success)" : "var(--neutral-foreground-rest)")">
+                                    @container.State
+                                </FluentBadge>
+                                <br />
+                                <small style="color: var(--neutral-foreground-hint);">@container.Status</small>
+                            </td>
+                            <td>
+                                @if (container.Ports.Any())
                                 {
-                                    <small class="d-block">@port</small>
-                                }
-                            }
-                            else
-                            {
-                                <span>-</span>
-                            }
-                        </td>
-                        <td>@container.Created.ToString("yyyy-MM-dd HH:mm")</td>
-                        <td>
-                            <div class="btn-group btn-group-sm" role="group">
-                                @if (container.State == "running")
-                                {
-                                    <button type="button" class="btn btn-outline-warning" @onclick="@(() => StopContainer(container.Id))" disabled="@isProcessing" title="停止">
-                                        <i class="@Icons.Material.Filled.Stop"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-info" @onclick="@(() => RestartContainer(container.Id))" disabled="@isProcessing" title="重启">
-                                        <i class="@Icons.Material.Filled.RestartAlt"></i>
-                                    </button>
+                                    @foreach (var port in container.Ports)
+                                    {
+                                        <small style="display: block;">@port</small>
+                                    }
                                 }
                                 else
                                 {
-                                    <button type="button" class="btn btn-outline-success" @onclick="@(() => StartContainer(container.Id))" disabled="@isProcessing" title="启动">
-                                        <i class="@Icons.Material.Filled.PlayArrow"></i>
-                                    </button>
+                                    <span>-</span>
                                 }
-                                <button type="button" class="btn btn-outline-secondary" @onclick="@(() => ShowContainerLogs(container))" title="查看日志">
-                                    <i class="@Icons.Material.Filled.Article"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p class="text-muted-custom">没有找到容器</p>
-    }
-</div>
+                            </td>
+                            <td>@container.Created.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.25rem;">
+                                    @if (container.State == "running")
+                                    {
+                                        <FluentButton Appearance="Appearance.Outline" Disabled="@isProcessing" OnClick="@(() => StopContainer(container.Id))" Title="停止" IconOnly="true">
+                                            ⏸️
+                                        </FluentButton>
+                                        <FluentButton Appearance="Appearance.Outline" Disabled="@isProcessing" OnClick="@(() => RestartContainer(container.Id))" Title="重启" IconOnly="true">
+                                            🔄
+                                        </FluentButton>
+                                    }
+                                    else
+                                    {
+                                        <FluentButton Appearance="Appearance.Outline" Disabled="@isProcessing" OnClick="@(() => StartContainer(container.Id))" Title="启动" IconOnly="true">
+                                            ▶️
+                                        </FluentButton>
+                                    }
+                                    <FluentButton Appearance="Appearance.Outline" OnClick="@(() => ShowContainerLogs(container))" Title="查看日志" IconOnly="true">
+                                        📄
+                                    </FluentButton>
+                                </FluentStack>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <FluentLabel Style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有找到容器</FluentLabel>
+        }
+    </FluentCard>
 
-<!-- Images Section -->
-<div class="card-custom p-4 mb-4">
-    <h5 class="mb-3">
-        <i class="@Icons.Material.Filled.Layers me-2"></i>
-        镜像列表
-    </h5>
-    @if (images != null && images.Any())
-    {
-        <table class="table table-custom">
-            <thead>
-                <tr>
-                    <th>仓库</th>
-                    <th>标签</th>
-                    <th>ID</th>
-                    <th>大小</th>
-                    <th>创建时间</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var image in images)
-                {
+    <!-- Images Section -->
+    <FluentCard Style="margin-bottom: 1.5rem;">
+        <FluentLabel Typo="Typography.H5">
+            🗂️ 镜像列表
+        </FluentLabel>
+        @if (images != null && images.Any())
+        {
+            <table class="fluent-table" style="width: 100%; margin-top: 1rem;" role="table" aria-label="镜像列表">
+                <thead>
                     <tr>
-                        <td>@(image.RepoTags.FirstOrDefault()?.Split(':')[0] ?? "无")</td>
-                        <td>@(image.RepoTags.FirstOrDefault()?.Split(':').LastOrDefault() ?? "latest")</td>
-                        <td><small style="font-family: monospace;">@image.Id.Substring(0, Math.Min(12, image.Id.Length))</small></td>
-                        <td>@image.SizeMB</td>
-                        <td>@image.Created.ToString("yyyy-MM-dd HH:mm")</td>
+                        <th scope="col">仓库</th>
+                        <th scope="col">标签</th>
+                        <th scope="col">ID</th>
+                        <th scope="col">大小</th>
+                        <th scope="col">创建时间</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    }
-    else
-    {
-        <p class="text-muted-custom">没有找到镜像</p>
-    }
-</div>
+                </thead>
+                <tbody>
+                    @foreach (var image in images)
+                    {
+                        <tr>
+                            <td>@(image.RepoTags.FirstOrDefault()?.Split(':')[0] ?? "无")</td>
+                            <td>@(image.RepoTags.FirstOrDefault()?.Split(':').LastOrDefault() ?? "latest")</td>
+                            <td><small style="font-family: monospace;">@image.Id.Substring(0, Math.Min(12, image.Id.Length))</small></td>
+                            <td>@image.SizeMB</td>
+                            <td>@image.Created.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <FluentLabel Style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有找到镜像</FluentLabel>
+        }
+    </FluentCard>
+</FluentStack>
 
 @code {
     private List<DockerContainerInfo> containers = new();
