@@ -66,7 +66,12 @@
             <FluentStack Orientation="Orientation.Vertical">
                 @foreach (var app in availableApps)
                 {
-                    <div class="app-selector-item" @onclick="() => PinAppToDock(app)">
+                    <div class="app-selector-item" 
+                         @onclick="() => PinAppToDock(app)"
+                         @onkeydown="@(async e => { if (e.Key == "Enter" || e.Key == " ") await PinAppToDock(app); })"
+                         tabindex="0"
+                         role="button"
+                         aria-label="@($"添加 {app.Title} 到 Dock")">
                         <div class="app-icon-small" style="background: @app.IconColor;">
                             <i class="bi @app.Icon"></i>
                         </div>
@@ -74,7 +79,7 @@
                             <FluentLabel Style="font-weight: 600;">@app.Title</FluentLabel>
                             <FluentLabel Typo="Typography.Body" Style="font-size: 0.75rem; color: var(--neutral-foreground-hint); text-transform: uppercase;">@app.Category</FluentLabel>
                         </FluentStack>
-                        <span>➕</span>
+                        <span aria-hidden="true">➕</span>
                     </div>
                 }
             </FluentStack>

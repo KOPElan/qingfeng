@@ -31,9 +31,14 @@
                     @GetCategoryDisplayName(category)
                 </FluentLabel>
                 <FluentStack Orientation="Orientation.Vertical">
-                    @foreach (var setting in settingsByCategory[category])
+                    @{
+                        var categorySettings = settingsByCategory[category].ToList();
+                    }
+                    @for (var i = 0; i < categorySettings.Count; i++)
                     {
-                        <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--neutral-stroke-divider-rest);">
+                        var setting = categorySettings[i];
+                        <FluentStack Orientation="Orientation.Horizontal" 
+                                     Style="@($"justify-content: space-between; align-items: center; padding: 1rem 0;{(i < categorySettings.Count - 1 ? " border-bottom: 1px solid var(--neutral-stroke-divider-rest);" : "")}")">
                             <FluentStack Orientation="Orientation.Vertical" Style="flex: 1;">
                                 <FluentLabel Style="font-weight: 600;">@GetSettingDisplayName(setting.Key)</FluentLabel>
                                 <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">@setting.Description</FluentLabel>
@@ -52,7 +57,7 @@
                                 else if (setting.DataType == "bool")
                                 {
                                     <FluentSwitch Value="@(setting.Value == "true")"
-                                                  ValueChanged="@(value => UpdateSetting(setting.Key, value.ToString().ToLower()))" />
+                                                  ValueChanged="@(value => UpdateSetting(setting.Key, value ? "true" : "false"))" />
                                 }
                                 else if (setting.DataType == "int")
                                 {

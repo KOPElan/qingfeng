@@ -28,7 +28,7 @@
                 </FluentStack>
                 <FluentStack Orientation="Orientation.Vertical" Style="flex: 1;">
                     <FluentLabel><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</FluentLabel>
-                    <FluentProgress Value="@((int)systemInfo.Cpu.UsagePercent)" Max="100" Style="width: 100%;" />
+                    <FluentProgress Value="@((int)Math.Round(systemInfo.Cpu.UsagePercent))" Max="100" Style="width: 100%;" aria-label="CPU使用率" />
                 </FluentStack>
             </FluentStack>
         </FluentCard>
@@ -46,7 +46,7 @@
                 </FluentStack>
                 <FluentStack Orientation="Orientation.Vertical" Style="flex: 1;">
                     <FluentLabel><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</FluentLabel>
-                    <FluentProgress Value="@((int)systemInfo.Memory.UsagePercent)" Max="100" Style="width: 100%;" />
+                    <FluentProgress Value="@((int)Math.Round(systemInfo.Memory.UsagePercent))" Max="100" Style="width: 100%;" aria-label="内存使用率" />
                 </FluentStack>
             </FluentStack>
         </FluentCard>
@@ -58,16 +58,16 @@
             </FluentLabel>
             @if (systemInfo.Disks.Any())
             {
-                <table class="fluent-table" style="width: 100%; margin-top: 1rem;">
+                <table class="fluent-table" style="width: 100%; margin-top: 1rem;" role="table" aria-label="磁盘信息表">
                     <thead>
                         <tr>
-                            <th>名称</th>
-                            <th>挂载点</th>
-                            <th>文件系统</th>
-                            <th>总容量</th>
-                            <th>已使用</th>
-                            <th>可用</th>
-                            <th>使用率</th>
+                            <th scope="col">名称</th>
+                            <th scope="col">挂载点</th>
+                            <th scope="col">文件系统</th>
+                            <th scope="col">总容量</th>
+                            <th scope="col">已使用</th>
+                            <th scope="col">可用</th>
+                            <th scope="col">使用率</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -84,7 +84,7 @@
                                     @if (disk.IsReady)
                                     {
                                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                            <FluentProgress Value="@((int)disk.UsagePercent)" Max="100" Style="flex: 1; min-width: 100px;" />
+                                            <FluentProgress Value="@((int)Math.Round(disk.UsagePercent))" Max="100" Style="flex: 1; min-width: 0;" />
                                             <span>@disk.UsagePercent%</span>
                                         </div>
                                     }
@@ -111,15 +111,15 @@
             </FluentLabel>
             @if (systemInfo.Networks.Any())
             {
-                <table class="fluent-table" style="width: 100%; margin-top: 1rem;">
+                <table class="fluent-table" style="width: 100%; margin-top: 1rem;" role="table" aria-label="网络接口信息表">
                     <thead>
                         <tr>
-                            <th>名称</th>
-                            <th>描述</th>
-                            <th>状态</th>
-                            <th>已发送</th>
-                            <th>已接收</th>
-                            <th>IP地址</th>
+                            <th scope="col">名称</th>
+                            <th scope="col">描述</th>
+                            <th scope="col">状态</th>
+                            <th scope="col">已发送</th>
+                            <th scope="col">已接收</th>
+                            <th scope="col">IP地址</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -139,10 +139,12 @@
                                 <td>
                                     @if (network.IpAddresses.Any())
                                     {
-                                        @foreach (var ip in network.IpAddresses)
-                                        {
-                                            <FluentLabel Typo="Typography.Body" Style="display: block; font-size: 0.875rem;">@ip</FluentLabel>
-                                        }
+                                        <ul style="list-style: none; padding: 0; margin: 0;" role="list" aria-label="IP地址列表">
+                                            @foreach (var ip in network.IpAddresses)
+                                            {
+                                                <li><FluentLabel Typo="Typography.Body" Style="font-size: 0.875rem;">@ip</FluentLabel></li>
+                                            }
+                                        </ul>
                                     }
                                     else
                                     {
@@ -176,14 +178,14 @@
 
     .fluent-table th {
         text-align: left;
-        padding: 0.75rem;
-        border-bottom: 2px solid var(--neutral-stroke-divider-rest);
+        padding: calc(var(--design-unit) * 3px);
+        border-bottom: calc(var(--stroke-width, 1px) * 2) solid var(--neutral-stroke-divider-rest);
         font-weight: 600;
     }
 
     .fluent-table td {
-        padding: 0.75rem;
-        border-bottom: 1px solid var(--neutral-stroke-divider-rest);
+        padding: calc(var(--design-unit) * 3px);
+        border-bottom: var(--stroke-width, 1px) solid var(--neutral-stroke-divider-rest);
         vertical-align: middle;
     }
 

@@ -16,10 +16,10 @@
 
 <FluentStack Orientation="Orientation.Vertical" Style="max-width: 1200px; margin: 0 auto; padding: 2rem;">
     <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <FluentLabel Typo="Typography.H4">
+        <FluentLabel Typo="Typography.H4" aria-label="用户管理">
             👥 用户管理
         </FluentLabel>
-        <FluentButton Appearance="Appearance.Accent" OnClick="ShowCreateUserDialog">
+        <FluentButton Appearance="Appearance.Accent" OnClick="ShowCreateUserDialog" aria-label="创建用户">
             ➕ 创建用户
         </FluentButton>
     </FluentStack>
@@ -48,15 +48,15 @@
         }
         else
         {
-            <table class="fluent-table" style="width: 100%;">
+            <table class="fluent-table" style="width: 100%;" role="table" aria-label="用户列表">
                 <thead>
                     <tr>
-                        <th>用户名</th>
-                        <th>角色</th>
-                        <th>创建时间</th>
-                        <th>最后登录</th>
-                        <th>状态</th>
-                        <th>操作</th>
+                        <th scope="col">用户名</th>
+                        <th scope="col">角色</th>
+                        <th scope="col">创建时间</th>
+                        <th scope="col">最后登录</th>
+                        <th scope="col">状态</th>
+                        <th scope="col">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -64,7 +64,7 @@
                     {
                         <tr>
                             <td>
-                                👤 @user.Username
+                                <span aria-label="用户" role="img">👤</span> @user.Username
                             </td>
                             <td>
                                 @if (user.Role == "Admin")
@@ -91,7 +91,7 @@
                             <td>
                                 @if (user.Username != CurrentUsername)
                                 {
-                                    <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => ShowDeleteConfirmation(user))">
+                                    <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => ShowDeleteConfirmation(user))" Title="@($"删除用户 {user.Username}")">
                                         🗑️ 删除
                                     </FluentButton>
                                 }
@@ -149,7 +149,11 @@
         <FluentLabel Typo="Typography.H5">确认删除</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
-        <FluentLabel>确定要删除用户 <strong>@userToDelete?.Username</strong> 吗？此操作不可撤销。</FluentLabel>
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.25rem;">
+            <FluentLabel>确定要删除用户</FluentLabel>
+            <FluentLabel Style="font-weight: 600;">@userToDelete?.Username</FluentLabel>
+            <FluentLabel>吗？此操作不可撤销。</FluentLabel>
+        </FluentStack>
     </FluentDialogBody>
     <FluentDialogFooter>
         <FluentButton Appearance="Appearance.Neutral" OnClick="CloseDeleteConfirmation">取消</FluentButton>
@@ -166,14 +170,14 @@
 
     .fluent-table th {
         text-align: left;
-        padding: 0.75rem;
-        border-bottom: 2px solid var(--neutral-stroke-divider-rest);
+        padding: calc(var(--design-unit) * 3px);
+        border-bottom: calc(var(--stroke-width, 1px) * 2) solid var(--neutral-stroke-divider-rest);
         font-weight: 600;
     }
 
     .fluent-table td {
-        padding: 0.75rem;
-        border-bottom: 1px solid var(--neutral-stroke-divider-rest);
+        padding: calc(var(--design-unit) * 3px);
+        border-bottom: var(--stroke-width, 1px) solid var(--neutral-stroke-divider-rest);
         vertical-align: middle;
     }
 

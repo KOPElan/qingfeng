@@ -115,6 +115,13 @@ Since FluentUI's icon component system is complex, we used:
 - Retained Bootstrap Icons (`bi-*`) where custom icons were needed
 - FluentUI theme variables for colors
 
+**Accessibility Considerations for Emojis:**
+- Emojis can render differently across platforms and may be announced inconsistently by screen readers
+- For emojis that convey important meaning (e.g., in buttons or status indicators), provide an accessible name via `aria-label` or `Title` attribute
+- Decorative emojis should use `aria-hidden="true"` to hide them from assistive technology
+- For critical or frequently used icons, prefer accessible icon components (e.g., FluentUI icons or SVGs with proper `role`/`aria-label`) instead of relying solely on emojis
+- When emojis are used with text labels, wrap them with `role="img"` and `aria-label` for proper screen reader context
+
 ## Build Status
 
 ✅ **Build: SUCCESSFUL**
