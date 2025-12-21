@@ -11,6 +11,13 @@
 <PageTitle>文件管理器</PageTitle>
 
 <style>
+    .file-manager-page {
+        padding: 0;
+        height: 100%;
+    }
+</style>
+
+<style>
     .file-manager-container {
         display: flex;
         height: calc(100vh - 180px);
@@ -35,6 +42,9 @@
         padding: 4px 12px;
         margin-bottom: 4px;
         font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
     
     .sidebar-item {
@@ -58,7 +68,7 @@
         color: white;
     }
     
-    .sidebar-item .mud-icon-root {
+    .sidebar-item i {
         font-size: 20px;
     }
     
@@ -90,6 +100,16 @@
         align-items: center;
         gap: 4px;
         font-size: 14px;
+    }
+    
+    .breadcrumb-link {
+        cursor: pointer;
+        text-decoration: none;
+        color: var(--accent-fill-rest);
+    }
+    
+    .breadcrumb-link:hover {
+        text-decoration: underline;
     }
     
     .file-count {
@@ -163,6 +183,28 @@
     .storage-info {
         color: var(--neutral-foreground-hint);
     }
+    
+    .fluent-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .fluent-table th {
+        text-align: left;
+        padding: 0.75rem;
+        border-bottom: 2px solid var(--neutral-stroke-divider-rest);
+        font-weight: 600;
+    }
+    
+    .fluent-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--neutral-stroke-divider-rest);
+        vertical-align: middle;
+    }
+    
+    .fluent-table tr:hover {
+        background-color: var(--neutral-fill-secondary-hover);
+    }
 </style>
 
 <div class="file-manager-container">
@@ -171,10 +213,14 @@
         <!-- Favorites Section -->
         <div class="sidebar-section">
             <div class="sidebar-title">
-                收藏
-                <button type="button" class="btn btn-sm btn-link text-white float-end p-0" @onclick="ShowAddFavoriteDialog" title="添加当前文件夹到收藏">
+                <span>收藏</span>
+                <FluentButton Appearance="Appearance.Stealth" 
+                              IconOnly="true"
+                              OnClick="ShowAddFavoriteDialog" 
+                              Title="添加当前文件夹到收藏"
+                              Style="padding: 0; min-width: auto;">
                     <i class="@Icons.Material.Filled.Add" style="font-size: 16px;"></i>
-                </button>
+                </FluentButton>
             </div>
             @if (favoriteFolders != null && favoriteFolders.Any())
             {
@@ -184,24 +230,28 @@
                          @onclick="@(() => NavigateTo(favorite.Path))">
                         <i class="@GetFavoriteIcon(favorite.Icon)"></i>
                         <span style="flex: 1;">@favorite.Name</span>
-                        <button type="button" class="btn btn-sm btn-link text-white p-0" 
-                                @onclick="@(() => ShowEditFavoriteDialog(favorite))" 
-                                @onclick:stopPropagation="true"
-                                title="编辑">
-                            <i class="@Icons.Material.Filled.Edit" style="font-size: 14px;"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-link text-danger p-0" 
-                                @onclick="@(() => RemoveFavorite(favorite.Id))" 
-                                @onclick:stopPropagation="true"
-                                title="删除">
-                            <i class="@Icons.Material.Filled.Delete" style="font-size: 14px;"></i>
-                        </button>
+                        <div @onclick:stopPropagation="true" style="display: flex; gap: 2px;">
+                            <FluentButton Appearance="Appearance.Stealth" 
+                                          IconOnly="true"
+                                          OnClick="@(() => ShowEditFavoriteDialog(favorite))" 
+                                          Title="编辑"
+                                          Style="padding: 0; min-width: auto;">
+                                <i class="@Icons.Material.Filled.Edit" style="font-size: 14px;"></i>
+                            </FluentButton>
+                            <FluentButton Appearance="Appearance.Stealth" 
+                                          IconOnly="true"
+                                          OnClick="@(() => RemoveFavorite(favorite.Id))" 
+                                          Title="删除"
+                                          Style="padding: 0; min-width: auto; color: var(--error);">
+                                <i class="@Icons.Material.Filled.Delete" style="font-size: 14px;"></i>
+                            </FluentButton>
+                        </div>
                     </div>
                 }
             }
             else
             {
-                <div class="text-muted small px-3 py-2">暂无收藏文件夹</div>
+                <div style="color: var(--neutral-foreground-hint); font-size: 12px; padding: 4px 12px;">暂无收藏文件夹</div>
             }
         </div>
 
@@ -227,28 +277,38 @@
         <!-- Notification Area -->
         @if (!string.IsNullOrEmpty(notificationMessage))
         {
-            <div class="alert @(notificationIsError ? "alert-danger" : "alert-success") alert-dismissible fade show m-3" role="alert">
-                @notificationMessage
-                <button type="button" class="btn-close" @onclick="ClearNotification" aria-label="Close"></button>
+            <div style="margin: 1rem;">
+                <FluentMessageBar Intent="@(notificationIsError ? MessageIntent.Error : MessageIntent.Success)" 
+                                  OnDismiss="ClearNotification">
+                    @notificationMessage
+                </FluentMessageBar>
             </div>
         }
         
         <!-- Toolbar -->
         <div class="toolbar">
-            <button type="button" class="btn btn-link text-white" @onclick="GoBack" disabled="@(navigationHistory.Count <= 1)">
+            <FluentButton Appearance="Appearance.Stealth" 
+                          IconOnly="true"
+                          OnClick="GoBack" 
+                          Disabled="@(navigationHistory.Count <= 1)"
+                          Title="后退">
                 <i class="@Icons.Material.Filled.ArrowBack"></i>
-            </button>
-            <button type="button" class="btn btn-link text-white" @onclick="GoForward" disabled="@(forwardHistory.Count == 0)">
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" 
+                          IconOnly="true"
+                          OnClick="GoForward" 
+                          Disabled="@(forwardHistory.Count == 0)"
+                          Title="前进">
                 <i class="@Icons.Material.Filled.ArrowForward"></i>
-            </button>
+            </FluentButton>
             
             <div class="breadcrumb-container">
                 <div class="breadcrumb">
-                    <p class="small">Files</p>
+                    <span style="color: var(--neutral-foreground-hint);">Files</span>
                     @foreach (var part in GetPathParts())
                     {
                         <i class="@Icons.Material.Filled.ChevronRight"></i>
-                        <a class="clickable" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
+                        <a class="breadcrumb-link" @onclick="(() => NavigateTo(part.Path))">@part.Name</a>
                     }
                 </div>
                 @if (files != null)
@@ -257,21 +317,36 @@
                 }
             </div>
             
-            <button type="button" class="btn btn-link text-white" @onclick="ShowUploadDialog" title="上传文件">
+            <FluentButton Appearance="Appearance.Stealth" 
+                          IconOnly="true"
+                          OnClick="ShowUploadDialog" 
+                          Title="上传文件">
                 <i class="@Icons.Material.Filled.Upload"></i>
-            </button>
-            <button type="button" class="btn btn-link text-white" @onclick="ShowCreateFolderDialog" title="新建文件夹">
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" 
+                          IconOnly="true"
+                          OnClick="ShowCreateFolderDialog" 
+                          Title="新建文件夹">
                 <i class="@Icons.Material.Filled.CreateNewFolder"></i>
-            </button>
-            <button type="button" class="btn btn-link text-white" @onclick="ShowSearchDialog" title="搜索">
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" 
+                          IconOnly="true"
+                          OnClick="ShowSearchDialog" 
+                          Title="搜索">
                 <i class="@Icons.Material.Filled.Search"></i>
-            </button>
-            <button type="button" class="btn btn-link text-white" @onclick="RefreshFiles" title="刷新">
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" 
+                          IconOnly="true"
+                          OnClick="RefreshFiles" 
+                          Title="刷新">
                 <i class="@Icons.Material.Filled.Refresh"></i>
-            </button>
-            <button type="button" class="btn btn-link text-white" @onclick="ToggleViewMode" title="切换视图">
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" 
+                          IconOnly="true"
+                          OnClick="ToggleViewMode" 
+                          Title="切换视图">
                 <i class="@(isGridView ? Icons.Material.Filled.ViewList : Icons.Material.Filled.ViewModule)"></i>
-            </button>
+            </FluentButton>
         </div>
         
         <!-- File Grid View -->
@@ -302,7 +377,9 @@
                 }
                 else if (files == null)
                 {
-                    <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+                    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" Style="grid-column: 1 / -1; padding: 3rem;">
+                        <FluentProgressRing />
+                    </FluentStack>
                 }
             </div>
         }
@@ -312,7 +389,7 @@
             <div style="padding: 24px; overflow-y: auto; flex: 1;">
                 @if (files != null && files.Any())
                 {
-                    <table class="table table-custom">
+                    <table class="fluent-table">
                         <thead>
                             <tr>
                                 <th>名称</th>
@@ -329,56 +406,76 @@
                                     <td>
                                         @if (file.IsDirectory)
                                         {
-                                            <a @onclick="(() => NavigateTo(file.Path))" style="cursor: pointer;">
-                                                <i class="@Icons.Material.Filled.Folder me-2"></i>
+                                            <a @onclick="(() => NavigateTo(file.Path))" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                                                <i class="@Icons.Material.Filled.Folder"></i>
                                                 @file.Name
                                             </a>
                                         }
                                         else
                                         {
-                                            <div class="d-flex align-items-center" style="cursor: pointer;" @onclick="(() => NavigateTo(file.Path))">
-                                                <i class="@GetFileIcon(file.Extension) me-2"></i>
+                                            <div style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;" @onclick="(() => NavigateTo(file.Path))">
+                                                <i class="@GetFileIcon(file.Extension)"></i>
                                                 <span>@file.Name</span>
                                             </div>
                                         }
                                     </td>
                                     <td>
-                                        <span class="badge @(file.IsDirectory ? "badge-warning" : "badge-info")">
+                                        <FluentBadge Appearance="@(file.IsDirectory ? Appearance.Accent : Appearance.Neutral)">
                                             @(file.IsDirectory ? "文件夹" : "文件")
-                                        </span>
+                                        </FluentBadge>
                                     </td>
                                     <td>@file.SizeDisplay</td>
                                     <td>@file.LastModified.ToString("yyyy-MM-dd HH:mm:ss")</td>
                                     <td>
                                         @if (!file.IsDirectory && file.Name != "..")
                                         {
-                                            <button type="button" class="btn btn-sm btn-link text-white" @onclick="(() => DownloadFile(file.Path))" title="下载">
+                                            <FluentButton Appearance="Appearance.Stealth" 
+                                                          IconOnly="true"
+                                                          OnClick="(() => DownloadFile(file.Path))" 
+                                                          Title="下载">
                                                 <i class="@Icons.Material.Filled.Download"></i>
-                                            </button>
+                                            </FluentButton>
                                         }
                                         @if (file.Name != "..")
                                         {
-                                            <button type="button" class="btn btn-sm btn-link text-white" @onclick="(() => ShowRenameDialog(file))" title="重命名">
+                                            <FluentButton Appearance="Appearance.Stealth" 
+                                                          IconOnly="true"
+                                                          OnClick="(() => ShowRenameDialog(file))" 
+                                                          Title="重命名">
                                                 <i class="@Icons.Material.Filled.Edit"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-link text-white" @onclick="(() => ShowCopyDialog(file))" title="复制">
+                                            </FluentButton>
+                                            <FluentButton Appearance="Appearance.Stealth" 
+                                                          IconOnly="true"
+                                                          OnClick="(() => ShowCopyDialog(file))" 
+                                                          Title="复制">
                                                 <i class="@Icons.Material.Filled.ContentCopy"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-link text-white" @onclick="(() => ShowMoveDialog(file))" title="移动">
+                                            </FluentButton>
+                                            <FluentButton Appearance="Appearance.Stealth" 
+                                                          IconOnly="true"
+                                                          OnClick="(() => ShowMoveDialog(file))" 
+                                                          Title="移动">
                                                 <i class="@Icons.Material.Filled.DriveFileMove"></i>
-                                            </button>
+                                            </FluentButton>
                                         }
                                         @if (!file.IsDirectory && file.Name != "..")
                                         {
-                                            <button type="button" class="btn btn-sm btn-link text-danger" @onclick="(() => DeleteFile(file.Path))" title="删除">
+                                            <FluentButton Appearance="Appearance.Stealth" 
+                                                          IconOnly="true"
+                                                          OnClick="(() => DeleteFile(file.Path))" 
+                                                          Title="删除"
+                                                          Style="color: var(--error);">
                                                 <i class="@Icons.Material.Filled.Delete"></i>
-                                            </button>
+                                            </FluentButton>
                                         }
                                         @if (file.IsDirectory && file.Name != "..")
                                         {
-                                            <button type="button" class="btn btn-sm btn-link text-danger" @onclick="(() => DeleteDirectory(file.Path))" title="删除">
+                                            <FluentButton Appearance="Appearance.Stealth" 
+                                                          IconOnly="true"
+                                                          OnClick="(() => DeleteDirectory(file.Path))" 
+                                                          Title="删除"
+                                                          Style="color: var(--error);">
                                                 <i class="@Icons.Material.Filled.Delete"></i>
-                                            </button>
+                                            </FluentButton>
                                         }
                                     </td>
                                 </tr>
@@ -388,8 +485,9 @@
                 }
                 else if (files == null)
                 {
-                    <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-                    <p class="ml-2">加载中...</p>
+                    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" Style="padding: 3rem;">
+                        <FluentProgressRing />
+                    </FluentStack>
                 }
                 else
                 {
@@ -414,310 +512,248 @@
     </div>
 </div>
 
+
 <!-- Upload File Dialog -->
-@if (showUploadDialog)
-{
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content-custom">
-                <div class="modal-header-custom">
-                    <h6>上传文件</h6>
-                </div>
-                <div class="modal-body-custom">
-                    <label class="form-label">选择文件</label>
-                    <InputFile OnChange="HandleFileUpload" class="form-control-custom" multiple />
-                    @if (!string.IsNullOrEmpty(uploadMessage))
-                    {
-                        <div class="alert @(uploadSuccess ? "alert-success" : "alert-danger") mt-3">
-                            @uploadMessage
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer-custom">
-                    <button type="button" class="btn btn-custom" @onclick="CloseUploadDialog">关闭</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
+<FluentDialog Hidden="@(!showUploadDialog)" Modal="true" OnDismiss="CloseUploadDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H6">上传文件</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>选择文件</FluentLabel>
+            <InputFile OnChange="HandleFileUpload" multiple />
+            @if (!string.IsNullOrEmpty(uploadMessage))
+            {
+                <FluentMessageBar Intent="@(uploadSuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @uploadMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseUploadDialog">关闭</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 <!-- Create Folder Dialog -->
-@if (showCreateFolderDialog)
-{
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content-custom">
-                <div class="modal-header-custom">
-                    <h6>新建文件夹</h6>
-                </div>
-                <div class="modal-body-custom">
-                    <label class="form-label">文件夹名称</label>
-                    <input type="text" class="form-control-custom" @bind="newFolderName" placeholder="输入文件夹名称" />
-                    @if (!string.IsNullOrEmpty(createFolderMessage))
-                    {
-                        <div class="alert @(createFolderSuccess ? "alert-success" : "alert-danger") mt-3">
-                            @createFolderMessage
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer-custom">
-                    <button type="button" class="btn btn-custom" @onclick="CloseCreateFolderDialog">取消</button>
-                    <button type="button" class="btn btn-custom-primary" @onclick="CreateFolder">创建</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
+<FluentDialog Hidden="@(!showCreateFolderDialog)" Modal="true" OnDismiss="CloseCreateFolderDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H6">新建文件夹</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>文件夹名称</FluentLabel>
+            <FluentTextField @bind-Value="newFolderName" Placeholder="输入文件夹名称" Style="width: 100%;" />
+            @if (!string.IsNullOrEmpty(createFolderMessage))
+            {
+                <FluentMessageBar Intent="@(createFolderSuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @createFolderMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseCreateFolderDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="CreateFolder">创建</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 <!-- Rename Dialog -->
-@if (showRenameDialog)
-{
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content-custom">
-                <div class="modal-header-custom">
-                    <h6>重命名</h6>
-                </div>
-                <div class="modal-body-custom">
-                    <label class="form-label">新名称</label>
-                    <input type="text" class="form-control-custom" @bind="renameNewName" placeholder="输入新名称" />
-                    @if (!string.IsNullOrEmpty(renameMessage))
-                    {
-                        <div class="alert @(renameSuccess ? "alert-success" : "alert-danger") mt-3">
-                            @renameMessage
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer-custom">
-                    <button type="button" class="btn btn-custom" @onclick="CloseRenameDialog">取消</button>
-                    <button type="button" class="btn btn-custom-primary" @onclick="RenameItem">重命名</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
+<FluentDialog Hidden="@(!showRenameDialog)" Modal="true" OnDismiss="CloseRenameDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H6">重命名</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>新名称</FluentLabel>
+            <FluentTextField @bind-Value="renameNewName" Placeholder="输入新名称" Style="width: 100%;" />
+            @if (!string.IsNullOrEmpty(renameMessage))
+            {
+                <FluentMessageBar Intent="@(renameSuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @renameMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseRenameDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="RenameItem">重命名</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 <!-- Copy Dialog -->
-@if (showCopyDialog)
-{
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content-custom">
-                <div class="modal-header-custom">
-                    <h6>复制</h6>
-                </div>
-                <div class="modal-body-custom">
-                    <label class="form-label">目标路径</label>
-                    <input type="text" class="form-control-custom" @bind="copyDestination" placeholder="输入目标路径" />
-                    @if (!string.IsNullOrEmpty(copyMessage))
-                    {
-                        <div class="alert @(copySuccess ? "alert-success" : "alert-danger") mt-3">
-                            @copyMessage
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer-custom">
-                    <button type="button" class="btn btn-custom" @onclick="CloseCopyDialog">取消</button>
-                    <button type="button" class="btn btn-custom-primary" @onclick="CopyItem">复制</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
+<FluentDialog Hidden="@(!showCopyDialog)" Modal="true" OnDismiss="CloseCopyDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H6">复制</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>目标路径</FluentLabel>
+            <FluentTextField @bind-Value="copyDestination" Placeholder="输入目标路径" Style="width: 100%;" />
+            @if (!string.IsNullOrEmpty(copyMessage))
+            {
+                <FluentMessageBar Intent="@(copySuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @copyMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseCopyDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="CopyItem">复制</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 <!-- Move Dialog -->
-@if (showMoveDialog)
-{
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content-custom">
-                <div class="modal-header-custom">
-                    <h6>移动</h6>
-                </div>
-                <div class="modal-body-custom">
-                    <label class="form-label">目标路径</label>
-                    <input type="text" class="form-control-custom" @bind="moveDestination" placeholder="输入目标路径" />
-                    @if (!string.IsNullOrEmpty(moveMessage))
-                    {
-                        <div class="alert @(moveSuccess ? "alert-success" : "alert-danger") mt-3">
-                            @moveMessage
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer-custom">
-                    <button type="button" class="btn btn-custom" @onclick="CloseMoveDialog">取消</button>
-                    <button type="button" class="btn btn-custom-primary" @onclick="MoveItem">移动</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
+<FluentDialog Hidden="@(!showMoveDialog)" Modal="true" OnDismiss="CloseMoveDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H6">移动</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>目标路径</FluentLabel>
+            <FluentTextField @bind-Value="moveDestination" Placeholder="输入目标路径" Style="width: 100%;" />
+            @if (!string.IsNullOrEmpty(moveMessage))
+            {
+                <FluentMessageBar Intent="@(moveSuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @moveMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseMoveDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="MoveItem">移动</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 <!-- Search Dialog -->
-@if (showSearchDialog)
-{
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content-custom">
-                <div class="modal-header-custom">
-                    <h6>搜索文件</h6>
+<FluentDialog Hidden="@(!showSearchDialog)" Modal="true" OnDismiss="CloseSearchDialog" Style="min-width: 600px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H6">搜索文件</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>搜索关键词</FluentLabel>
+            <FluentStack Orientation="Orientation.Horizontal">
+                <FluentTextField @bind-Value="searchPattern" Placeholder="输入文件名或模式，如 *.txt" Style="flex: 1;" />
+                <FluentButton Appearance="Appearance.Accent" OnClick="SearchFiles">搜索</FluentButton>
+            </FluentStack>
+            @if (searchResults != null && searchResults.Any())
+            {
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table class="fluent-table">
+                        <thead>
+                            <tr>
+                                <th>名称</th>
+                                <th>路径</th>
+                                <th>类型</th>
+                                <th>大小</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var result in searchResults)
+                            {
+                                <tr style="cursor: pointer;" @onclick="(() => NavigateToSearchResult(result))">
+                                    <td>
+                                        <i class="@(result.IsDirectory ? Icons.Material.Filled.Folder : Icons.Material.Filled.InsertDriveFile)" style="margin-right: 0.5rem;"></i>
+                                        @result.Name
+                                    </td>
+                                    <td>@result.Path</td>
+                                    <td>@(result.IsDirectory ? "文件夹" : "文件")</td>
+                                    <td>@result.SizeDisplay</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
-                <div class="modal-body-custom">
-                    <div class="mb-3">
-                        <label class="form-label">搜索关键词</label>
-                        <div class="d-flex gap-2">
-                            <input type="text" class="form-control-custom flex-grow-1" @bind="searchPattern" placeholder="输入文件名或模式，如 *.txt" />
-                            <button type="button" class="btn btn-custom-primary" @onclick="SearchFiles">搜索</button>
-                        </div>
-                    </div>
-                    @if (searchResults != null && searchResults.Any())
-                    {
-                        <div style="max-height: 400px; overflow-y: auto;">
-                            <table class="table table-custom">
-                                <thead>
-                                    <tr>
-                                        <th>名称</th>
-                                        <th>路径</th>
-                                        <th>类型</th>
-                                        <th>大小</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var result in searchResults)
-                                    {
-                                        <tr style="cursor: pointer;" @onclick="(() => NavigateToSearchResult(result))">
-                                            <td>
-                                                <i class="@(result.IsDirectory ? Icons.Material.Filled.Folder : Icons.Material.Filled.InsertDriveFile) me-2"></i>
-                                                @result.Name
-                                            </td>
-                                            <td>@result.Path</td>
-                                            <td>@(result.IsDirectory ? "文件夹" : "文件")</td>
-                                            <td>@result.SizeDisplay</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                    @if (searchResults != null && !searchResults.Any())
-                    {
-                        <div class="alert alert-info">未找到匹配的文件</div>
-                    }
-                </div>
-                <div class="modal-footer-custom">
-                    <button type="button" class="btn btn-custom" @onclick="CloseSearchDialog">关闭</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
+            }
+            @if (searchResults != null && !searchResults.Any())
+            {
+                <FluentMessageBar Intent="MessageIntent.Info">未找到匹配的文件</FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseSearchDialog">关闭</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 <!-- Add/Edit Favorite Dialog -->
-@if (showFavoriteDialog)
-{
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content-custom">
-                <div class="modal-header-custom">
-                    <h6>@(editingFavorite == null ? "添加到收藏" : "编辑收藏")</h6>
-                </div>
-                <div class="modal-body-custom">
-                    <div class="mb-3">
-                        <label class="form-label">名称</label>
-                        <input type="text" class="form-control-custom" @bind="favoriteName" placeholder="输入收藏夹名称" />
-                    </div>
-                    @if (editingFavorite == null)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">路径</label>
-                            <input type="text" class="form-control-custom" @bind="favoritePath" placeholder="文件夹路径" readonly />
-                        </div>
-                    }
-                    <div class="mb-3">
-                        <label class="form-label">图标</label>
-                        <select class="form-control-custom" @bind="favoriteIcon">
-                            <option value="folder">文件夹</option>
-                            <option value="star">星标</option>
-                            <option value="description">文档</option>
-                            <option value="download">下载</option>
-                            <option value="photo_library">图片</option>
-                            <option value="movie">视频</option>
-                            <option value="audiotrack">音乐</option>
-                            <option value="work">工作</option>
-                            <option value="school">学习</option>
-                            <option value="home">主页</option>
-                        </select>
-                    </div>
-                    @if (!string.IsNullOrEmpty(favoriteMessage))
-                    {
-                        <div class="alert @(favoriteSuccess ? "alert-success" : "alert-danger")">
-                            @favoriteMessage
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer-custom">
-                    <button type="button" class="btn btn-custom" @onclick="CloseFavoriteDialog">取消</button>
-                    <button type="button" class="btn btn-custom-primary" @onclick="SaveFavorite">保存</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
+<FluentDialog Hidden="@(!showFavoriteDialog)" Modal="true" OnDismiss="CloseFavoriteDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H6">@(editingFavorite == null ? "添加到收藏" : "编辑收藏")</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>名称</FluentLabel>
+            <FluentTextField @bind-Value="favoriteName" Placeholder="输入收藏夹名称" Style="width: 100%;" />
+            
+            @if (editingFavorite == null)
+            {
+                <FluentLabel>路径</FluentLabel>
+                <FluentTextField @bind-Value="favoritePath" Placeholder="文件夹路径" ReadOnly="true" Style="width: 100%;" />
+            }
+            
+            <FluentLabel>图标</FluentLabel>
+            <FluentSelect TOption="string"
+                          Items="@(new[] { "folder", "star", "description", "download", "photo_library", "movie", "audiotrack", "work", "school", "home" })"
+                          OptionText="@GetFavoriteOptionText"
+                          OptionValue="@(item => item)"
+                          @bind-Value="favoriteIcon"
+                          Style="width: 100%;" />
+            
+            @if (!string.IsNullOrEmpty(favoriteMessage))
+            {
+                <FluentMessageBar Intent="@(favoriteSuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @favoriteMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseFavoriteDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="SaveFavorite">保存</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 <!-- File Preview Dialog -->
-@if (showPreviewDialog)
-{
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content-custom">
-                <div class="modal-header-custom">
-                    <h6>文件预览: @previewFileName</h6>
+<FluentDialog Hidden="@(!showPreviewDialog)" Modal="true" OnDismiss="ClosePreviewDialog" Style="min-width: 800px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H6">文件预览: @previewFileName</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <div style="max-height: 600px; overflow-y: auto;">
+            @if (previewIsImage)
+            {
+                <div style="text-align: center;">
+                    <img src="@previewImageUrl" alt="@previewFileName" style="max-width: 100%; max-height: 600px;" />
                 </div>
-                <div class="modal-body-custom">
-                    @if (previewIsImage)
-                    {
-                        <div style="text-align: center;">
-                            <img src="@previewImageUrl" alt="@previewFileName" style="max-width: 100%; max-height: 600px;" />
-                        </div>
-                    }
-                    else if (previewIsText)
-                    {
-                        <div style="max-height: 600px; overflow-y: auto;">
-                            <pre style="background-color: var(--neutral-layer-1); padding: 16px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word;">@previewTextContent</pre>
-                        </div>
-                    }
-                    else if (previewIsPdf || previewIsDocx || previewIsXlsx)
-                    {
-                        <div id="documentPreviewContainer" style="max-height: 600px; overflow-y: auto; background-color: var(--neutral-layer-2); color: var(--neutral-foreground-rest);">
-                            <div style="text-align: center; padding: 40px;">
-                                <div class="spinner-border" role="status">
-                                    <span class="visually-hidden">加载中...</span>
-                                </div>
-                                <p class="mt-3">正在加载文档预览...</p>
-                            </div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="alert alert-info">此文件类型暂不支持预览</div>
-                    }
+            }
+            else if (previewIsText)
+            {
+                <pre style="background-color: var(--neutral-layer-1); padding: 16px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word;">@previewTextContent</pre>
+            }
+            else if (previewIsPdf || previewIsDocx || previewIsXlsx)
+            {
+                <div id="documentPreviewContainer" style="background-color: var(--neutral-layer-2); color: var(--neutral-foreground-rest);">
+                    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" Style="padding: 3rem;">
+                        <FluentProgressRing />
+                        <FluentLabel>正在加载文档预览...</FluentLabel>
+                    </FluentStack>
                 </div>
-                <div class="modal-footer-custom">
-                    <button type="button" class="btn btn-custom-primary" @onclick="(() => DownloadFile(previewFilePath))">下载</button>
-                    <button type="button" class="btn btn-custom" @onclick="ClosePreviewDialog">关闭</button>
-                </div>
-            </div>
+            }
+            else
+            {
+                <FluentMessageBar Intent="MessageIntent.Info">此文件类型暂不支持预览</FluentMessageBar>
+            }
         </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Accent" OnClick="(() => DownloadFile(previewFilePath))">下载</FluentButton>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="ClosePreviewDialog">关闭</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 @code {
     private List<FileItemInfo>? files;
@@ -1616,6 +1652,24 @@
             "school" => Icons.Material.Filled.School,
             "home" => Icons.Material.Filled.Home,
             _ => Icons.Material.Filled.Folder
+        };
+    }
+    
+    private string GetFavoriteOptionText(string icon)
+    {
+        return icon switch
+        {
+            "folder" => "文件夹",
+            "star" => "星标",
+            "description" => "文档",
+            "download" => "下载",
+            "photo_library" => "图片",
+            "movie" => "视频",
+            "audiotrack" => "音乐",
+            "work" => "工作",
+            "school" => "学习",
+            "home" => "主页",
+            _ => "文件夹"
         };
     }
 }
