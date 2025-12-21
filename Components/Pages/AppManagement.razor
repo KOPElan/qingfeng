@@ -7,18 +7,18 @@
 
 <PageTitle>应用管理 - 清风</PageTitle>
 
-<div class="app-management-container">
-    <div class="page-header">
-        <h2><i class="bi bi-grid-3x3-gap-fill me-2"></i>应用管理</h2>
-        <button class="btn btn-primary" @onclick="ShowAddDialog">
-            <i class="bi bi-plus-lg me-2"></i>添加应用
-        </button>
-    </div>
+<FluentStack Orientation="Orientation.Vertical" Style="padding: 2rem; max-width: 1400px; margin: 0 auto;">
+    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <FluentLabel Typo="Typography.H3">📱 应用管理</FluentLabel>
+        <FluentButton Appearance="Appearance.Accent" OnClick="ShowAddDialog">
+            ➕ 添加应用
+        </FluentButton>
+    </FluentStack>
 
     <div class="apps-grid-management">
         @foreach (var app in applications)
         {
-            <div class="app-card-management">
+            <FluentCard class="app-card-management">
                 <div class="app-card-header">
                     <div class="app-icon-small" style="background: @app.IconColor;">
                         <i class="bi @app.Icon"></i>
@@ -28,80 +28,67 @@
                 <div class="app-card-body">
                     <h5 class="app-title">@app.Title</h5>
                     <p class="app-description">@app.Description</p>
-                    <span class="app-category-badge">@app.Category</span>
+                    <FluentBadge Appearance="Appearance.Accent" Style="background: rgba(96, 165, 250, 0.2); color: #60a5fa;">@app.Category</FluentBadge>
                     <div class="app-url">@app.Url</div>
                 </div>
-                <div class="app-card-actions">
-                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditApplication(app)">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm @(app.IsPinnedToDock ? "btn-warning" : "btn-outline-secondary")" 
-                            @onclick="() => TogglePin(app)" title="@(app.IsPinnedToDock ? "从Dock取消固定" : "固定到Dock")">
-                        <i class="bi bi-pin-angle-fill"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteApplication(app)">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </div>
+                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
+                    <FluentButton Appearance="Appearance.Outline" OnClick="() => EditApplication(app)" IconOnly="true" Title="编辑">
+                        ✏️
+                    </FluentButton>
+                    <FluentButton Appearance="Appearance.Outline" 
+                                  BackgroundColor="@(app.IsPinnedToDock ? "var(--warning)" : "")"
+                                  OnClick="() => TogglePin(app)" 
+                                  IconOnly="true"
+                                  Title="@(app.IsPinnedToDock ? "从Dock取消固定" : "固定到Dock")">
+                        📌
+                    </FluentButton>
+                    <FluentButton Appearance="Appearance.Outline" OnClick="() => DeleteApplication(app)" IconOnly="true" Title="删除">
+                        🗑️
+                    </FluentButton>
+                </FluentStack>
+            </FluentCard>
         }
     </div>
 
     @if (!applications.Any())
     {
-        <div class="empty-state">
-            <i class="bi bi-inbox icon-2xl" style="color: var(--text-lighter);"></i>
-            <p>还没有应用</p>
-            <button class="btn btn-primary" @onclick="ShowAddDialog">添加第一个应用</button>
-        </div>
+        <FluentStack Orientation="Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center" Style="padding: 4rem 2rem;">
+            <div style="font-size: 4rem; color: var(--neutral-foreground-hint);">📭</div>
+            <FluentLabel Style="color: var(--neutral-foreground-hint);">还没有应用</FluentLabel>
+            <FluentButton Appearance="Appearance.Accent" OnClick="ShowAddDialog">添加第一个应用</FluentButton>
+        </FluentStack>
     }
-</div>
+</FluentStack>
 
-@if (showDialog)
-{
-    <div class="modal-backdrop-custom" @onclick="CloseDialog"></div>
-    <div class="modal-custom">
-        <div class="modal-header-custom">
-            <h5>@(editingApp.Id > 0 ? "编辑应用" : "添加应用")</h5>
-            <button class="btn-close-custom" @onclick="CloseDialog">&times;</button>
-        </div>
-        <div class="modal-body-custom">
-            <div class="mb-3">
-                <label class="form-label">应用名称</label>
-                <input type="text" class="form-control" @bind="editingApp.Title" placeholder="例如: Jellyfin">
-            </div>
-            <div class="mb-3">
-                <label class="form-label">URL</label>
-                <input type="text" class="form-control" @bind="editingApp.Url" placeholder="http://localhost:8096">
-            </div>
-            <div class="mb-3">
-                <label class="form-label">图标 (Bootstrap Icon)</label>
-                <input type="text" class="form-control" @bind="editingApp.Icon" placeholder="bi-film">
-                <small class="form-text text-muted">访问 <a href="https://icons.getbootstrap.com/" target="_blank">Bootstrap Icons</a> 查找图标</small>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">图标颜色</label>
-                <input type="color" class="form-control form-control-color" @bind="editingApp.IconColor">
-            </div>
-            <div class="mb-3">
-                <label class="form-label">描述</label>
-                <input type="text" class="form-control" @bind="editingApp.Description" placeholder="媒体服务器">
-            </div>
-            <div class="mb-3">
-                <label class="form-label">分类</label>
-                <input type="text" class="form-control" @bind="editingApp.Category" placeholder="MEDIA">
-            </div>
-            <div class="mb-3 form-check">
-                <input type="checkbox" class="form-check-input" id="onlineCheck" @bind="editingApp.IsOnline">
-                <label class="form-check-label" for="onlineCheck">在线状态</label>
-            </div>
-        </div>
-        <div class="modal-footer-custom">
-            <button class="btn btn-secondary" @onclick="CloseDialog">取消</button>
-            <button class="btn btn-primary" @onclick="SaveApplication">保存</button>
-        </div>
-    </div>
-}
+<FluentDialog Hidden="@(!showDialog)" Modal="true" OnDismiss="CloseDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">@(editingApp.Id > 0 ? "编辑应用" : "添加应用")</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+            <FluentTextField Label="应用名称" @bind-Value="editingApp.Title" Placeholder="例如: Jellyfin" Style="width: 100%;" />
+            <FluentTextField Label="URL" @bind-Value="editingApp.Url" Placeholder="http://localhost:8096" Style="width: 100%;" />
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentLabel>图标 (Bootstrap Icon)</FluentLabel>
+                <FluentTextField @bind-Value="editingApp.Icon" Placeholder="bi-film" Style="width: 100%;" />
+                <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 0.875rem;">
+                    访问 <a href="https://icons.getbootstrap.com/" target="_blank">Bootstrap Icons</a> 查找图标
+                </FluentLabel>
+            </FluentStack>
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentLabel>图标颜色</FluentLabel>
+                <input type="color" class="form-control form-control-color" @bind="editingApp.IconColor" style="width: 100%; height: 40px; border-radius: 4px;">
+            </FluentStack>
+            <FluentTextField Label="描述" @bind-Value="editingApp.Description" Placeholder="媒体服务器" Style="width: 100%;" />
+            <FluentTextField Label="分类" @bind-Value="editingApp.Category" Placeholder="MEDIA" Style="width: 100%;" />
+            <FluentSwitch Label="在线状态" @bind-Value="editingApp.IsOnline" />
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="SaveApplication">保存</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 @code {
     private List<Application> applications = new();
@@ -189,26 +176,6 @@
 }
 
 <style>
-    .app-management-container {
-        padding: 2rem;
-        max-width: 1400px;
-        margin: 0 auto;
-    }
-
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 2rem;
-    }
-
-    .page-header h2 {
-        font-size: 1.8rem;
-        font-weight: 600;
-        color: #e5e7eb;
-        margin: 0;
-    }
-
     .apps-grid-management {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -216,10 +183,6 @@
     }
 
     .app-card-management {
-        background: rgba(30, 41, 59, 0.5);
-        border-radius: 12px;
-        padding: 1.5rem;
-        backdrop-filter: blur(10px);
         transition: transform 0.2s;
     }
 
@@ -268,113 +231,20 @@
     .app-title {
         font-size: 1.2rem;
         font-weight: 600;
-        color: #e5e7eb;
+        color: var(--neutral-foreground-rest);
         margin-bottom: 0.5rem;
     }
 
     .app-description {
         font-size: 0.875rem;
-        color: #94a3b8;
+        color: var(--neutral-foreground-hint);
         margin-bottom: 0.5rem;
-    }
-
-    .app-category-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        background: rgba(96, 165, 250, 0.2);
-        color: #60a5fa;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
     }
 
     .app-url {
         font-size: 0.75rem;
-        color: #64748b;
+        color: var(--neutral-foreground-hint);
         margin-top: 0.5rem;
         word-break: break-all;
-    }
-
-    .app-card-actions {
-        display: flex;
-        gap: 0.5rem;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 4rem 2rem;
-        color: #94a3b8;
-    }
-
-    .modal-backdrop-custom {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(4px);
-        z-index: 1040;
-    }
-
-    .modal-custom {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(30, 41, 59, 0.95);
-        border-radius: 16px;
-        max-width: 500px;
-        width: 90%;
-        z-index: 1050;
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .modal-header-custom {
-        padding: 1.5rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .modal-header-custom h5 {
-        margin: 0;
-        color: #e5e7eb;
-        font-weight: 600;
-    }
-
-    .btn-close-custom {
-        background: none;
-        border: none;
-        color: #94a3b8;
-        font-size: 1.5rem;
-        cursor: pointer;
-        padding: 0;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 4px;
-        transition: background 0.2s;
-    }
-
-    .btn-close-custom:hover {
-        background: rgba(255, 255, 255, 0.1);
-    }
-
-    .modal-body-custom {
-        padding: 1.5rem;
-    }
-
-    .modal-footer-custom {
-        padding: 1.5rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
     }
 </style>
