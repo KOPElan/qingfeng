@@ -174,7 +174,7 @@
         }
         else if (!string.IsNullOrEmpty(containerLogs))
         {
-            <div style="background-color: #1e1e1e; color: #d4d4d4; font-family: 'Consolas', 'Courier New', monospace; padding: 1rem; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; border-radius: var(--control-corner-radius);">
+            <div class="container-logs-viewer">
                 @containerLogs
             </div>
         }
@@ -295,6 +295,7 @@
         selectedContainerId = container.Id;
         selectedContainerName = container.Name;
         showLogsDialog = true;
+        StateHasChanged();
         await LoadContainerLogs();
     }
 
