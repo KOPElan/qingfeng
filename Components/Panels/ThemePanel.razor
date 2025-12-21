@@ -1,0 +1,85 @@
+@using Microsoft.FluentUI.AspNetCore.Components
+
+<div class="theme-panel-content">
+    <FluentDivider Style="margin: calc(var(--design-unit) * 2px) 0;" />
+
+    <div class="theme-option">
+        <div class="theme-option-info">
+            <div class="theme-option-title">主题模式</div>
+            <div class="theme-option-description">选择亮色、暗色或跟随系统</div>
+        </div>
+        <FluentSelect TOption="string"
+                      Items="@themeModes"
+                      OptionText="@(item => item switch 
+                      {
+                          "Light" => "☀️ 亮色",
+                          "Dark" => "🌙 暗色",
+                          "System" => "💻 跟随系统",
+                          _ => item
+                      })"
+                      OptionValue="@(item => item)"
+                      Value="@CurrentMode"
+                      ValueChanged="@OnThemeModeChanged"
+                      Style="width: 150px;" />
+    </div>
+
+    <div class="theme-option">
+        <div class="theme-option-info">
+            <div class="theme-option-title">主题色</div>
+            <div class="theme-option-description">选择您喜欢的主色调</div>
+        </div>
+        <FluentSelect TOption="string"
+                      Items="@officeColors"
+                      OptionText="@(item => item)"
+                      OptionValue="@(item => item)"
+                      Value="@CurrentOfficeColor"
+                      ValueChanged="@OnOfficeColorChanged"
+                      Style="width: 150px;" />
+    </div>
+
+    <FluentDivider Style="margin: calc(var(--design-unit) * 2px) 0;" />
+
+    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: calc(var(--type-ramp-base-font-size) * 0.875);">
+        主题设置会自动保存并应用到所有页面
+    </FluentLabel>
+</div>
+
+@code {
+    [Parameter]
+    public DesignThemeModes Mode { get; set; } = DesignThemeModes.System;
+
+    [Parameter]
+    public EventCallback<DesignThemeModes> ModeChanged { get; set; }
+
+    [Parameter]
+    public OfficeColor? OfficeColor { get; set; } = Microsoft.FluentUI.AspNetCore.Components.OfficeColor.Default;
+
+    [Parameter]
+    public EventCallback<OfficeColor?> OfficeColorChanged { get; set; }
+
+    private string CurrentMode => Mode.ToString();
+
+    private string CurrentOfficeColor => OfficeColor?.ToString() ?? "Default";
+
+    private static readonly string[] themeModes = new[] { "Light", "Dark", "System" };
+    
+    private static readonly string[] officeColors = Enum.GetNames(typeof(OfficeColor));
+
+    private async Task OnThemeModeChanged(string mode)
+    {
+        if (Enum.TryParse<DesignThemeModes>(mode, out var modeEnum))
+        {
+            Mode = modeEnum;
+            await ModeChanged.InvokeAsync(modeEnum);
+        }
+    }
+
+    private async Task OnOfficeColorChanged(string color)
+    {
+        if (Enum.TryParse<OfficeColor>(color, out var colorEnum))
+        {
+            OfficeColor = colorEnum;
+            await OfficeColorChanged.InvokeAsync(colorEnum);
+        }
+    }
+}

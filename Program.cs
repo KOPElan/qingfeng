@@ -36,7 +36,6 @@ builder.Services.AddSingleton<IDiskManagementService, DiskManagementService>();
 builder.Services.AddScoped<IDockItemService, DockItemService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
-builder.Services.AddSingleton<QingFeng.Services.IDialogService, QingFeng.Services.DialogService>();
 builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 builder.Services.AddScoped<AuthenticationStateService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
