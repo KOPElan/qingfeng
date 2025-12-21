@@ -11,13 +11,6 @@
 <PageTitle>文件管理器</PageTitle>
 
 <style>
-    .file-manager-page {
-        padding: 0;
-        height: 100%;
-    }
-</style>
-
-<style>
     .file-manager-container {
         display: flex;
         height: calc(100vh - 180px);
@@ -516,7 +509,7 @@
 <!-- Upload File Dialog -->
 <FluentDialog Hidden="@(!showUploadDialog)" Modal="true" OnDismiss="CloseUploadDialog">
     <FluentDialogHeader>
-        <FluentLabel Typo="Typography.H6">上传文件</FluentLabel>
+        <FluentLabel Typo="Typography.H5">上传文件</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
@@ -538,7 +531,7 @@
 <!-- Create Folder Dialog -->
 <FluentDialog Hidden="@(!showCreateFolderDialog)" Modal="true" OnDismiss="CloseCreateFolderDialog">
     <FluentDialogHeader>
-        <FluentLabel Typo="Typography.H6">新建文件夹</FluentLabel>
+        <FluentLabel Typo="Typography.H5">新建文件夹</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
@@ -561,7 +554,7 @@
 <!-- Rename Dialog -->
 <FluentDialog Hidden="@(!showRenameDialog)" Modal="true" OnDismiss="CloseRenameDialog">
     <FluentDialogHeader>
-        <FluentLabel Typo="Typography.H6">重命名</FluentLabel>
+        <FluentLabel Typo="Typography.H5">重命名</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
@@ -584,7 +577,7 @@
 <!-- Copy Dialog -->
 <FluentDialog Hidden="@(!showCopyDialog)" Modal="true" OnDismiss="CloseCopyDialog">
     <FluentDialogHeader>
-        <FluentLabel Typo="Typography.H6">复制</FluentLabel>
+        <FluentLabel Typo="Typography.H5">复制</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
@@ -607,7 +600,7 @@
 <!-- Move Dialog -->
 <FluentDialog Hidden="@(!showMoveDialog)" Modal="true" OnDismiss="CloseMoveDialog">
     <FluentDialogHeader>
-        <FluentLabel Typo="Typography.H6">移动</FluentLabel>
+        <FluentLabel Typo="Typography.H5">移动</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
@@ -630,7 +623,7 @@
 <!-- Search Dialog -->
 <FluentDialog Hidden="@(!showSearchDialog)" Modal="true" OnDismiss="CloseSearchDialog" Style="min-width: 600px;">
     <FluentDialogHeader>
-        <FluentLabel Typo="Typography.H6">搜索文件</FluentLabel>
+        <FluentLabel Typo="Typography.H5">搜索文件</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
@@ -656,8 +649,10 @@
                             {
                                 <tr style="cursor: pointer;" @onclick="(() => NavigateToSearchResult(result))">
                                     <td>
-                                        <i class="@(result.IsDirectory ? Icons.Material.Filled.Folder : Icons.Material.Filled.InsertDriveFile)" style="margin-right: 0.5rem;"></i>
-                                        @result.Name
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <i class="@(result.IsDirectory ? Icons.Material.Filled.Folder : Icons.Material.Filled.InsertDriveFile)"></i>
+                                            @result.Name
+                                        </div>
                                     </td>
                                     <td>@result.Path</td>
                                     <td>@(result.IsDirectory ? "文件夹" : "文件")</td>
@@ -682,7 +677,7 @@
 <!-- Add/Edit Favorite Dialog -->
 <FluentDialog Hidden="@(!showFavoriteDialog)" Modal="true" OnDismiss="CloseFavoriteDialog">
     <FluentDialogHeader>
-        <FluentLabel Typo="Typography.H6">@(editingFavorite == null ? "添加到收藏" : "编辑收藏")</FluentLabel>
+        <FluentLabel Typo="Typography.H5">@(editingFavorite == null ? "添加到收藏" : "编辑收藏")</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
@@ -720,7 +715,7 @@
 <!-- File Preview Dialog -->
 <FluentDialog Hidden="@(!showPreviewDialog)" Modal="true" OnDismiss="ClosePreviewDialog" Style="min-width: 800px;">
     <FluentDialogHeader>
-        <FluentLabel Typo="Typography.H6">文件预览: @previewFileName</FluentLabel>
+        <FluentLabel Typo="Typography.H5">文件预览: @previewFileName</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
         <div style="max-height: 600px; overflow-y: auto;">
