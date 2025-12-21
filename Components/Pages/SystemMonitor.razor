@@ -7,180 +7,190 @@
 
 <PageTitle>系统监控</PageTitle>
 
-<h3 class="mb-4">系统监控</h3>
+<FluentStack Orientation="Orientation.Vertical" Style="padding: 2rem;">
+    <FluentLabel Typo="Typography.H3">📊 系统监控</FluentLabel>
 
-<button type="button" class="btn btn-custom-primary mb-4" @onclick="RefreshData">
-    <i class="@Icons.Material.Filled.Refresh me-2"></i>
-    刷新
-</button>
+    <FluentButton Appearance="Appearance.Accent" OnClick="RefreshData" Style="align-self: flex-start; margin-bottom: 1rem;">
+        🔄 刷新
+    </FluentButton>
 
-@if (systemInfo != null)
-{
-    <!-- CPU Information -->
-    <div class="card-custom p-4 mb-4">
-        <h5 class="mb-3">
-            <i class="@Icons.Material.Filled.Speed me-2"></i>
-            CPU信息
-        </h5>
-        <div class="row">
-            <div class="col-md-6">
-                <p class="mb-2"><strong>核心数：</strong>@systemInfo.Cpu.CoreCount</p>
-                <p class="mb-2"><strong>架构：</strong>@systemInfo.Cpu.ProcessorName</p>
-            </div>
-            <div class="col-md-6">
-                <p class="mb-2"><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</p>
-                <div class="progress-custom">
-                    <div class="progress-bar-custom" style="width: @systemInfo.Cpu.UsagePercent%">
-                        @systemInfo.Cpu.UsagePercent%
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    @if (systemInfo != null)
+    {
+        <!-- CPU Information -->
+        <FluentCard Style="margin-bottom: 1.5rem;">
+            <FluentLabel Typo="Typography.H5">
+                ⚡ CPU信息
+            </FluentLabel>
+            <FluentStack Orientation="Orientation.Horizontal" Style="gap: 2rem; margin-top: 1rem;">
+                <FluentStack Orientation="Orientation.Vertical" Style="flex: 1;">
+                    <FluentLabel><strong>核心数：</strong>@systemInfo.Cpu.CoreCount</FluentLabel>
+                    <FluentLabel><strong>架构：</strong>@systemInfo.Cpu.ProcessorName</FluentLabel>
+                </FluentStack>
+                <FluentStack Orientation="Orientation.Vertical" Style="flex: 1;">
+                    <FluentLabel><strong>使用率：</strong>@systemInfo.Cpu.UsagePercent%</FluentLabel>
+                    <FluentProgress Value="@((int)systemInfo.Cpu.UsagePercent)" Max="100" Style="width: 100%;" />
+                </FluentStack>
+            </FluentStack>
+        </FluentCard>
 
-    <!-- Memory Information -->
-    <div class="card-custom p-4 mb-4">
-        <h5 class="mb-3">
-            <i class="@Icons.Material.Filled.Memory me-2"></i>
-            内存信息
-        </h5>
-        <div class="row">
-            <div class="col-md-6">
-                <p class="mb-2"><strong>总内存：</strong>@systemInfo.Memory.TotalGB GB</p>
-                <p class="mb-2"><strong>已使用：</strong>@systemInfo.Memory.UsedGB GB</p>
-                <p class="mb-2"><strong>可用：</strong>@systemInfo.Memory.AvailableGB GB</p>
-            </div>
-            <div class="col-md-6">
-                <p class="mb-2"><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</p>
-                <div class="progress-custom">
-                    <div class="progress-bar-custom" style="width: @systemInfo.Memory.UsagePercent%">
-                        @systemInfo.Memory.UsagePercent%
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+        <!-- Memory Information -->
+        <FluentCard Style="margin-bottom: 1.5rem;">
+            <FluentLabel Typo="Typography.H5">
+                💾 内存信息
+            </FluentLabel>
+            <FluentStack Orientation="Orientation.Horizontal" Style="gap: 2rem; margin-top: 1rem;">
+                <FluentStack Orientation="Orientation.Vertical" Style="flex: 1;">
+                    <FluentLabel><strong>总内存：</strong>@systemInfo.Memory.TotalGB GB</FluentLabel>
+                    <FluentLabel><strong>已使用：</strong>@systemInfo.Memory.UsedGB GB</FluentLabel>
+                    <FluentLabel><strong>可用：</strong>@systemInfo.Memory.AvailableGB GB</FluentLabel>
+                </FluentStack>
+                <FluentStack Orientation="Orientation.Vertical" Style="flex: 1;">
+                    <FluentLabel><strong>使用率：</strong>@systemInfo.Memory.UsagePercent%</FluentLabel>
+                    <FluentProgress Value="@((int)systemInfo.Memory.UsagePercent)" Max="100" Style="width: 100%;" />
+                </FluentStack>
+            </FluentStack>
+        </FluentCard>
 
-    <!-- Disk Information -->
-    <div class="card-custom p-4 mb-4">
-        <h5 class="mb-3">
-            <i class="@Icons.Material.Filled.Storage me-2"></i>
-            磁盘信息
-        </h5>
-        @if (systemInfo.Disks.Any())
-        {
-            <table class="table table-custom">
-                <thead>
-                    <tr>
-                        <th>名称</th>
-                        <th>挂载点</th>
-                        <th>文件系统</th>
-                        <th>总容量</th>
-                        <th>已使用</th>
-                        <th>可用</th>
-                        <th>使用率</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var disk in systemInfo.Disks)
-                    {
+        <!-- Disk Information -->
+        <FluentCard Style="margin-bottom: 1.5rem;">
+            <FluentLabel Typo="Typography.H5">
+                💿 磁盘信息
+            </FluentLabel>
+            @if (systemInfo.Disks.Any())
+            {
+                <table class="fluent-table" style="width: 100%; margin-top: 1rem;">
+                    <thead>
                         <tr>
-                            <td>@disk.Name</td>
-                            <td>@disk.MountPoint</td>
-                            <td>@disk.FileSystem</td>
-                            <td>@(disk.IsReady ? disk.TotalGB : "N/A")</td>
-                            <td>@(disk.IsReady ? disk.UsedGB : "N/A")</td>
-                            <td>@(disk.IsReady ? disk.AvailableGB : "N/A")</td>
-                            <td>
-                                @if (disk.IsReady)
-                                {
-                                    <div class="progress-custom h-20">
-                                        <div class="progress-bar-custom" style="width: @disk.UsagePercent%">
-                                            <small>@disk.UsagePercent%</small>
-                                        </div>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <span>未就绪</span>
-                                }
-                            </td>
+                            <th>名称</th>
+                            <th>挂载点</th>
+                            <th>文件系统</th>
+                            <th>总容量</th>
+                            <th>已使用</th>
+                            <th>可用</th>
+                            <th>使用率</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
-        }
-        else
-        {
-            <p class="text-muted-custom">没有找到磁盘信息</p>
-        }
-    </div>
-
-    <!-- Network Information -->
-    <div class="card-custom p-4 mb-4">
-        <h5 class="mb-3">
-            <i class="@Icons.Material.Filled.NetworkCheck me-2"></i>
-            网络信息
-        </h5>
-        @if (systemInfo.Networks.Any())
-        {
-            <table class="table table-custom">
-                <thead>
-                    <tr>
-                        <th>名称</th>
-                        <th>描述</th>
-                        <th>状态</th>
-                        <th>已发送</th>
-                        <th>已接收</th>
-                        <th>IP地址</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var network in systemInfo.Networks)
-                    {
-                        <tr>
-                            <td>@network.Name</td>
-                            <td>@network.Description</td>
-                            <td>
-                                <span class="badge @(network.Status == "Up" ? "badge-success" : "badge-custom")">
-                                    @network.Status
-                                </span>
-                            </td>
-                            <td>@network.SentMB</td>
-                            <td>@network.ReceivedMB</td>
-                            <td>
-                                @if (network.IpAddresses.Any())
-                                {
-                                    @foreach (var ip in network.IpAddresses)
+                    </thead>
+                    <tbody>
+                        @foreach (var disk in systemInfo.Disks)
+                        {
+                            <tr>
+                                <td>@disk.Name</td>
+                                <td>@disk.MountPoint</td>
+                                <td>@disk.FileSystem</td>
+                                <td>@(disk.IsReady ? disk.TotalGB : "N/A")</td>
+                                <td>@(disk.IsReady ? disk.UsedGB : "N/A")</td>
+                                <td>@(disk.IsReady ? disk.AvailableGB : "N/A")</td>
+                                <td>
+                                    @if (disk.IsReady)
                                     {
-                                        <p class="small mb-0">@ip</p>
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <FluentProgress Value="@((int)disk.UsagePercent)" Max="100" Style="flex: 1; min-width: 100px;" />
+                                            <span>@disk.UsagePercent%</span>
+                                        </div>
                                     }
-                                }
-                                else
-                                {
-                                    <span>-</span>
-                                }
-                            </td>
+                                    else
+                                    {
+                                        <span>未就绪</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <FluentLabel Style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有找到磁盘信息</FluentLabel>
+            }
+        </FluentCard>
+
+        <!-- Network Information -->
+        <FluentCard Style="margin-bottom: 1.5rem;">
+            <FluentLabel Typo="Typography.H5">
+                🌐 网络信息
+            </FluentLabel>
+            @if (systemInfo.Networks.Any())
+            {
+                <table class="fluent-table" style="width: 100%; margin-top: 1rem;">
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>描述</th>
+                            <th>状态</th>
+                            <th>已发送</th>
+                            <th>已接收</th>
+                            <th>IP地址</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
-        }
-        else
-        {
-            <p class="text-muted-custom">没有找到网络接口信息</p>
-        }
-    </div>
-}
-else
-{
-    <div class="d-flex align-items-center gap-2">
-        <div class="spinner-border" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="mb-0">加载中...</p>
-    </div>
-}
+                    </thead>
+                    <tbody>
+                        @foreach (var network in systemInfo.Networks)
+                        {
+                            <tr>
+                                <td>@network.Name</td>
+                                <td>@network.Description</td>
+                                <td>
+                                    <FluentBadge Appearance="Appearance.Accent" 
+                                                 BackgroundColor="@(network.Status == "Up" ? "var(--success)" : "var(--neutral-fill-secondary)")">
+                                        @network.Status
+                                    </FluentBadge>
+                                </td>
+                                <td>@network.SentMB</td>
+                                <td>@network.ReceivedMB</td>
+                                <td>
+                                    @if (network.IpAddresses.Any())
+                                    {
+                                        @foreach (var ip in network.IpAddresses)
+                                        {
+                                            <FluentLabel Typo="Typography.Body" Style="display: block; font-size: 0.875rem;">@ip</FluentLabel>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span>-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <FluentLabel Style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有找到网络接口信息</FluentLabel>
+            }
+        </FluentCard>
+    }
+    else
+    {
+        <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; gap: 0.5rem;">
+            <FluentProgressRing />
+            <FluentLabel>加载中...</FluentLabel>
+        </FluentStack>
+    }
+</FluentStack>
+
+<style>
+    .fluent-table {
+        border-collapse: collapse;
+    }
+
+    .fluent-table th {
+        text-align: left;
+        padding: 0.75rem;
+        border-bottom: 2px solid var(--neutral-stroke-divider-rest);
+        font-weight: 600;
+    }
+
+    .fluent-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--neutral-stroke-divider-rest);
+        vertical-align: middle;
+    }
+
+    .fluent-table tr:hover {
+        background-color: var(--neutral-fill-secondary-hover);
+    }
+</style>
 
 @code {
     private SystemResourceInfo? systemInfo;
