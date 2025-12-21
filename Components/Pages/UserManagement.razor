@@ -8,185 +8,179 @@
 
 @if (!IsAuthorized)
 {
-    <div class="loading-container">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
+    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="min-height: 200px;">
+        <FluentProgressRing />
+    </FluentStack>
     return;
 }
 
-<div class="user-management-container">
-    <div class="header-section">
-        <h3><i class="bi bi-people-fill me-2"></i>用户管理</h3>
-        <button class="btn btn-primary" @onclick="ShowCreateUserDialog">
-            <i class="bi bi-person-plus-fill me-2"></i>创建用户
-        </button>
-    </div>
+<FluentStack Orientation="Orientation.Vertical" Style="max-width: 1200px; margin: 0 auto; padding: 2rem;">
+    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <FluentLabel Typo="Typography.H4">
+            👥 用户管理
+        </FluentLabel>
+        <FluentButton Appearance="Appearance.Accent" OnClick="ShowCreateUserDialog">
+            ➕ 创建用户
+        </FluentButton>
+    </FluentStack>
 
     @if (!string.IsNullOrEmpty(message))
     {
-        <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show">
+        <FluentMessageBar Intent="@(isError ? MessageIntent.Error : MessageIntent.Success)" 
+                          Style="margin-bottom: 1rem;"
+                          OnDismiss="@(() => message = string.Empty)">
             @message
-            <button type="button" class="btn-close" @onclick="@(() => message = string.Empty)"></button>
-        </div>
+        </FluentMessageBar>
     }
 
-    <div class="card-custom p-4">
+    <FluentCard>
         @if (users == null)
         {
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-            </div>
+            <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="padding: 3rem;">
+                <FluentProgressRing />
+            </FluentStack>
         }
         else if (users.Count == 0)
         {
-            <div class="text-center py-5">
-                <p class="text-muted">暂无用户</p>
-            </div>
+            <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="padding: 3rem;">
+                <FluentLabel>暂无用户</FluentLabel>
+            </FluentStack>
         }
         else
         {
-            <div class="table-responsive">
-                <table class="table table-custom">
-                    <thead>
-                        <tr>
-                            <th>用户名</th>
-                            <th>角色</th>
-                            <th>创建时间</th>
-                            <th>最后登录</th>
-                            <th>状态</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var user in users)
-                        {
-                            <tr>
-                                <td>
-                                    <i class="bi bi-person-circle me-2"></i>
-                                    @user.Username
-                                </td>
-                                <td>
-                                    @if (user.Role == "Admin")
-                                    {
-                                        <span class="badge bg-danger">管理员</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-info">普通用户</span>
-                                    }
-                                </td>
-                                <td>@user.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                <td>@(user.LastLoginAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "从未登录")</td>
-                                <td>
-                                    @if (user.IsActive)
-                                    {
-                                        <span class="badge bg-success">激活</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary">禁用</span>
-                                    }
-                                </td>
-                                <td>
-                                    @if (user.Username != CurrentUsername)
-                                    {
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="@(() => ShowDeleteConfirmation(user))">
-                                            <i class="bi bi-trash-fill"></i> 删除
-                                        </button>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">当前用户</span>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-    </div>
-</div>
-
-@if (showCreateDialog)
-{
-    <div class="modal-backdrop fade show"></div>
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">创建新用户</h5>
-                    <button type="button" class="btn-close" @onclick="CloseCreateDialog"></button>
-                </div>
-                <div class="modal-body">
-                    @if (!string.IsNullOrEmpty(dialogError))
+            <table class="fluent-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>用户名</th>
+                        <th>角色</th>
+                        <th>创建时间</th>
+                        <th>最后登录</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in users)
                     {
-                        <div class="alert alert-danger">
-                            @dialogError
-                        </div>
+                        <tr>
+                            <td>
+                                👤 @user.Username
+                            </td>
+                            <td>
+                                @if (user.Role == "Admin")
+                                {
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="var(--error)">管理员</FluentBadge>
+                                }
+                                else
+                                {
+                                    <FluentBadge Appearance="Appearance.Neutral">普通用户</FluentBadge>
+                                }
+                            </td>
+                            <td>@user.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@(user.LastLoginAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "从未登录")</td>
+                            <td>
+                                @if (user.IsActive)
+                                {
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="var(--success)">激活</FluentBadge>
+                                }
+                                else
+                                {
+                                    <FluentBadge Appearance="Appearance.Neutral">禁用</FluentBadge>
+                                }
+                            </td>
+                            <td>
+                                @if (user.Username != CurrentUsername)
+                                {
+                                    <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => ShowDeleteConfirmation(user))">
+                                        🗑️ 删除
+                                    </FluentButton>
+                                }
+                                else
+                                {
+                                    <FluentLabel Style="color: var(--neutral-foreground-hint);">当前用户</FluentLabel>
+                                }
+                            </td>
+                        </tr>
                     }
-                    <div class="mb-3">
-                        <label class="form-label">用户名</label>
-                        <input type="text" class="form-control" @bind="newUsername" placeholder="请输入用户名" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">密码</label>
-                        <input type="password" class="form-control" @bind="newPassword" placeholder="请输入密码" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">确认密码</label>
-                        <input type="password" class="form-control" @bind="newPasswordConfirm" placeholder="请再次输入密码" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">角色</label>
-                        <select class="form-select" @bind="newUserRole">
-                            <option value="@User.RoleUser">普通用户</option>
-                            <option value="@User.RoleAdmin">管理员</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseCreateDialog">取消</button>
-                    <button type="button" class="btn btn-primary" @onclick="CreateUser" disabled="@isCreating">
-                        @if (isCreating)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
-                        }
-                        创建
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+                </tbody>
+            </table>
+        }
+    </FluentCard>
+</FluentStack>
 
-@if (showDeleteConfirmDialog)
-{
-    <div class="modal-backdrop fade show"></div>
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">确认删除</h5>
-                    <button type="button" class="btn-close" @onclick="CloseDeleteConfirmation"></button>
-                </div>
-                <div class="modal-body">
-                    <p>确定要删除用户 <strong>@userToDelete?.Username</strong> 吗？此操作不可撤销。</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseDeleteConfirmation">取消</button>
-                    <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteUser">
-                        <i class="bi bi-trash-fill me-2"></i>删除
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
+<FluentDialog Hidden="@(!showCreateDialog)" Modal="true" OnDismiss="CloseCreateDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">创建新用户</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (!string.IsNullOrEmpty(dialogError))
+        {
+            <FluentMessageBar Intent="MessageIntent.Error" Style="margin-bottom: 1rem;">
+                @dialogError
+            </FluentMessageBar>
+        }
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentTextField @bind-Value="newUsername" Label="用户名" Placeholder="请输入用户名" Style="width: 100%;" />
+            <FluentTextField @bind-Value="newPassword" Type="TextFieldType.Password" Label="密码" Placeholder="请输入密码" Style="width: 100%;" />
+            <FluentTextField @bind-Value="newPasswordConfirm" Type="TextFieldType.Password" Label="确认密码" Placeholder="请再次输入密码" Style="width: 100%;" />
+            <FluentSelect TOption="string" 
+                          Label="角色"
+                          Items="@(new[] { User.RoleUser, User.RoleAdmin })"
+                          OptionText="@(item => item == User.RoleAdmin ? "管理员" : "普通用户")"
+                          OptionValue="@(item => item)"
+                          @bind-Value="newUserRole"
+                          Style="width: 100%;" />
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseCreateDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="CreateUser" Disabled="@isCreating">
+            @if (isCreating)
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.5rem;" />
+            }
+            创建
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<FluentDialog Hidden="@(!showDeleteConfirmDialog)" Modal="true" OnDismiss="CloseDeleteConfirmation">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">确认删除</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentLabel>确定要删除用户 <strong>@userToDelete?.Username</strong> 吗？此操作不可撤销。</FluentLabel>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseDeleteConfirmation">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="ConfirmDeleteUser" BackgroundColor="var(--error)">
+            🗑️ 删除
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<style>
+    .fluent-table {
+        border-collapse: collapse;
+    }
+
+    .fluent-table th {
+        text-align: left;
+        padding: 0.75rem;
+        border-bottom: 2px solid var(--neutral-stroke-divider-rest);
+        font-weight: 600;
+    }
+
+    .fluent-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--neutral-stroke-divider-rest);
+        vertical-align: middle;
+    }
+
+    .fluent-table tr:hover {
+        background-color: var(--neutral-fill-secondary-hover);
+    }
+</style>
 
 @code {
     private List<User>? users;
@@ -338,69 +332,3 @@
     }
 }
 
-<style>
-    .user-management-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem;
-    }
-
-    .header-section {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-    }
-
-    .header-section h3 {
-        margin: 0;
-        color: #e5e7eb;
-    }
-
-    .card-custom {
-        background: rgba(30, 41, 59, 0.5);
-        border-radius: 12px;
-        backdrop-filter: blur(10px);
-    }
-
-    .table-custom {
-        color: #e5e7eb;
-        margin-bottom: 0;
-    }
-
-    .table-custom thead th {
-        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-        color: #60a5fa;
-        font-weight: 600;
-    }
-
-    .table-custom tbody td {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        vertical-align: middle;
-    }
-
-    .modal-content {
-        background: #1e293b;
-        color: #e5e7eb;
-    }
-
-    .modal-header {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .modal-footer {
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .form-control, .form-select {
-        background: rgba(15, 23, 42, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        color: #e5e7eb;
-    }
-
-    .form-control:focus, .form-select:focus {
-        background: rgba(15, 23, 42, 0.7);
-        border-color: #60a5fa;
-        color: #e5e7eb;
-    }
-</style>

@@ -11,86 +11,85 @@
 
 @if (!IsAuthorized)
 {
-    <div class="loading-container">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    </div>
+    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="min-height: 200px;">
+        <FluentProgressRing />
+    </FluentStack>
     return;
 }
 
-<div class="settings-container">
-    <div class="settings-header">
-        <h2><i class="bi bi-gear-fill me-2"></i>@LocalizationService.GetString("SystemSettings")</h2>
-    </div>
+<FluentStack Orientation="Orientation.Vertical" Style="max-width: 1000px; margin: 0 auto; padding: 2rem;">
+    <FluentLabel Typo="Typography.H3">
+        ⚙️ @LocalizationService.GetString("SystemSettings")
+    </FluentLabel>
 
-    <div class="settings-content">
-        @if (settingsByCategory.Any())
-        {
-            @foreach (var category in settingsByCategory.Keys.OrderBy(k => k))
-            {
-                <div class="settings-section">
-                    <h4 class="settings-section-title">@GetCategoryDisplayName(category)</h4>
-                    <div class="settings-list">
-                        @foreach (var setting in settingsByCategory[category])
-                        {
-                            <div class="setting-item">
-                                <div class="setting-info">
-                                    <label class="setting-label">@GetSettingDisplayName(setting.Key)</label>
-                                    <p class="setting-description">@setting.Description</p>
-                                </div>
-                                <div class="setting-control">
-                                    @if (setting.Key == "language")
-                                    {
-                                        <select class="form-select form-select-sm w-200"
-                                                value="@setting.Value"
-                                                @onchange="@(e => UpdateLanguageSetting(e.Value?.ToString() ?? "zh-CN"))">
-                                            <option value="zh-CN">@LocalizationService.GetString("Language_Chinese")</option>
-                                            <option value="en-US">@LocalizationService.GetString("Language_English")</option>
-                                        </select>
-                                    }
-                                    else if (setting.DataType == "bool")
-                                    {
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" 
-                                                   checked="@(setting.Value == "true")"
-                                                   @onchange="@(e => UpdateSetting(setting.Key, ((bool)(e.Value ?? false)).ToString().ToLower()))">
-                                        </div>
-                                    }
-                                    else if (setting.DataType == "int")
-                                    {
-                                        <input type="number" class="form-control form-control-sm w-150"
-                                               value="@setting.Value"
-                                               @onchange="@(e => UpdateSetting(setting.Key, e.Value?.ToString() ?? ""))">
-                                    }
-                                    else
-                                    {
-                                        <input type="text" class="form-control form-control-sm w-250"
-                                               value="@setting.Value"
-                                               @onchange="@(e => UpdateSetting(setting.Key, e.Value?.ToString() ?? ""))">
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-        }
-        else
-        {
-            <div class="text-center py-5">
-                <p class="text-muted">@LocalizationService.GetString("LoadingSettings")</p>
-            </div>
-        }
-    </div>
-
-    @if (showSaveMessage)
+    @if (settingsByCategory.Any())
     {
-        <div class="alert alert-success alert-dismissible fade show position-fixed bottom-0 end-0 m-3 z-1050" role="alert">
-            <i class="bi bi-check-circle-fill me-2"></i>@LocalizationService.GetString("SettingsSaved")
-        </div>
+        @foreach (var category in settingsByCategory.Keys.OrderBy(k => k))
+        {
+            <FluentCard Style="margin-bottom: 1.5rem;">
+                <FluentLabel Typo="Typography.H5" Style="margin-bottom: 1rem;">
+                    @GetCategoryDisplayName(category)
+                </FluentLabel>
+                <FluentStack Orientation="Orientation.Vertical">
+                    @foreach (var setting in settingsByCategory[category])
+                    {
+                        <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--neutral-stroke-divider-rest);">
+                            <FluentStack Orientation="Orientation.Vertical" Style="flex: 1;">
+                                <FluentLabel Style="font-weight: 600;">@GetSettingDisplayName(setting.Key)</FluentLabel>
+                                <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">@setting.Description</FluentLabel>
+                            </FluentStack>
+                            <div>
+                                @if (setting.Key == "language")
+                                {
+                                    <FluentSelect TOption="string"
+                                                  Items="@(new[] { "zh-CN", "en-US" })"
+                                                  OptionText="@(item => item == "zh-CN" ? LocalizationService.GetString("Language_Chinese") : LocalizationService.GetString("Language_English"))"
+                                                  OptionValue="@(item => item)"
+                                                  Value="@setting.Value"
+                                                  ValueChanged="@(value => UpdateLanguageSetting(value ?? "zh-CN"))"
+                                                  Style="width: 200px;" />
+                                }
+                                else if (setting.DataType == "bool")
+                                {
+                                    <FluentSwitch Value="@(setting.Value == "true")"
+                                                  ValueChanged="@(value => UpdateSetting(setting.Key, value.ToString().ToLower()))" />
+                                }
+                                else if (setting.DataType == "int")
+                                {
+                                    <FluentNumberField TValue="int"
+                                                       Value="@(int.TryParse(setting.Value, out var intVal) ? intVal : 0)"
+                                                       ValueChanged="@(value => UpdateSetting(setting.Key, value.ToString()))"
+                                                       Style="width: 150px;" />
+                                }
+                                else
+                                {
+                                    <FluentTextField Value="@setting.Value"
+                                                     ValueChanged="@(value => UpdateSetting(setting.Key, value ?? ""))"
+                                                     Style="width: 250px;" />
+                                }
+                            </div>
+                        </FluentStack>
+                    }
+                </FluentStack>
+            </FluentCard>
+        }
     }
-</div>
+    else
+    {
+        <FluentStack HorizontalAlignment="HorizontalAlignment.Center" Style="padding: 3rem;">
+            <FluentLabel>@LocalizationService.GetString("LoadingSettings")</FluentLabel>
+        </FluentStack>
+    }
+</FluentStack>
+
+@if (showSaveMessage)
+{
+    <div style="position: fixed; bottom: 1rem; right: 1rem; z-index: 1000;">
+        <FluentMessageBar Intent="MessageIntent.Success">
+            ✓ @LocalizationService.GetString("SettingsSaved")
+        </FluentMessageBar>
+    </div>
+}
 
 @code {
     private Dictionary<string, List<SystemSetting>> settingsByCategory = new();
@@ -210,69 +209,3 @@
     }
 }
 
-<style>
-    .settings-container {
-        max-width: 1000px;
-        margin: 0 auto;
-        padding: 2rem;
-    }
-
-    .settings-header h2 {
-        font-size: 1.8rem;
-        font-weight: 600;
-        margin-bottom: 2rem;
-        color: #e5e7eb;
-    }
-
-    .settings-section {
-        background: rgba(30, 41, 59, 0.5);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        backdrop-filter: blur(10px);
-    }
-
-    .settings-section-title {
-        font-size: 1.2rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        color: #60a5fa;
-    }
-
-    .settings-list {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .setting-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem;
-        background: rgba(15, 23, 42, 0.5);
-        border-radius: 8px;
-    }
-
-    .setting-info {
-        flex: 1;
-    }
-
-    .setting-label {
-        font-weight: 500;
-        color: #e5e7eb;
-        margin-bottom: 0.25rem;
-        display: block;
-    }
-
-    .setting-description {
-        font-size: 0.875rem;
-        color: #94a3b8;
-        margin: 0;
-    }
-
-    .setting-control {
-        display: flex;
-        align-items: center;
-    }
-</style>
