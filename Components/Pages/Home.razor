@@ -41,59 +41,64 @@ else
             <FluentLabel Typo="Typography.Body" Style="font-size: 1.25rem; margin-top: 0.5rem; color: var(--accent-fill-rest);">@CurrentDateString</FluentLabel>
         </FluentStack>
 
-        <!-- Status Cards Row 1 -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+        <!-- Status Cards -->
+        <FluentGrid Spacing="3" Style="margin-bottom: 3rem;">
             <!-- Weather Card -->
-            <FluentCard Style="padding: 1.5rem; min-height: 150px; position: relative;">
-                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
-                    <FluentLabel Style="font-size: 0.875rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">@LocalizationService.GetString("Weather")</FluentLabel>
-                    <FluentStack Orientation="Orientation.Horizontal" Style="align-items: baseline; gap: 0.5rem; margin-top: 0.5rem;">
-                        <FluentLabel Style="font-size: 2rem; font-weight: 700;">@Temperature</FluentLabel>
-                        <FluentLabel Style="font-size: 1rem;">@WeatherCondition</FluentLabel>
+            <FluentGridItem xs="12" sm="6" lg="4">
+                <FluentCard Style="padding: 1.5rem; min-height: 150px; position: relative;">
+                    <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
+                        <FluentLabel Style="font-size: 0.875rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">@LocalizationService.GetString("Weather")</FluentLabel>
+                        <FluentStack Orientation="Orientation.Horizontal" Style="align-items: baseline; gap: 0.5rem; margin-top: 0.5rem;">
+                            <FluentLabel Style="font-size: 2rem; font-weight: 700;">@Temperature</FluentLabel>
+                            <FluentLabel Style="font-size: 1rem;">@WeatherCondition</FluentLabel>
+                        </FluentStack>
                     </FluentStack>
-                </FluentStack>
-                <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.WeatherPartlyCloudyDay())" Style="position: absolute; top: 1.5rem; right: 1.5rem; font-size: 3rem; opacity: 0.5;" />
-            </FluentCard>
+                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.WeatherPartlyCloudyDay())" Style="position: absolute; top: 1.5rem; right: 1.5rem; font-size: 3rem; opacity: 0.5;" />
+                </FluentCard>
+            </FluentGridItem>
 
             <!-- CPU Card -->
-            <FluentCard Style="padding: 1.5rem; min-height: 150px;">
-                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
-                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.DeveloperBoard())" Style="font-size: 1.5rem;" />
-                    <FluentLabel Style="font-size: 0.875rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">@LocalizationService.GetString("CPU")</FluentLabel>
-                    <FluentProgress Value="@((int)CpuUsage)" Max="100" Style="width: 100%; margin: 0.5rem 0;" aria-label="@LocalizationService.GetString("CPU")" />
-                    <FluentLabel Style="font-size: 1.5rem; font-weight: 700;">@CpuUsage.ToString("F1")%</FluentLabel>
-                </FluentStack>
-            </FluentCard>
+            <FluentGridItem xs="12" sm="6" lg="4">
+                <FluentCard Style="padding: 1.5rem; min-height: 150px;">
+                    <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.DeveloperBoard())" Style="font-size: 1.5rem;" />
+                        <FluentLabel Style="font-size: 0.875rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">@LocalizationService.GetString("CPU")</FluentLabel>
+                        <FluentProgress Value="@((int)CpuUsage)" Max="100" Style="width: 100%; margin: 0.5rem 0;" aria-label="@LocalizationService.GetString("CPU")" />
+                        <FluentLabel Style="font-size: 1.5rem; font-weight: 700;">@CpuUsage.ToString("F1")%</FluentLabel>
+                    </FluentStack>
+                </FluentCard>
+            </FluentGridItem>
 
             <!-- Network Card -->
-            <FluentCard Style="padding: 1.5rem; min-height: 150px;">
-                <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-around;">
-                    <FluentStack Orientation="Orientation.Vertical" Style="align-items: center; gap: 0.5rem;">
-                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowDownload())" Style="font-size: 1.5rem;" />
-                        <FluentLabel Style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">@LocalizationService.GetString("Download")</FluentLabel>
-                        <FluentLabel Style="font-size: 1rem; font-weight: 700;">@DownloadSpeed</FluentLabel>
+            <FluentGridItem xs="12" sm="6" lg="4">
+                <FluentCard Style="padding: 1.5rem; min-height: 150px;">
+                    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-around;">
+                        <FluentStack Orientation="Orientation.Vertical" Style="align-items: center; gap: 0.5rem;">
+                            <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowDownload())" Style="font-size: 1.5rem;" />
+                            <FluentLabel Style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">@LocalizationService.GetString("Download")</FluentLabel>
+                            <FluentLabel Style="font-size: 1rem; font-weight: 700;">@DownloadSpeed</FluentLabel>
+                        </FluentStack>
+                        <FluentStack Orientation="Orientation.Vertical" Style="align-items: center; gap: 0.5rem;">
+                            <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowUpload())" Style="font-size: 1.5rem;" />
+                            <FluentLabel Style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">@LocalizationService.GetString("Upload")</FluentLabel>
+                            <FluentLabel Style="font-size: 1rem; font-weight: 700;">@UploadSpeed</FluentLabel>
+                        </FluentStack>
                     </FluentStack>
-                    <FluentStack Orientation="Orientation.Vertical" Style="align-items: center; gap: 0.5rem;">
-                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowUpload())" Style="font-size: 1.5rem;" />
-                        <FluentLabel Style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">@LocalizationService.GetString("Upload")</FluentLabel>
-                        <FluentLabel Style="font-size: 1rem; font-weight: 700;">@UploadSpeed</FluentLabel>
-                    </FluentStack>
-                </FluentStack>
-            </FluentCard>
-        </div>
+                </FluentCard>
+            </FluentGridItem>
 
-        <!-- Status Cards Row 2 -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 3rem;">
             <!-- RAM Card -->
-            <FluentCard Style="padding: 1.5rem; min-height: 150px;">
-                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
-                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Server())" Style="font-size: 1.5rem;" />
-                    <FluentLabel Style="font-size: 0.875rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">@LocalizationService.GetString("RAM")</FluentLabel>
-                    <FluentProgress Value="@((int)RamUsage)" Max="100" Style="width: 100%; margin: 0.5rem 0;" aria-label="@LocalizationService.GetString("RAM")" />
-                    <FluentLabel Style="font-size: 1.5rem; font-weight: 700;">@RamUsage.ToString("F1")%</FluentLabel>
-                </FluentStack>
-            </FluentCard>
-        </div>
+            <FluentGridItem xs="12" sm="6" lg="4">
+                <FluentCard Style="padding: 1.5rem; min-height: 150px;">
+                    <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Server())" Style="font-size: 1.5rem;" />
+                        <FluentLabel Style="font-size: 0.875rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">@LocalizationService.GetString("RAM")</FluentLabel>
+                        <FluentProgress Value="@((int)RamUsage)" Max="100" Style="width: 100%; margin: 0.5rem 0;" aria-label="@LocalizationService.GetString("RAM")" />
+                        <FluentLabel Style="font-size: 1.5rem; font-weight: 700;">@RamUsage.ToString("F1")%</FluentLabel>
+                    </FluentStack>
+                </FluentCard>
+            </FluentGridItem>
+        </FluentGrid>
 
         <!-- Application Center -->
         <FluentStack Orientation="Orientation.Vertical" Style="margin-top: 2rem; padding-bottom: 100px;">
@@ -101,7 +106,7 @@ else
                 <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Grid())" Style="font-size: 1.5rem;" />
                 <FluentLabel Typo="Typography.H6">@LocalizationService.GetString("AppCenter")</FluentLabel>
             </FluentStack>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1.5rem;">
+            <div class="app-grid">
                 @foreach (var app in applications)
                 {
                     <FluentCard @onclick="() => OpenApplication(app)" Style="padding: 1.5rem 1rem; gap: 0.75rem; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; transition: transform 0.2s;">
@@ -260,3 +265,22 @@ else
         refreshTimer?.Dispose();
     }
 }
+
+<style>
+    /* App grid layout with auto-fill for dynamic content */
+    .app-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 1.5rem;
+    }
+
+    /* App card hover effect */
+    .app-grid > :global(.fluent-card):hover {
+        transform: scale(1.05);
+    }
+
+    /* Add app button hover effect */
+    .app-grid > :global(.fluent-card):last-child:hover {
+        border-color: var(--accent-fill-rest);
+    }
+</style>
