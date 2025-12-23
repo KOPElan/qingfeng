@@ -12,11 +12,26 @@ public class DiskManagementService : IDiskManagementService
     private static readonly char[] InvalidCredentialChars = ['\n', '\r', '='];
     private static readonly HashSet<char> InvalidCredentialCharsSet = new(InvalidCredentialChars);
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+    
+    // Known valid hdparm flags (without assignment)
     private static readonly HashSet<string> ValidHdparmFlags = new(StringComparer.OrdinalIgnoreCase)
     {
         "quiet", "standby", "sleep", "disable_seagate"
     };
-    private static readonly Regex HdparmSettingRegex = new(@"^\s*([a-z_]+)\s*=\s*(.+)\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    
+    // Known valid hdparm parameters (with assignment)
+    private static readonly HashSet<string> ValidHdparmParams = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "read_ahead_sect", "lookahead", "bus", "apm", "apm_battery", "io32_support",
+        "dma", "defect_mana", "cd_speed", "keep_settings_over_reset", 
+        "keep_features_over_reset", "mult_sect_io", "prefetch_sect", "read_only",
+        "write_read_verify", "poweron_standby", "spindown_time", "force_spindown_time",
+        "interrupt_unmask", "write_cache", "transfer_mode", "acoustic_management",
+        "chipset_pio_mode", "security_freeze", "security_unlock", "security_pass",
+        "security_disable", "user-master", "security_mode"
+    };
+    
+    private static readonly Regex HdparmSettingRegex = new(@"^\s*([a-z_-]+)\s*=\s*(.+)\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public Task<List<DiskInfo>> GetAllDisksAsync()
     {
@@ -713,7 +728,12 @@ public class DiskManagementService : IDiskManagementService
                 for (int i = blockStartIndex + 1; i < blockEndIndex; i++)
                 {
                     var line = lines[i].Trim();
-                    if (line.StartsWith("spindown_time"))
+                    
+                    // Extract parameter name for exact matching
+                    var paramName = line.Contains('=') ? line.Split('=')[0].Trim() : line;
+                    
+                    if (paramName.Equals("spindown_time", StringComparison.OrdinalIgnoreCase) ||
+                        paramName.Equals("force_spindown_time", StringComparison.OrdinalIgnoreCase))
                     {
                         existingSpindown = true;
                         if (spindownTime.HasValue)
@@ -727,7 +747,7 @@ public class DiskManagementService : IDiskManagementService
                             blockLines.Add($"\t{line}");
                         }
                     }
-                    else if (line.StartsWith("apm"))
+                    else if (paramName.Equals("apm", StringComparison.OrdinalIgnoreCase))
                     {
                         existingApm = true;
                         if (apmLevel.HasValue)
@@ -742,9 +762,14 @@ public class DiskManagementService : IDiskManagementService
                     }
                     else if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("#"))
                     {
-                        // Preserve other non-comment settings that look like valid configuration
-                        // Valid configuration lines should match the pattern "key = value" or be known flags
-                        if (HdparmSettingRegex.IsMatch(line) || ValidHdparmFlags.Contains(line))
+                        // Preserve other non-comment settings that are valid
+                        // Check if it's a valid flag or a valid parameter with assignment
+                        var match = HdparmSettingRegex.Match(line);
+                        if (match.Success && ValidHdparmParams.Contains(match.Groups[1].Value))
+                        {
+                            blockLines.Add($"\t{line}");
+                        }
+                        else if (ValidHdparmFlags.Contains(paramName))
                         {
                             blockLines.Add($"\t{line}");
                         }
