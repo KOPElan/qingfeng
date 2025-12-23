@@ -7,6 +7,29 @@
 
 <PageTitle>磁盘管理</PageTitle>
 
+<style>
+    .fluent-table {
+        border-collapse: collapse;
+    }
+
+    .fluent-table th {
+        text-align: left;
+        padding: calc(var(--design-unit) * 3px);
+        border-bottom: calc(var(--stroke-width, 1px) * 2) solid var(--neutral-stroke-divider-rest);
+        font-weight: 600;
+    }
+
+    .fluent-table td {
+        padding: calc(var(--design-unit) * 3px);
+        border-bottom: var(--stroke-width, 1px) solid var(--neutral-stroke-divider-rest);
+        vertical-align: middle;
+    }
+
+    .fluent-table tr:hover {
+        background-color: var(--neutral-fill-secondary-hover);
+    }
+</style>
+
 @if (!IsAuthorized)
 {
     <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="min-height: 200px;">
@@ -38,25 +61,24 @@
 }
 
 <!-- All Block Devices -->
-<div class="card-custom p-4 mb-4">
-    <h5 class="mb-3">
-        <i class="@Icons.Material.Filled.Storage me-2"></i>
-        所有磁盘设备
-    </h5>
+<FluentCard Style="margin-bottom: 1.5rem;">
+    <FluentLabel Typo="Typography.H5">
+        💾 所有磁盘设备
+    </FluentLabel>
     @if (allDisks != null && allDisks.Any())
     {
-        <div class="table-responsive">
-            <table class="table table-custom">
+        <div style="overflow-x: auto; margin-top: 1rem;">
+            <table class="fluent-table" style="width: 100%;" role="table" aria-label="所有磁盘设备">
                 <thead>
                     <tr>
-                        <th>设备</th>
-                        <th>类型</th>
-                        <th>大小</th>
-                        <th>文件系统</th>
-                        <th>挂载点</th>
-                        <th>使用率</th>
-                        <th>UUID</th>
-                        <th>操作</th>
+                        <th scope="col">设备</th>
+                        <th scope="col">类型</th>
+                        <th scope="col">大小</th>
+                        <th scope="col">文件系统</th>
+                        <th scope="col">挂载点</th>
+                        <th scope="col">使用率</th>
+                        <th scope="col">UUID</th>
+                        <th scope="col">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -75,7 +97,7 @@
                                 @disk.DevicePath
                                 @if (disk.IsRemovable)
                                 {
-                                    <span class="badge bg-info ms-1">可移动</span>
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#0078D4" Style="margin-left: 0.25rem;">可移动</FluentBadge>
                                 }
                             </td>
                             <td>@disk.Type</td>
@@ -85,11 +107,10 @@
                             <td>
                                 @if (disk.IsReady && disk.TotalBytes > 0)
                                 {
-                                    <div class="progress-custom" style="height: 20px;">
-                                        <div class="progress-bar-custom" style="width: @disk.UsagePercent%">
-                                            <small>@disk.UsagePercent%</small>
-                                        </div>
-                                    </div>
+                                    <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; gap: 0.5rem;">
+                                        <FluentProgress Value="@((int)disk.UsagePercent)" Max="100" Style="flex: 1; min-width: 100px;" />
+                                        <small>@disk.UsagePercent%</small>
+                                    </FluentStack>
                                 }
                                 else
                                 {
@@ -100,24 +121,21 @@
                             <td>
                                 @if (!string.IsNullOrEmpty(disk.MountPoint))
                                 {
-                                    <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => UnmountDiskAction(disk.MountPoint)">
-                                        <i class="@Icons.Material.Filled.Eject me-1"></i>
-                                        卸载
-                                    </button>
+                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => UnmountDiskAction(disk.MountPoint)" Title="卸载" Style="font-size: 0.875rem;">
+                                        ⏏️ 卸载
+                                    </FluentButton>
                                 }
                                 else if (disk.Type == "part" || disk.Type == "disk")
                                 {
-                                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="() => ShowMountWizardForDisk(disk)">
-                                        <i class="@Icons.Material.Filled.AddCircle me-1"></i>
-                                        挂载
-                                    </button>
+                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowMountWizardForDisk(disk)" Title="挂载" Style="font-size: 0.875rem;">
+                                        ➕ 挂载
+                                    </FluentButton>
                                 }
                                 @if (disk.Type == "disk")
                                 {
-                                    <button type="button" class="btn btn-outline-secondary btn-sm ms-1" @onclick="() => ShowPowerManagement(disk)">
-                                        <i class="@Icons.Material.Filled.Power me-1"></i>
-                                        电源
-                                    </button>
+                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowPowerManagement(disk)" Title="电源" Style="font-size: 0.875rem; margin-left: 0.25rem;">
+                                        🔌 电源
+                                    </FluentButton>
                                 }
                             </td>
                         </tr>
@@ -137,11 +155,10 @@
                                     <td>
                                         @if (child.IsReady && child.TotalBytes > 0)
                                         {
-                                            <div class="progress-custom" style="height: 20px;">
-                                                <div class="progress-bar-custom" style="width: @child.UsagePercent%">
-                                                    <small>@child.UsagePercent%</small>
-                                                </div>
-                                            </div>
+                                            <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; gap: 0.5rem;">
+                                                <FluentProgress Value="@((int)child.UsagePercent)" Max="100" Style="flex: 1; min-width: 100px;" />
+                                                <small>@child.UsagePercent%</small>
+                                            </FluentStack>
                                         }
                                         else
                                         {
@@ -152,17 +169,15 @@
                                     <td>
                                         @if (!string.IsNullOrEmpty(child.MountPoint))
                                         {
-                                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => UnmountDiskAction(child.MountPoint)">
-                                                <i class="@Icons.Material.Filled.Eject me-1"></i>
-                                                卸载
-                                            </button>
+                                            <FluentButton Appearance="Appearance.Outline" OnClick="() => UnmountDiskAction(child.MountPoint)" Title="卸载" Style="font-size: 0.875rem;">
+                                                ⏏️ 卸载
+                                            </FluentButton>
                                         }
                                         else if (child.Type == "part")
                                         {
-                                            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="() => ShowMountWizardForDisk(child)">
-                                                <i class="@Icons.Material.Filled.AddCircle me-1"></i>
-                                                挂载
-                                            </button>
+                                            <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowMountWizardForDisk(child)" Title="挂载" Style="font-size: 0.875rem;">
+                                                ➕ 挂载
+                                            </FluentButton>
                                         }
                                     </td>
                                 </tr>
@@ -175,44 +190,40 @@
     }
     else if (isLoading)
     {
-        <div class="d-flex align-items-center gap-2">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mb-0">加载中...</p>
-        </div>
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; align-items: center; margin-top: 1rem;">
+            <FluentProgressRing />
+            <p style="margin: 0;">加载中...</p>
+        </FluentStack>
     }
     else
     {
-        <p class="text-muted-custom">没有找到磁盘信息</p>
+        <p style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有找到磁盘信息</p>
     }
-</div>
+</FluentCard>
 
 <!-- Network Disks -->
-<div class="card-custom p-4 mb-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">
-            <i class="@Icons.Material.Filled.SettingsEthernet me-2"></i>
-            网络磁盘
-        </h5>
-        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="ShowNetworkMountWizard">
-            <i class="@Icons.Material.Filled.AddCircle me-1"></i>
-            挂载网络磁盘
-        </button>
-    </div>
+<FluentCard Style="margin-bottom: 1.5rem;">
+    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <FluentLabel Typo="Typography.H5">
+            🌐 网络磁盘
+        </FluentLabel>
+        <FluentButton Appearance="Appearance.Outline" OnClick="ShowNetworkMountWizard" Style="font-size: 0.875rem;">
+            ➕ 挂载网络磁盘
+        </FluentButton>
+    </FluentStack>
     @if (networkDisks != null && networkDisks.Any())
     {
-        <div class="table-responsive">
-            <table class="table table-custom">
+        <div style="overflow-x: auto; margin-top: 1rem;">
+            <table class="fluent-table" style="width: 100%;" role="table" aria-label="网络磁盘">
                 <thead>
                     <tr>
-                        <th>类型</th>
-                        <th>服务器</th>
-                        <th>共享路径</th>
-                        <th>挂载点</th>
-                        <th>大小</th>
-                        <th>使用率</th>
-                        <th>操作</th>
+                        <th scope="col">类型</th>
+                        <th scope="col">服务器</th>
+                        <th scope="col">共享路径</th>
+                        <th scope="col">挂载点</th>
+                        <th scope="col">大小</th>
+                        <th scope="col">使用率</th>
+                        <th scope="col">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -220,9 +231,9 @@
                     {
                         <tr>
                             <td>
-                                <span class="badge @(disk.DiskType == NetworkDiskType.CIFS ? "bg-primary" : "bg-success")">
+                                <FluentBadge Appearance="Appearance.Accent" BackgroundColor="@(disk.DiskType == NetworkDiskType.CIFS ? "var(--accent-fill-rest)" : "#107C10")">
                                     @disk.DiskType.ToString()
-                                </span>
+                                </FluentBadge>
                             </td>
                             <td>@disk.Server</td>
                             <td>@disk.SharePath</td>
@@ -231,11 +242,10 @@
                             <td>
                                 @if (disk.IsReady && disk.TotalBytes > 0)
                                 {
-                                    <div class="progress-custom" style="height: 20px;">
-                                        <div class="progress-bar-custom" style="width: @disk.UsagePercent%">
-                                            <small>@disk.UsagePercent%</small>
-                                        </div>
-                                    </div>
+                                    <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; gap: 0.5rem;">
+                                        <FluentProgress Value="@((int)disk.UsagePercent)" Max="100" Style="flex: 1; min-width: 100px;" />
+                                        <small>@disk.UsagePercent%</small>
+                                    </FluentStack>
                                 }
                                 else
                                 {
@@ -243,10 +253,9 @@
                                 }
                             </td>
                             <td>
-                                <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => UnmountDiskAction(disk.MountPoint)">
-                                    <i class="@Icons.Material.Filled.Eject me-1"></i>
-                                    卸载
-                                </button>
+                                <FluentButton Appearance="Appearance.Outline" OnClick="() => UnmountDiskAction(disk.MountPoint)" Title="卸载" Style="font-size: 0.875rem;">
+                                    ⏏️ 卸载
+                                </FluentButton>
                             </td>
                         </tr>
                     }
@@ -256,334 +265,288 @@
     }
     else if (isLoading)
     {
-        <div class="d-flex align-items-center gap-2">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mb-0">加载中...</p>
-        </div>
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; align-items: center; margin-top: 1rem;">
+            <FluentProgressRing />
+            <p style="margin: 0;">加载中...</p>
+        </FluentStack>
     }
     else
     {
-        <p class="text-muted-custom">没有挂载的网络磁盘</p>
+        <p style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有挂载的网络磁盘</p>
     }
-</div>
+</FluentCard>
 </FluentStack>
 
 <!-- Mount Wizard Modal -->
-@if (showMountWizard)
-{
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="@Icons.Material.Filled.AddCircle me-2"></i>
-                        磁盘挂载向导
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="HideMountWizard"></button>
-                </div>
-                <div class="modal-body">
-                    @if (!string.IsNullOrEmpty(wizardMessage))
-                    {
-                        <div class="alert @(wizardError ? "alert-danger" : "alert-success") mb-3">
-                            @wizardMessage
-                            <button type="button" class="btn-close" @onclick="@(() => wizardMessage = string.Empty)"></button>
-                        </div>
-                    }
+<FluentDialog Hidden="@(!showMountWizard)" Modal="true" OnDismiss="HideMountWizard" Style="width: 90%; max-width: 800px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">➕ 磁盘挂载向导</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (!string.IsNullOrEmpty(wizardMessage))
+        {
+            <FluentMessageBar Intent="@(wizardError ? MessageIntent.Error : MessageIntent.Success)" Style="margin-bottom: 1rem;">
+                @wizardMessage
+                <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => wizardMessage = string.Empty)" aria-label="Close" Style="margin-left: auto;">
+                    ✕
+                </FluentButton>
+            </FluentMessageBar>
+        }
 
-                    <div class="mb-3">
-                        <label class="form-label">设备路径 *</label>
-                        <input type="text" class="form-control-custom" @bind="wizardDevicePath" placeholder="/dev/sdb1" />
-                        <small class="form-text text-muted-custom">例如: /dev/sdb1</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">挂载点 *</label>
-                        <input type="text" class="form-control-custom" @bind="wizardMountPoint" placeholder="/mnt/mydisk" />
-                        <small class="form-text text-muted-custom">例如: /mnt/mydisk</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">文件系统类型（可选）</label>
-                        <select class="form-control-custom" @bind="wizardFileSystem">
-                            <option value="">自动检测</option>
-                            @foreach (var fs in availableFileSystems)
-                            {
-                                <option value="@fs">@fs</option>
-                            }
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">挂载选项（可选）</label>
-                        <input type="text" class="form-control-custom" @bind="wizardOptions" placeholder="defaults" />
-                        <small class="form-text text-muted-custom">例如: defaults, rw, noatime</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">挂载类型 *</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="mountType" id="tempMount" value="temp" @onchange="@(() => wizardPermanent = false)" checked="@(!wizardPermanent)">
-                            <label class="form-check-label" for="tempMount">
-                                临时挂载（仅当前会话，重启后失效）
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="mountType" id="permMount" value="perm" @onchange="@(() => wizardPermanent = true)" checked="@wizardPermanent">
-                            <label class="form-check-label" for="permMount">
-                                永久挂载（写入 /etc/fstab，重启后自动挂载）
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="HideMountWizard">取消</button>
-                    <button type="button" class="btn btn-custom-primary" @onclick="ExecuteMountWizard" disabled="@(string.IsNullOrWhiteSpace(wizardDevicePath) || string.IsNullOrWhiteSpace(wizardMountPoint) || isProcessing)">
-                        @if (isProcessing)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
-                        }
-                        <i class="@Icons.Material.Filled.Check me-1"></i>
-                        挂载
-                    </button>
-                </div>
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+            <div>
+                <FluentLabel>设备路径 *</FluentLabel>
+                <FluentTextField @bind-Value="wizardDevicePath" Placeholder="/dev/sdb1" Style="width: 100%;" />
+                <small style="color: var(--neutral-foreground-hint);">例如: /dev/sdb1</small>
             </div>
-        </div>
-    </div>
-    <div class="modal-backdrop show"></div>
-}
+
+            <div>
+                <FluentLabel>挂载点 *</FluentLabel>
+                <FluentTextField @bind-Value="wizardMountPoint" Placeholder="/mnt/mydisk" Style="width: 100%;" />
+                <small style="color: var(--neutral-foreground-hint);">例如: /mnt/mydisk</small>
+            </div>
+
+            <div>
+                <FluentLabel>文件系统类型（可选）</FluentLabel>
+                <select @bind="wizardFileSystem" style="width: 100%; padding: calc(var(--design-unit) * 2px); border: 1px solid var(--neutral-stroke-rest); border-radius: calc(var(--control-corner-radius) * 1px); background-color: var(--neutral-fill-input-rest); color: var(--neutral-foreground-rest);">
+                    <option value="">自动检测</option>
+                    @foreach (var fs in availableFileSystems)
+                    {
+                        <option value="@fs">@fs</option>
+                    }
+                </select>
+            </div>
+
+            <div>
+                <FluentLabel>挂载选项（可选）</FluentLabel>
+                <FluentTextField @bind-Value="wizardOptions" Placeholder="defaults" Style="width: 100%;" />
+                <small style="color: var(--neutral-foreground-hint);">例如: defaults, rw, noatime</small>
+            </div>
+
+            <div>
+                <FluentLabel>挂载类型 *</FluentLabel>
+                <FluentRadioGroup @bind-Value="wizardPermanent">
+                    <FluentRadio Value="@(false)">临时挂载（仅当前会话，重启后失效）</FluentRadio>
+                    <FluentRadio Value="@(true)">永久挂载（写入 /etc/fstab，重启后自动挂载）</FluentRadio>
+                </FluentRadioGroup>
+            </div>
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="HideMountWizard">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="ExecuteMountWizard" Disabled="@(string.IsNullOrWhiteSpace(wizardDevicePath) || string.IsNullOrWhiteSpace(wizardMountPoint) || isProcessing)">
+            @if (isProcessing)
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.5rem;" />
+            }
+            ✓ 挂载
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 <!-- Power Management Modal -->
-@if (showPowerManagement)
-{
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="@Icons.Material.Filled.Power me-2"></i>
-                        磁盘电源管理 - @selectedDiskForPower?.Name
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="HidePowerManagement"></button>
-                </div>
-                <div class="modal-body">
-                    @if (!string.IsNullOrEmpty(powerMessage))
-                    {
-                        <div class="alert @(powerError ? "alert-danger" : "alert-success") mb-3">
-                            @powerMessage
-                            <button type="button" class="btn-close" @onclick="@(() => powerMessage = string.Empty)"></button>
-                        </div>
-                    }
+<FluentDialog Hidden="@(!showPowerManagement)" Modal="true" OnDismiss="HidePowerManagement" Style="width: 90%; max-width: 600px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">🔌 磁盘电源管理 - @selectedDiskForPower?.Name</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (!string.IsNullOrEmpty(powerMessage))
+        {
+            <FluentMessageBar Intent="@(powerError ? MessageIntent.Error : MessageIntent.Success)" Style="margin-bottom: 1rem;">
+                @powerMessage
+                <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => powerMessage = string.Empty)" aria-label="Close" Style="margin-left: auto;">
+                    ✕
+                </FluentButton>
+            </FluentMessageBar>
+        }
 
-                    <h6>当前状态</h6>
-                    @if (!string.IsNullOrEmpty(powerStatus))
+        <FluentLabel Typo="Typography.H6">当前状态</FluentLabel>
+        @if (!string.IsNullOrEmpty(powerStatus))
+        {
+            // 尝试从 hdparm 输出中解析关键信息
+            var lines = powerStatus
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string deviceLine = lines.Length > 0 ? lines[0].Trim() : string.Empty;
+            string stateLine = lines.FirstOrDefault(
+                l => l.Contains("drive state is", StringComparison.OrdinalIgnoreCase)
+                  || l.Contains("drive state:", StringComparison.OrdinalIgnoreCase)
+            );
+            string driveState = string.Empty;
+            if (!string.IsNullOrEmpty(stateLine))
+            {
+                var idx = stateLine.IndexOf(':');
+                driveState = idx >= 0 && idx + 1 < stateLine.Length
+                    ? stateLine[(idx + 1)..].Trim()
+                    : stateLine.Trim();
+            }
+            <div style="border: 1px solid var(--neutral-stroke-divider-rest); border-radius: 4px; padding: 0.5rem; margin-bottom: 0.5rem; background-color: var(--neutral-layer-2);">
+                @if (!string.IsNullOrEmpty(deviceLine))
+                {
+                    <div><strong>设备:</strong> @deviceLine</div>
+                }
+                @if (!string.IsNullOrEmpty(driveState))
+                {
+                    <div style="margin-top: 0.25rem;">
+                        <strong>电源状态:</strong> @driveState
+                    </div>
+                }
+                else
+                {
+                    <div style="margin-top: 0.25rem; color: var(--neutral-foreground-hint);">
+                        无法从输出中解析详细电源状态，以下为原始信息。
+                    </div>
+                }
+            </div>
+            <details style="margin-bottom: 1rem;">
+                <summary style="color: var(--neutral-foreground-hint); cursor: pointer;">查看原始 hdparm 输出</summary>
+                <pre style="background-color: var(--neutral-layer-2); padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; margin-bottom: 0; overflow-x: auto;"><code>@powerStatus</code></pre>
+            </details>
+        }
+        else
+        {
+            <FluentButton Appearance="Appearance.Outline" OnClick="CheckPowerStatus" Style="margin-bottom: 1rem; font-size: 0.875rem;">
+                查询状态
+            </FluentButton>
+        }
+
+        <FluentLabel Typo="Typography.H6" Style="margin-top: 1rem;">自动休眠设置</FluentLabel>
+        <div style="margin-bottom: 1rem;">
+            <FluentLabel>休眠超时时间（分钟）</FluentLabel>
+            <FluentNumberField @bind-Value="spinDownTimeout" Min="0" Max="240" Style="width: 100%;" />
+            <small style="color: var(--neutral-foreground-hint);">0 = 禁用自动休眠，1-240 分钟</small>
+        </div>
+        <FluentButton Appearance="Appearance.Outline" OnClick="SetSpinDown" Disabled="@isProcessing" Style="font-size: 0.875rem;">
+            @if (isProcessing && currentOperation == "spindown")
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.25rem;" />
+            }
+            设置休眠超时
+        </FluentButton>
+
+        <FluentLabel Typo="Typography.H6" Style="margin-top: 1.5rem;">APM 电源管理级别</FluentLabel>
+        <div style="margin-bottom: 1rem;">
+            <FluentLabel>APM 级别（1-255）</FluentLabel>
+            <FluentNumberField @bind-Value="apmLevel" Min="1" Max="255" Style="width: 100%;" />
+            <small style="color: var(--neutral-foreground-hint);">1 = 最省电，255 = 最高性能</small>
+        </div>
+        <FluentButton Appearance="Appearance.Outline" OnClick="SetApmLevel" Disabled="@isProcessing" Style="font-size: 0.875rem;">
+            @if (isProcessing && currentOperation == "apm")
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.25rem;" />
+            }
+            设置 APM 级别
+        </FluentButton>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="HidePowerManagement">关闭</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<!-- Network Mount Wizard Modal -->
+<FluentDialog Hidden="@(!showNetworkMountWizard)" Modal="true" OnDismiss="HideNetworkMountWizard" Style="width: 90%; max-width: 800px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">🌐 网络磁盘挂载向导</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (!string.IsNullOrEmpty(networkWizardMessage))
+        {
+            <FluentMessageBar Intent="@(networkWizardError ? MessageIntent.Error : MessageIntent.Success)" Style="margin-bottom: 1rem;">
+                @networkWizardMessage
+                <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => networkWizardMessage = string.Empty)" aria-label="Close" Style="margin-left: auto;">
+                    ✕
+                </FluentButton>
+            </FluentMessageBar>
+        }
+
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+            <div>
+                <FluentLabel>网络磁盘类型 *</FluentLabel>
+                <select @bind="networkWizardType" style="width: 100%; padding: calc(var(--design-unit) * 2px); border: 1px solid var(--neutral-stroke-rest); border-radius: calc(var(--control-corner-radius) * 1px); background-color: var(--neutral-fill-input-rest); color: var(--neutral-foreground-rest);">
+                    <option value="@NetworkDiskType.CIFS">CIFS/SMB (Windows共享)</option>
+                    <option value="@NetworkDiskType.NFS">NFS (Linux共享)</option>
+                </select>
+            </div>
+
+            <div>
+                <FluentLabel>服务器地址 *</FluentLabel>
+                <FluentTextField @bind-Value="networkWizardServer" Placeholder="192.168.1.100 或 server.local" Style="width: 100%;" />
+                <small style="color: var(--neutral-foreground-hint);">服务器IP地址或主机名</small>
+            </div>
+
+            <div>
+                <FluentLabel>共享路径 *</FluentLabel>
+                <FluentTextField @bind-Value="networkWizardSharePath" Placeholder="@(networkWizardType == NetworkDiskType.CIFS ? "share" : "export/path")" Style="width: 100%;" />
+                <small style="color: var(--neutral-foreground-hint);">
+                    @if (networkWizardType == NetworkDiskType.CIFS)
                     {
-                        // 尝试从 hdparm 输出中解析关键信息
-                        var lines = powerStatus
-                            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-                        string deviceLine = lines.Length > 0 ? lines[0].Trim() : string.Empty;
-                        string stateLine = lines.FirstOrDefault(
-                            l => l.Contains("drive state is", StringComparison.OrdinalIgnoreCase)
-                              || l.Contains("drive state:", StringComparison.OrdinalIgnoreCase)
-                        );
-                        string driveState = string.Empty;
-                        if (!string.IsNullOrEmpty(stateLine))
-                        {
-                            var idx = stateLine.IndexOf(':');
-                            driveState = idx >= 0 && idx + 1 < stateLine.Length
-                                ? stateLine[(idx + 1)..].Trim()
-                                : stateLine.Trim();
-                        }
-                        <div class="border rounded p-2 mb-2 bg-light">
-                            @if (!string.IsNullOrEmpty(deviceLine))
-                            {
-                                <div><strong>设备:</strong> @deviceLine</div>
-                            }
-                            @if (!string.IsNullOrEmpty(driveState))
-                            {
-                                <div class="mt-1">
-                                    <strong>电源状态:</strong> @driveState
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="mt-1 text-muted">
-                                    无法从输出中解析详细电源状态，以下为原始信息。
-                                </div>
-                            }
-                        </div>
-                        <details class="mb-3">
-                            <summary class="text-muted" style="cursor: pointer;">查看原始 hdparm 输出</summary>
-                            <pre class="bg-light p-2 rounded mt-2 mb-0"><code>@powerStatus</code></pre>
-                        </details>
+                        <text>Windows共享名称，如: share 或 Documents</text>
                     }
                     else
                     {
-                        <button type="button" class="btn btn-sm btn-outline-secondary mb-3" @onclick="CheckPowerStatus">
-                            查询状态
-                        </button>
+                        <text>NFS导出路径，如: export/data 或 mnt/storage</text>
                     }
-
-                    <h6 class="mt-3">自动休眠设置</h6>
-                    <div class="mb-3">
-                        <label class="form-label">休眠超时时间（分钟）</label>
-                        <input type="number" class="form-control-custom" @bind="spinDownTimeout" min="0" max="240" />
-                        <small class="form-text text-muted-custom">0 = 禁用自动休眠，1-240 分钟</small>
-                    </div>
-                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="SetSpinDown" disabled="@isProcessing">
-                        @if (isProcessing && currentOperation == "spindown")
-                        {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
-                        }
-                        设置休眠超时
-                    </button>
-
-                    <h6 class="mt-4">APM 电源管理级别</h6>
-                    <div class="mb-3">
-                        <label class="form-label">APM 级别（1-255）</label>
-                        <input type="number" class="form-control-custom" @bind="apmLevel" min="1" max="255" />
-                        <small class="form-text text-muted-custom">1 = 最省电，255 = 最高性能</small>
-                    </div>
-                    <button type="button" class="btn btn-outline-primary btn-sm" @onclick="SetApmLevel" disabled="@isProcessing">
-                        @if (isProcessing && currentOperation == "apm")
-                        {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
-                        }
-                        设置 APM 级别
-                    </button>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="HidePowerManagement">关闭</button>
-                </div>
+                </small>
             </div>
-        </div>
-    </div>
-    <div class="modal-backdrop show"></div>
-}
 
-<!-- Network Mount Wizard Modal -->
-@if (showNetworkMountWizard)
-{
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="@Icons.Material.Filled.SettingsEthernet me-2"></i>
-                        网络磁盘挂载向导
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="HideNetworkMountWizard"></button>
+            <div>
+                <FluentLabel>挂载点 *</FluentLabel>
+                <FluentTextField @bind-Value="networkWizardMountPoint" Placeholder="/mnt/network" Style="width: 100%;" />
+                <small style="color: var(--neutral-foreground-hint);">本地挂载目录，如: /mnt/network</small>
+            </div>
+
+            @if (networkWizardType == NetworkDiskType.CIFS)
+            {
+                <div>
+                    <FluentLabel>用户名（可选）</FluentLabel>
+                    <FluentTextField @bind-Value="networkWizardUsername" Placeholder="username" Style="width: 100%;" />
                 </div>
-                <div class="modal-body">
-                    @if (!string.IsNullOrEmpty(networkWizardMessage))
-                    {
-                        <div class="alert @(networkWizardError ? "alert-danger" : "alert-success") mb-3">
-                            @networkWizardMessage
-                            <button type="button" class="btn-close" @onclick="@(() => networkWizardMessage = string.Empty)"></button>
-                        </div>
-                    }
 
-                    <div class="mb-3">
-                        <label class="form-label">网络磁盘类型 *</label>
-                        <select class="form-control-custom" @bind="networkWizardType">
-                            <option value="@NetworkDiskType.CIFS">CIFS/SMB (Windows共享)</option>
-                            <option value="@NetworkDiskType.NFS">NFS (Linux共享)</option>
-                        </select>
-                    </div>
+                <div>
+                    <FluentLabel>密码（可选）</FluentLabel>
+                    <FluentTextField @bind-Value="networkWizardPassword" Placeholder="password" TextFieldType="TextFieldType.Password" Style="width: 100%;" />
+                </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">服务器地址 *</label>
-                        <input type="text" class="form-control-custom" @bind="networkWizardServer" placeholder="192.168.1.100 或 server.local" />
-                        <small class="form-text text-muted-custom">服务器IP地址或主机名</small>
-                    </div>
+                <div>
+                    <FluentLabel>域（可选）</FluentLabel>
+                    <FluentTextField @bind-Value="networkWizardDomain" Placeholder="WORKGROUP" Style="width: 100%;" />
+                </div>
+            }
 
-                    <div class="mb-3">
-                        <label class="form-label">共享路径 *</label>
-                        <input type="text" class="form-control-custom" @bind="networkWizardSharePath" placeholder="@(networkWizardType == NetworkDiskType.CIFS ? "share" : "export/path")" />
-                        <small class="form-text text-muted-custom">
-                            @if (networkWizardType == NetworkDiskType.CIFS)
-                            {
-                                <text>Windows共享名称，如: share 或 Documents</text>
-                            }
-                            else
-                            {
-                                <text>NFS导出路径，如: export/data 或 mnt/storage</text>
-                            }
-                        </small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">挂载点 *</label>
-                        <input type="text" class="form-control-custom" @bind="networkWizardMountPoint" placeholder="/mnt/network" />
-                        <small class="form-text text-muted-custom">本地挂载目录，如: /mnt/network</small>
-                    </div>
-
+            <div>
+                <FluentLabel>挂载选项（可选）</FluentLabel>
+                <FluentTextField @bind-Value="networkWizardOptions" Placeholder="默认选项" Style="width: 100%;" />
+                <small style="color: var(--neutral-foreground-hint);">
                     @if (networkWizardType == NetworkDiskType.CIFS)
                     {
-                        <div class="mb-3">
-                            <label class="form-label">用户名（可选）</label>
-                            <input type="text" class="form-control-custom" @bind="networkWizardUsername" placeholder="username" />
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">密码（可选）</label>
-                            <input type="password" class="form-control-custom" @bind="networkWizardPassword" placeholder="password" />
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">域（可选）</label>
-                            <input type="text" class="form-control-custom" @bind="networkWizardDomain" placeholder="WORKGROUP" />
-                        </div>
+                        <text>如: vers=3.0,uid=1000,gid=1000</text>
                     }
-
-                    <div class="mb-3">
-                        <label class="form-label">挂载选项（可选）</label>
-                        <input type="text" class="form-control-custom" @bind="networkWizardOptions" placeholder="默认选项" />
-                        <small class="form-text text-muted-custom">
-                            @if (networkWizardType == NetworkDiskType.CIFS)
-                            {
-                                <text>如: vers=3.0,uid=1000,gid=1000</text>
-                            }
-                            else
-                            {
-                                <text>如: rw,sync,hard,intr</text>
-                            }
-                        </small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">挂载类型 *</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="networkMountType" id="networkTempMount" value="temp" @onchange="@(() => networkWizardPermanent = false)" checked="@(!networkWizardPermanent)">
-                            <label class="form-check-label" for="networkTempMount">
-                                临时挂载（仅当前会话，重启后失效）
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="networkMountType" id="networkPermMount" value="perm" @onchange="@(() => networkWizardPermanent = true)" checked="@networkWizardPermanent">
-                            <label class="form-check-label" for="networkPermMount">
-                                永久挂载（写入 /etc/fstab，重启后自动挂载）
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="HideNetworkMountWizard">取消</button>
-                    <button type="button" class="btn btn-custom-primary" @onclick="ExecuteNetworkMountWizard" disabled="@(string.IsNullOrWhiteSpace(networkWizardServer) || string.IsNullOrWhiteSpace(networkWizardSharePath) || string.IsNullOrWhiteSpace(networkWizardMountPoint) || isProcessing)">
-                        @if (isProcessing)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
-                        }
-                        <i class="@Icons.Material.Filled.Check me-1"></i>
-                        挂载
-                    </button>
-                </div>
+                    else
+                    {
+                        <text>如: rw,sync,hard,intr</text>
+                    }
+                </small>
             </div>
-        </div>
-    </div>
-    <div class="modal-backdrop show"></div>
-}
+
+            <div>
+                <FluentLabel>挂载类型 *</FluentLabel>
+                <FluentRadioGroup @bind-Value="networkWizardPermanent">
+                    <FluentRadio Value="@(false)">临时挂载（仅当前会话，重启后失效）</FluentRadio>
+                    <FluentRadio Value="@(true)">永久挂载（写入 /etc/fstab，重启后自动挂载）</FluentRadio>
+                </FluentRadioGroup>
+            </div>
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="HideNetworkMountWizard">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="ExecuteNetworkMountWizard" Disabled="@(string.IsNullOrWhiteSpace(networkWizardServer) || string.IsNullOrWhiteSpace(networkWizardSharePath) || string.IsNullOrWhiteSpace(networkWizardMountPoint) || isProcessing)">
+            @if (isProcessing)
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.5rem;" />
+            }
+            ✓ 挂载
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
 
 @code {
     private List<DiskInfo> allDisks = new();
