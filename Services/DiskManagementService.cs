@@ -716,6 +716,11 @@ public class DiskManagementService : IDiskManagementService
                             var hdparmValue = spindownTime.Value == 0 ? 0 : spindownTime.Value * 12;
                             blockLines.Add($"\tspindown_time = {hdparmValue}");
                         }
+                        else
+                        {
+                            // Preserve existing spindown_time if not being updated
+                            blockLines.Add($"\t{line}");
+                        }
                     }
                     else if (line.StartsWith("apm"))
                     {
@@ -724,11 +729,20 @@ public class DiskManagementService : IDiskManagementService
                         {
                             blockLines.Add($"\tapm = {apmLevel.Value}");
                         }
+                        else
+                        {
+                            // Preserve existing apm if not being updated
+                            blockLines.Add($"\t{line}");
+                        }
                     }
-                    else if (!string.IsNullOrWhiteSpace(line))
+                    else if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("#"))
                     {
-                        // Preserve other settings
-                        blockLines.Add($"\t{line}");
+                        // Preserve other non-comment settings that look like valid configuration
+                        // Valid configuration lines should contain '=' or be known flags
+                        if (line.Contains('=') || IsValidHdparmFlag(line))
+                        {
+                            blockLines.Add($"\t{line}");
+                        }
                     }
                 }
             }
@@ -779,6 +793,22 @@ public class DiskManagementService : IDiskManagementService
         {
             return $"Failed to update /etc/hdparm.conf: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// Validates if a line from hdparm.conf is a valid flag without assignment.
+    /// </summary>
+    /// <param name="line">The trimmed line to validate</param>
+    /// <returns>True if the line is a valid flag</returns>
+    private static bool IsValidHdparmFlag(string line)
+    {
+        // List of known hdparm flags that don't use '=' assignment
+        var validFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "quiet", "standby", "sleep", "disable_seagate"
+        };
+        
+        return validFlags.Contains(line);
     }
 
     private static bool ValidateDevicePath(string devicePath)
