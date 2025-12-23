@@ -97,7 +97,7 @@
                                 @disk.DevicePath
                                 @if (disk.IsRemovable)
                                 {
-                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="var(--info)" Style="margin-left: 0.25rem;">可移动</FluentBadge>
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#0078D4" Style="margin-left: 0.25rem;">可移动</FluentBadge>
                                 }
                             </td>
                             <td>@disk.Type</td>
@@ -231,7 +231,7 @@
                     {
                         <tr>
                             <td>
-                                <FluentBadge Appearance="Appearance.Accent" BackgroundColor="@(disk.DiskType == NetworkDiskType.CIFS ? "var(--accent-fill-rest)" : "var(--success)")">
+                                <FluentBadge Appearance="Appearance.Accent" BackgroundColor="@(disk.DiskType == NetworkDiskType.CIFS ? "var(--accent-fill-rest)" : "#107C10")">
                                     @disk.DiskType.ToString()
                                 </FluentBadge>
                             </td>
@@ -326,8 +326,8 @@
             <div>
                 <FluentLabel>挂载类型 *</FluentLabel>
                 <FluentRadioGroup @bind-Value="wizardPermanent">
-                    <FluentRadio Value="false">临时挂载（仅当前会话，重启后失效）</FluentRadio>
-                    <FluentRadio Value="true">永久挂载（写入 /etc/fstab，重启后自动挂载）</FluentRadio>
+                    <FluentRadio Value="@(false)">临时挂载（仅当前会话，重启后失效）</FluentRadio>
+                    <FluentRadio Value="@(true)">永久挂载（写入 /etc/fstab，重启后自动挂载）</FluentRadio>
                 </FluentRadioGroup>
             </div>
         </FluentStack>
@@ -530,8 +530,8 @@
             <div>
                 <FluentLabel>挂载类型 *</FluentLabel>
                 <FluentRadioGroup @bind-Value="networkWizardPermanent">
-                    <FluentRadio Value="false">临时挂载（仅当前会话，重启后失效）</FluentRadio>
-                    <FluentRadio Value="true">永久挂载（写入 /etc/fstab，重启后自动挂载）</FluentRadio>
+                    <FluentRadio Value="@(false)">临时挂载（仅当前会话，重启后失效）</FluentRadio>
+                    <FluentRadio Value="@(true)">永久挂载（写入 /etc/fstab，重启后自动挂载）</FluentRadio>
                 </FluentRadioGroup>
             </div>
         </FluentStack>
