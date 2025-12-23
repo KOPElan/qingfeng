@@ -12,6 +12,11 @@ public class DiskManagementService : IDiskManagementService
     private static readonly char[] InvalidCredentialChars = ['\n', '\r', '='];
     private static readonly HashSet<char> InvalidCredentialCharsSet = new(InvalidCredentialChars);
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+    private static readonly HashSet<string> ValidHdparmFlags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "quiet", "standby", "sleep", "disable_seagate"
+    };
+    private static readonly Regex HdparmSettingRegex = new(@"^\s*([a-z_]+)\s*=\s*(.+)\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public Task<List<DiskInfo>> GetAllDisksAsync()
     {
@@ -738,8 +743,8 @@ public class DiskManagementService : IDiskManagementService
                     else if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("#"))
                     {
                         // Preserve other non-comment settings that look like valid configuration
-                        // Valid configuration lines should contain '=' or be known flags
-                        if (line.Contains('=') || IsValidHdparmFlag(line))
+                        // Valid configuration lines should match the pattern "key = value" or be known flags
+                        if (HdparmSettingRegex.IsMatch(line) || ValidHdparmFlags.Contains(line))
                         {
                             blockLines.Add($"\t{line}");
                         }
@@ -779,9 +784,27 @@ public class DiskManagementService : IDiskManagementService
             }
             lines.AddRange(newBlock);
 
-            // Write the updated configuration
-            // Note: This requires appropriate permissions (typically root)
-            await File.WriteAllLinesAsync(hdparmConfPath, lines);
+            // Write the updated configuration using atomic file operations
+            // Write to a temporary file first, then move it to the final location
+            // This prevents corruption if the write operation fails
+            var tempPath = $"{hdparmConfPath}.tmp";
+            try
+            {
+                await File.WriteAllLinesAsync(tempPath, lines);
+                
+                // Move the temporary file to the final location
+                // This is an atomic operation on most filesystems
+                File.Move(tempPath, hdparmConfPath, overwrite: true);
+            }
+            catch
+            {
+                // Clean up temporary file if it exists
+                if (File.Exists(tempPath))
+                {
+                    try { File.Delete(tempPath); } catch { /* Ignore cleanup errors */ }
+                }
+                throw;
+            }
 
             return "Successfully updated /etc/hdparm.conf";
         }
@@ -793,22 +816,6 @@ public class DiskManagementService : IDiskManagementService
         {
             return $"Failed to update /etc/hdparm.conf: {ex.Message}";
         }
-    }
-
-    /// <summary>
-    /// Validates if a line from hdparm.conf is a valid flag without assignment.
-    /// </summary>
-    /// <param name="line">The trimmed line to validate</param>
-    /// <returns>True if the line is a valid flag</returns>
-    private static bool IsValidHdparmFlag(string line)
-    {
-        // List of known hdparm flags that don't use '=' assignment
-        var validFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "quiet", "standby", "sleep", "disable_seagate"
-        };
-        
-        return validFlags.Contains(line);
     }
 
     private static bool ValidateDevicePath(string devicePath)
