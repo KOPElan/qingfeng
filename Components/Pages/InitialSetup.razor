@@ -6,14 +6,14 @@
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
-<div class="setup-container">
-    <FluentCard class="setup-card">
-        <div class="setup-header">
+<FluentStack Orientation="Orientation.Vertical" Style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem;">
+    <FluentCard Style="max-width: 500px; width: 100%; box-shadow: var(--elevation-shadow-dialog);">
+        <FluentStack Orientation="Orientation.Vertical" Style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; text-align: center;">
             <FluentLabel Typo="Typography.H3" Style="color: white; margin: 0;">🛡️ 初始设置</FluentLabel>
             <FluentLabel Typo="Typography.Body" Style="color: rgba(255, 255, 255, 0.9); margin-top: 0.5rem;">欢迎使用清风！请创建管理员账号以开始使用。</FluentLabel>
-        </div>
+        </FluentStack>
 
-        <div class="setup-body">
+        <FluentStack Orientation="Orientation.Vertical" Style="padding: 2rem;">
             @if (!string.IsNullOrEmpty(errorMessage))
             {
                 <FluentMessageBar Intent="MessageIntent.Error" Style="margin-bottom: 1rem;">
@@ -54,15 +54,15 @@
                     <span>✓ 创建管理员账号</span>
                 }
             </FluentButton>
-        </div>
+        </FluentStack>
 
-        <div class="setup-footer">
-            <FluentLabel Typo="Typography.Body" Style="color: #6c757d;">
+        <FluentStack Orientation="Orientation.Vertical" Style="background: var(--neutral-layer-2); padding: 1.5rem 2rem; border-top: 1px solid var(--neutral-stroke-divider-rest);">
+            <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">
                 ℹ️ 管理员拥有系统的完全控制权限，包括设置、Docker管理和磁盘管理。
             </FluentLabel>
-        </div>
+        </FluentStack>
     </FluentCard>
-</div>
+</FluentStack>
 
 @code {
     private string username = "";
@@ -144,37 +144,3 @@
         }
     }
 }
-
-<style>
-    .setup-container {
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-    }
-
-    .setup-card {
-        max-width: 500px;
-        width: 100%;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
-
-    .setup-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2rem;
-        text-align: center;
-    }
-
-    .setup-body {
-        padding: 2rem;
-    }
-
-    .setup-footer {
-        background: #f8f9fa;
-        padding: 1.5rem 2rem;
-        border-top: 1px solid #e9ecef;
-    }
-</style>

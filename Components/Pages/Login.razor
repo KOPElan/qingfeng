@@ -5,14 +5,14 @@
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
-<div class="login-container">
-    <FluentCard class="login-card">
-        <div class="login-header">
+<FluentStack Orientation="Orientation.Vertical" Style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem;">
+    <FluentCard Style="max-width: 450px; width: 100%; box-shadow: var(--elevation-shadow-dialog);">
+        <FluentStack Orientation="Orientation.Vertical" Style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; text-align: center;">
             <FluentLabel Typo="Typography.H3" Style="color: white; margin: 0;">🔐 登录</FluentLabel>
             <FluentLabel Typo="Typography.Body" Style="color: rgba(255, 255, 255, 0.9); margin-top: 0.5rem;">欢迎回来，请登录您的账号</FluentLabel>
-        </div>
+        </FluentStack>
 
-        <div class="login-body">
+        <FluentStack Orientation="Orientation.Vertical" Style="padding: 2rem;">
             @if (!string.IsNullOrEmpty(errorMessage))
             {
                 <FluentMessageBar Intent="MessageIntent.Error" Style="margin-bottom: 1rem;">
@@ -47,9 +47,9 @@
                     <span>🔑 登录</span>
                 }
             </FluentButton>
-        </div>
+        </FluentStack>
     </FluentCard>
-</div>
+</FluentStack>
 
 @code {
     private string username = "";
@@ -127,31 +127,3 @@
         }
     }
 }
-
-<style>
-    .login-container {
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-    }
-
-    .login-card {
-        max-width: 450px;
-        width: 100%;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
-
-    .login-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2rem;
-        text-align: center;
-    }
-
-    .login-body {
-        padding: 2rem;
-    }
-</style>

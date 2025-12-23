@@ -23,19 +23,12 @@ else if (_isHomePage)
 else
 {
     <FluentLayout>
-        <!-- Background Gradient Blobs for all pages -->
-        <div class="gradient-bg">
-            <div class="gradient-blob gradient-blob-1"></div>
-            <div class="gradient-blob gradient-blob-2"></div>
-            <div class="gradient-blob gradient-blob-3"></div>
-        </div>
-
         <FluentHeader>
-            <div class="header-brand">
+            <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; gap: 0.75rem;">
                 <FluentLabel Typo="Typography.H5">🖥️ 个人门户</FluentLabel>
-            </div>
+            </FluentStack>
             <FluentSpacer />
-            <div class="header-actions">
+            <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.75rem;">
                 @if (!string.IsNullOrEmpty(_currentUsername))
                 {
                     <FluentLabel>@_currentUsername</FluentLabel>
@@ -52,16 +45,16 @@ else
                              OnClick="NavigateToSettings" 
                              Title="设置" 
                              aria-label="设置">⚙️</FluentButton>
-            </div>
+            </FluentStack>
         </FluentHeader>
 
         <FluentBodyContent>
-            <div class="content-wrapper">
+            <FluentStack Orientation="Orientation.Vertical" Style="max-width: 1024px; margin: 0 auto; flex: 1; padding: 2.5rem 0;">
                 @Body
-            </div>
+            </FluentStack>
         </FluentBodyContent>
 
-        <FluentFooter>
+        <FluentFooter Style="text-align: center; padding: 1.5rem; margin-bottom: 5rem;">
             © @DateTime.Now.Year 个人家庭实验室门户. Designed for efficiency.
         </FluentFooter>
 

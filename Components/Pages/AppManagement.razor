@@ -15,21 +15,24 @@
         </FluentButton>
     </FluentStack>
 
-    <div class="apps-grid-management">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
         @foreach (var app in applications)
         {
-            <FluentCard class="app-card-management">
-                <div class="app-card-header">
-                    <div class="app-icon-small" style="background: @app.IconColor;">
-                        <i class="bi @app.Icon"></i>
+            <FluentCard Style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; transition: transform 0.2s;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="width: 50px; height: 50px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; background: @app.IconColor; box-shadow: var(--elevation-shadow-card-rest);">
+                        @if (!string.IsNullOrEmpty(app.Icon))
+                        {
+                            <img src="@app.Icon" alt="@app.Title" style="width: 36px; height: 36px; object-fit: contain;" />
+                        }
                     </div>
-                    <div class="app-status-indicator @(app.IsOnline ? "online" : "offline")"></div>
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: @(app.IsOnline ? "var(--success)" : "var(--error)"); box-shadow: 0 0 8px @(app.IsOnline ? "var(--success)" : "var(--error)");"></div>
                 </div>
-                <div class="app-card-body">
-                    <h5 class="app-title">@app.Title</h5>
-                    <p class="app-description">@app.Description</p>
+                <div style="flex: 1;">
+                    <h5 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 0.5rem 0;">@app.Title</h5>
+                    <p style="font-size: 0.875rem; color: var(--neutral-foreground-hint); margin: 0 0 0.75rem 0;">@app.Description</p>
                     <FluentBadge Appearance="Appearance.Accent" Style="background: rgba(96, 165, 250, 0.2); color: #60a5fa;">@app.Category</FluentBadge>
-                    <div class="app-url">@app.Url</div>
+                    <div style="font-size: 0.75rem; color: var(--neutral-foreground-hint); margin-top: 0.5rem; word-break: break-all;">@app.Url</div>
                 </div>
                 <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
                     <FluentButton Appearance="Appearance.Outline" OnClick="() => EditApplication(app)" IconOnly="true" Title="编辑">
@@ -77,7 +80,7 @@
             </FluentStack>
             <FluentStack Orientation="Orientation.Vertical">
                 <FluentLabel>图标颜色</FluentLabel>
-                <input type="color" class="form-control form-control-color" @bind="editingApp.IconColor" style="width: 100%; height: 40px; border-radius: 4px;">
+                <input type="color" @bind="editingApp.IconColor" style="width: 100%; height: 40px; border-radius: 4px;">
             </FluentStack>
             <FluentTextField Label="描述" @bind-Value="editingApp.Description" Placeholder="媒体服务器" Style="width: 100%;" />
             <FluentTextField Label="分类" @bind-Value="editingApp.Category" Placeholder="MEDIA" Style="width: 100%;" />
