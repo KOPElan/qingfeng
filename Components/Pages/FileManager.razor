@@ -375,14 +375,14 @@
             <div style="padding: 24px; overflow-y: auto; flex: 1;">
                 @if (files != null && files.Any())
                 {
-                    <table class="fluent-table">
+                    <table class="fluent-table" role="table" aria-label="文件列表">
                         <thead>
                             <tr>
-                                <th>名称</th>
-                                <th>类型</th>
-                                <th>大小</th>
-                                <th>修改时间</th>
-                                <th>操作</th>
+                                <th scope="col">名称</th>
+                                <th scope="col">类型</th>
+                                <th scope="col">大小</th>
+                                <th scope="col">修改时间</th>
+                                <th scope="col">操作</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -485,8 +485,7 @@
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="path-display">
-                <i class="@Icons.Material.Filled.Edit"></i>
-                @GetSimplifiedPath()
+                📂 @GetSimplifiedPath()
             </div>
             <div class="storage-info">
                 @if (storageTotal > 0)
@@ -628,13 +627,13 @@
             @if (searchResults != null && searchResults.Any())
             {
                 <div style="max-height: 400px; overflow-y: auto;">
-                    <table class="fluent-table">
+                    <table class="fluent-table" role="table" aria-label="搜索结果">
                         <thead>
                             <tr>
-                                <th>名称</th>
-                                <th>路径</th>
-                                <th>类型</th>
-                                <th>大小</th>
+                                <th scope="col">名称</th>
+                                <th scope="col">路径</th>
+                                <th scope="col">类型</th>
+                                <th scope="col">大小</th>
                             </tr>
                         </thead>
                         <tbody>
