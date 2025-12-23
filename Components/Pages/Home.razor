@@ -107,7 +107,10 @@ else
                     <FluentCard @onclick="() => OpenApplication(app)" Style="padding: 1.5rem 1rem; gap: 0.75rem; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; transition: transform 0.2s;">
                         <div style="position: absolute; top: 0.75rem; right: 0.75rem; width: 0.625rem; height: 0.625rem; border-radius: 50%; background: @(app.IsOnline ? "var(--success)" : "var(--error)"); box-shadow: 0 0 0 2px var(--neutral-fill-layer-rest);"></div>
                         <div style="width: 64px; height: 64px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; color: white; background: @app.IconColor; margin-bottom: 0.5rem;">
-                            <i class="bi @app.Icon" style="font-size: 32px;"></i>
+                            @if (!string.IsNullOrEmpty(app.Icon))
+                            {
+                                <img src="@app.Icon" alt="@app.Title" style="width: 48px; height: 48px; object-fit: contain;" />
+                            }
                         </div>
                         <FluentLabel Style="font-size: 0.875rem; font-weight: 600; text-align: center;">@app.Title</FluentLabel>
                         <FluentLabel Style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600; color: var(--neutral-foreground-hint);">@app.Category</FluentLabel>

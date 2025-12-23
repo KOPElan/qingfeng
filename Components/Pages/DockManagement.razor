@@ -73,7 +73,10 @@
                          role="button"
                          aria-label="@($"添加 {app.Title} 到 Dock")">
                         <div style="width: 50px; height: 50px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; color: white; background: @app.IconColor; box-shadow: var(--elevation-shadow-card-rest);">
-                            <i class="bi @app.Icon" style="font-size: 24px;"></i>
+                            @if (!string.IsNullOrEmpty(app.Icon))
+                            {
+                                <img src="@app.Icon" alt="@app.Title" style="width: 36px; height: 36px; object-fit: contain;" />
+                            }
                         </div>
                         <FluentStack Orientation="Orientation.Vertical" Style="flex: 1;">
                             <FluentLabel Style="font-weight: 600;">@app.Title</FluentLabel>

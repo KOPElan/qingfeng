@@ -24,9 +24,9 @@ public class Application
     public string Url { get; set; } = string.Empty;
     
     /// <summary>
-    /// Icon name or URL (e.g., "bi-app" or a URL to an icon)
+    /// Icon image URL (e.g., "/images/app-icon.png" or "/images/app-icon.svg")
     /// </summary>
-    public string Icon { get; set; } = "bi-app";
+    public string Icon { get; set; } = "/images/default-app-icon.png";
     
     /// <summary>
     /// Icon background color (e.g., "#3b82f6")
