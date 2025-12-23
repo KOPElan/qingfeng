@@ -48,25 +48,25 @@
         }
         else
         {
-            <table class="fluent-table" style="width: 100%;" role="table" aria-label="用户列表">
+            <table style="width: 100%; border-collapse: collapse;" role="table" aria-label="用户列表">
                 <thead>
                     <tr>
-                        <th scope="col">用户名</th>
-                        <th scope="col">角色</th>
-                        <th scope="col">创建时间</th>
-                        <th scope="col">最后登录</th>
-                        <th scope="col">状态</th>
-                        <th scope="col">操作</th>
+                        <th scope="col" style="text-align: left; padding: 0.75rem; border-bottom: 2px solid var(--neutral-stroke-divider-rest); font-weight: 600; color: var(--neutral-foreground-rest);">用户名</th>
+                        <th scope="col" style="text-align: left; padding: 0.75rem; border-bottom: 2px solid var(--neutral-stroke-divider-rest); font-weight: 600; color: var(--neutral-foreground-rest);">角色</th>
+                        <th scope="col" style="text-align: left; padding: 0.75rem; border-bottom: 2px solid var(--neutral-stroke-divider-rest); font-weight: 600; color: var(--neutral-foreground-rest);">创建时间</th>
+                        <th scope="col" style="text-align: left; padding: 0.75rem; border-bottom: 2px solid var(--neutral-stroke-divider-rest); font-weight: 600; color: var(--neutral-foreground-rest);">最后登录</th>
+                        <th scope="col" style="text-align: left; padding: 0.75rem; border-bottom: 2px solid var(--neutral-stroke-divider-rest); font-weight: 600; color: var(--neutral-foreground-rest);">状态</th>
+                        <th scope="col" style="text-align: left; padding: 0.75rem; border-bottom: 2px solid var(--neutral-stroke-divider-rest); font-weight: 600; color: var(--neutral-foreground-rest);">操作</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var user in users)
                     {
-                        <tr>
-                            <td>
+                        <tr style="border-bottom: 1px solid var(--neutral-stroke-divider-rest); transition: background-color 0.2s;">
+                            <td style="padding: 0.75rem; vertical-align: middle;">
                                 <span aria-label="用户" role="img">👤</span> @user.Username
                             </td>
-                            <td>
+                            <td style="padding: 0.75rem; vertical-align: middle;">
                                 @if (user.Role == "Admin")
                                 {
                                     <FluentBadge Appearance="Appearance.Accent" BackgroundColor="var(--error)">管理员</FluentBadge>
@@ -76,9 +76,9 @@
                                     <FluentBadge Appearance="Appearance.Neutral">普通用户</FluentBadge>
                                 }
                             </td>
-                            <td>@user.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@(user.LastLoginAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "从未登录")</td>
-                            <td>
+                            <td style="padding: 0.75rem; vertical-align: middle;">@user.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td style="padding: 0.75rem; vertical-align: middle;">@(user.LastLoginAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "从未登录")</td>
+                            <td style="padding: 0.75rem; vertical-align: middle;">
                                 @if (user.IsActive)
                                 {
                                     <FluentBadge Appearance="Appearance.Accent" BackgroundColor="var(--success)">激活</FluentBadge>
@@ -88,7 +88,7 @@
                                     <FluentBadge Appearance="Appearance.Neutral">禁用</FluentBadge>
                                 }
                             </td>
-                            <td>
+                            <td style="padding: 0.75rem; vertical-align: middle;">
                                 @if (user.Username != CurrentUsername)
                                 {
                                     <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => ShowDeleteConfirmation(user))" Title="@($"删除用户 {user.Username}")">

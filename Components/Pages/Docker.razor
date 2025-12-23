@@ -46,7 +46,7 @@
         </FluentLabel>
         @if (containers != null && containers.Any())
         {
-            <table class="fluent-table" style="width: 100%; margin-top: 1rem;" role="table" aria-label="容器列表">
+            <table style="width: 100%; border-collapse: collapse;" style="width: 100%; margin-top: 1rem;" role="table" aria-label="容器列表">
                 <thead>
                     <tr>
                         <th scope="col">ID</th>
@@ -126,7 +126,7 @@
         </FluentLabel>
         @if (images != null && images.Any())
         {
-            <table class="fluent-table" style="width: 100%; margin-top: 1rem;" role="table" aria-label="镜像列表">
+            <table style="width: 100%; border-collapse: collapse;" style="width: 100%; margin-top: 1rem;" role="table" aria-label="镜像列表">
                 <thead>
                     <tr>
                         <th scope="col">仓库</th>
@@ -174,7 +174,7 @@
         }
         else if (!string.IsNullOrEmpty(containerLogs))
         {
-            <div class="container-logs-viewer">
+            <div style="background: var(--neutral-layer-1); padding: 1rem; border-radius: var(--control-corner-radius); font-family: monospace; white-space: pre-wrap; max-height: 400px; overflow-y: auto; border: 1px solid var(--neutral-stroke-divider-rest);">
                 @containerLogs
             </div>
         }
