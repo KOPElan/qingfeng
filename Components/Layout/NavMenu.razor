@@ -7,51 +7,69 @@
 @implements IDisposable
 
 <!-- Dock-style Navigation Menu -->
-<div class="bottom-dock">
-    <div class="dock-container">
+<div style="position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); z-index: 50; width: auto; max-width: 90vw;">
+    <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem 2rem; background: var(--neutral-layer-floating); backdrop-filter: blur(12px); border: 1px solid var(--neutral-stroke-layer-rest); border-radius: 3rem; box-shadow: var(--elevation-shadow-flyout); transition: all 0.3s ease;">
         @foreach (var item in dockItems)
         {
             if (item.IsSystemItem && item.ItemId == "home")
             {
-                <NavLink href="@item.Url" Match="NavLinkMatch.All" class="dock-item">
-                    <div class="dock-icon-bg" style="background: @item.IconBackground;">
-                        <span class="material-symbols-outlined icon-lg" style="color: @item.IconColor;">@item.Icon</span>
+                <NavLink href="@item.Url" Match="NavLinkMatch.All" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 3rem; text-decoration: none; background: none; border: none; padding: 0; cursor: pointer;">
+                    <div style="width: 60px; height: 60px; border-radius: 1.25rem; display: flex; align-items: center; justify-content: center; background: @item.IconBackground; box-shadow: var(--elevation-shadow-card-rest); transition: all 0.3s ease; border: 1px solid var(--neutral-stroke-layer-rest);">
+                        <span class="material-symbols-outlined" style="font-size: 32px; color: @item.IconColor;">@item.Icon</span>
                     </div>
-                    <span class="dock-tooltip">@item.Title</span>
-                    <div class="dock-indicator @(IsActive(item.Url) ? "" : "inactive")"></div>
+                    <div style="position: absolute; top: -3rem; transform: scale(0); transition: all 0.2s; background: var(--neutral-layer-card-container); backdrop-filter: blur(12px); color: var(--neutral-foreground-rest); font-size: 0.6875rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.75rem; white-space: nowrap; opacity: 0; box-shadow: var(--elevation-shadow-flyout); border: 1px solid var(--neutral-stroke-layer-rest);">@item.Title</div>
+                    <div style="width: 0.25rem; height: 0.25rem; border-radius: 50%; background: @(IsActive(item.Url) ? "var(--accent-fill-rest)" : "transparent"); box-shadow: @(IsActive(item.Url) ? "0 0 8px var(--accent-fill-rest)" : "none"); margin-top: 0.5rem;"></div>
                 </NavLink>
             }
             else if (item.ItemId == "system-monitor")
             {
-                <NavLink href="@item.Url" class="dock-item">
-                    <div class="dock-icon-bg" style="background: @item.IconBackground;">
-                        <span class="material-symbols-outlined icon-lg" style="color: @item.IconColor;">@item.Icon</span>
+                <NavLink href="@item.Url" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 3rem; text-decoration: none; background: none; border: none; padding: 0; cursor: pointer;">
+                    <div style="width: 60px; height: 60px; border-radius: 1.25rem; display: flex; align-items: center; justify-content: center; background: @item.IconBackground; box-shadow: var(--elevation-shadow-card-rest); transition: all 0.3s ease; border: 1px solid var(--neutral-stroke-layer-rest);">
+                        <span class="material-symbols-outlined" style="font-size: 32px; color: @item.IconColor;">@item.Icon</span>
                     </div>
-                    <span class="dock-tooltip">@item.Title</span>
-                    <div class="dock-indicator @(IsActive(item.Url) ? "" : "inactive")"></div>
+                    <div style="position: absolute; top: -3rem; transform: scale(0); transition: all 0.2s; background: var(--neutral-layer-card-container); backdrop-filter: blur(12px); color: var(--neutral-foreground-rest); font-size: 0.6875rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.75rem; white-space: nowrap; opacity: 0; box-shadow: var(--elevation-shadow-flyout); border: 1px solid var(--neutral-stroke-layer-rest);">@item.Title</div>
+                    <div style="width: 0.25rem; height: 0.25rem; border-radius: 50%; background: @(IsActive(item.Url) ? "var(--accent-fill-rest)" : "transparent"); box-shadow: @(IsActive(item.Url) ? "0 0 8px var(--accent-fill-rest)" : "none"); margin-top: 0.5rem;"></div>
                 </NavLink>
             }
             else
             {
-                <NavLink href="@item.Url" class="dock-item">
-                    <div class="dock-icon-bg" style="background: @item.IconBackground;">
-                        <span class="material-symbols-outlined icon-lg" style="color: @item.IconColor;">@item.Icon</span>
+                <NavLink href="@item.Url" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 3rem; text-decoration: none; background: none; border: none; padding: 0; cursor: pointer;">
+                    <div style="width: 60px; height: 60px; border-radius: 1.25rem; display: flex; align-items: center; justify-content: center; background: @item.IconBackground; box-shadow: var(--elevation-shadow-card-rest); transition: all 0.3s ease; border: 1px solid var(--neutral-stroke-layer-rest);">
+                        <span class="material-symbols-outlined" style="font-size: 32px; color: @item.IconColor;">@item.Icon</span>
                     </div>
-                    <span class="dock-tooltip">@item.Title</span>
-                    <div class="dock-indicator @(IsActive(item.Url) ? "" : "inactive")"></div>
+                    <div style="position: absolute; top: -3rem; transform: scale(0); transition: all 0.2s; background: var(--neutral-layer-card-container); backdrop-filter: blur(12px); color: var(--neutral-foreground-rest); font-size: 0.6875rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.75rem; white-space: nowrap; opacity: 0; box-shadow: var(--elevation-shadow-flyout); border: 1px solid var(--neutral-stroke-layer-rest);">@item.Title</div>
+                    <div style="width: 0.25rem; height: 0.25rem; border-radius: 50%; background: @(IsActive(item.Url) ? "var(--accent-fill-rest)" : "transparent"); box-shadow: @(IsActive(item.Url) ? "0 0 8px var(--accent-fill-rest)" : "none"); margin-top: 0.5rem;"></div>
                 </NavLink>
             }
         }
         
         <!-- Add dock item button -->
-        <button class="dock-item add-dock-btn" @onclick="NavigateToDockManagement" title="@LocalizationService.GetString("ManageDock")">
-            <div class="dock-icon-bg" style="background: rgba(255, 255, 255, 0.1);">
-                <span class="material-symbols-outlined icon-lg color-white">add</span>
+        <button @onclick="NavigateToDockManagement" title="@LocalizationService.GetString("ManageDock")" style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; min-width: 3rem; text-decoration: none; background: none; border: none; padding: 0; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;">
+            <div style="width: 60px; height: 60px; border-radius: 1.25rem; display: flex; align-items: center; justify-content: center; background: var(--neutral-fill-stealth-rest); box-shadow: var(--elevation-shadow-card-rest); transition: all 0.3s ease; border: 1px solid var(--neutral-stroke-layer-rest);">
+                <span class="material-symbols-outlined" style="font-size: 32px; color: var(--neutral-foreground-rest);">add</span>
             </div>
-            <span class="dock-tooltip">@LocalizationService.GetString("Add")</span>
+            <div style="position: absolute; top: -3rem; transform: scale(0); transition: all 0.2s; background: var(--neutral-layer-card-container); backdrop-filter: blur(12px); color: var(--neutral-foreground-rest); font-size: 0.6875rem; font-weight: 700; padding: 0.5rem 0.75rem; border-radius: 0.75rem; white-space: nowrap; opacity: 0; box-shadow: var(--elevation-shadow-flyout); border: 1px solid var(--neutral-stroke-layer-rest);">@LocalizationService.GetString("Add")</div>
         </button>
     </div>
 </div>
+
+<style>
+    /* Hover effects for dock items */
+    a[style*="dock-item"]:hover > div:first-child,
+    button[style*="dock-item"]:hover > div:first-child {
+        transform: scale(1.1) translateY(-0.75rem);
+    }
+    
+    a[style*="dock-item"]:hover > div:nth-child(2),
+    button[style*="dock-item"]:hover > div:nth-child(2) {
+        transform: scale(1);
+        opacity: 1;
+    }
+    
+    button[style*="dock-item"]:hover {
+        opacity: 1;
+    }
+</style>
 
 @code {
     private List<DockItem> dockItems = new();

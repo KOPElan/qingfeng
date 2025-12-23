@@ -1,13 +1,13 @@
 @using Microsoft.FluentUI.AspNetCore.Components
 
-<div class="theme-panel-content">
+<FluentStack Orientation="Orientation.Vertical" Style="padding: calc(var(--design-unit) * 1px); gap: calc(var(--design-unit) * 4px);">
     <FluentDivider Style="margin: calc(var(--design-unit) * 2px) 0;" />
 
-    <div class="theme-option">
-        <div class="theme-option-info">
-            <div class="theme-option-title">主题模式</div>
-            <div class="theme-option-description">选择亮色、暗色或跟随系统</div>
-        </div>
+    <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; justify-content: space-between; padding: calc(var(--design-unit) * 3px); border-radius: var(--control-corner-radius); transition: background-color var(--duration-instant);">
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: calc(var(--design-unit) * 1px);">
+            <FluentLabel Style="font-weight: 600; color: var(--neutral-foreground-rest);">主题模式</FluentLabel>
+            <FluentLabel Style="font-size: calc(var(--type-ramp-base-font-size) * 0.875); color: var(--neutral-foreground-hint);">选择亮色、暗色或跟随系统</FluentLabel>
+        </FluentStack>
         <FluentSelect TOption="string"
                       Items="@themeModes"
                       OptionText="@(item => item switch 
@@ -21,13 +21,13 @@
                       Value="@CurrentMode"
                       ValueChanged="@OnThemeModeChanged"
                       Style="width: 150px;" />
-    </div>
+    </FluentStack>
 
-    <div class="theme-option">
-        <div class="theme-option-info">
-            <div class="theme-option-title">主题色</div>
-            <div class="theme-option-description">选择您喜欢的主色调</div>
-        </div>
+    <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; justify-content: space-between; padding: calc(var(--design-unit) * 3px); border-radius: var(--control-corner-radius); transition: background-color var(--duration-instant);">
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: calc(var(--design-unit) * 1px);">
+            <FluentLabel Style="font-weight: 600; color: var(--neutral-foreground-rest);">主题色</FluentLabel>
+            <FluentLabel Style="font-size: calc(var(--type-ramp-base-font-size) * 0.875); color: var(--neutral-foreground-hint);">选择您喜欢的主色调</FluentLabel>
+        </FluentStack>
         <FluentSelect TOption="string"
                       Items="@officeColors"
                       OptionText="@(item => item)"
@@ -35,14 +35,14 @@
                       Value="@CurrentOfficeColor"
                       ValueChanged="@OnOfficeColorChanged"
                       Style="width: 150px;" />
-    </div>
+    </FluentStack>
 
     <FluentDivider Style="margin: calc(var(--design-unit) * 2px) 0;" />
 
     <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: calc(var(--type-ramp-base-font-size) * 0.875);">
         主题设置会自动保存并应用到所有页面
     </FluentLabel>
-</div>
+</FluentStack>
 
 @code {
     [Parameter]

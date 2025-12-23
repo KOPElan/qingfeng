@@ -20,115 +20,110 @@
 }
 else
 {
-<div class="home-portal-container">
-    <!-- Background Gradient -->
-    <div class="gradient-bg">
-        <div class="gradient-blob gradient-blob-1"></div>
-        <div class="gradient-blob gradient-blob-2"></div>
-        <div class="gradient-blob gradient-blob-3"></div>
-    </div>
-
-    <div class="home-content">
+<FluentStack Orientation="Orientation.Vertical" Style="min-height: 100vh; padding: 2rem; position: relative; overflow-x: hidden;">
+    
+    <FluentStack Orientation="Orientation.Vertical" Style="position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; width: 100%;">
         <!-- Header -->
-        <header class="home-header">
-            <div class="header-brand">
-                <i class="bi bi-house-door-fill icon-md color-primary-blue"></i>
-                <span class="brand-title">@LocalizationService.GetString("HomePortal")</span>
-            </div>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="NavigateToSettings" Title="@LocalizationService.GetString("Settings")" IconOnly="true" Style="color: inherit;">
+        <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 3rem;">
+            <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; gap: 0.75rem;">
+                <i class="bi bi-house-door-fill" style="font-size: 1.5rem;"></i>
+                <FluentLabel Typo="Typography.H5">@LocalizationService.GetString("HomePortal")</FluentLabel>
+            </FluentStack>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="NavigateToSettings" Title="@LocalizationService.GetString("Settings")" IconOnly="true">
                 ⚙️
             </FluentButton>
-        </header>
+        </FluentStack>
 
         <!-- Clock and Date -->
-        <div class="clock-section">
-            <div class="time-display">@CurrentTime</div>
-            <div class="date-display">@CurrentDateString</div>
-        </div>
+        <FluentStack Orientation="Orientation.Vertical" Style="text-align: center; margin-bottom: 3rem;">
+            <FluentLabel Typo="Typography.Header" Style="font-size: 6rem; font-weight: 700; line-height: 1;">@CurrentTime</FluentLabel>
+            <FluentLabel Typo="Typography.Body" Style="font-size: 1.25rem; margin-top: 0.5rem; color: var(--accent-fill-rest);">@CurrentDateString</FluentLabel>
+        </FluentStack>
 
-        <!-- Status Cards Row -->
-        <div class="status-cards-row">
+        <!-- Status Cards Row 1 -->
+        <FluentStack Orientation="Orientation.Horizontal" Style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; display: grid;">
             <!-- Weather Card -->
-            <FluentCard class="status-card weather-card">
-                <div class="card-content">
-                    <span class="card-label">@LocalizationService.GetString("Weather")</span>
-                    <div class="weather-display">
-                        <span class="temperature">@Temperature</span>
-                        <span class="weather-condition">@WeatherCondition</span>
-                    </div>
-                </div>
-                <i class="bi bi-cloud-sun-fill weather-icon"></i>
+            <FluentCard Style="padding: 1.5rem; min-height: 150px; position: relative;">
+                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
+                    <FluentLabel Style="font-size: 0.875rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">@LocalizationService.GetString("Weather")</FluentLabel>
+                    <FluentStack Orientation="Orientation.Horizontal" Style="align-items: baseline; gap: 0.5rem; margin-top: 0.5rem;">
+                        <FluentLabel Style="font-size: 2rem; font-weight: 700;">@Temperature</FluentLabel>
+                        <FluentLabel Style="font-size: 1rem;">@WeatherCondition</FluentLabel>
+                    </FluentStack>
+                </FluentStack>
+                <i class="bi bi-cloud-sun-fill" style="position: absolute; top: 1.5rem; right: 1.5rem; font-size: 3rem; opacity: 0.5;"></i>
             </FluentCard>
 
             <!-- CPU Card -->
-            <FluentCard class="status-card cpu-card">
-                <div class="card-content">
-                    <i class="bi bi-cpu-fill card-icon"></i>
-                    <span class="card-label">@LocalizationService.GetString("CPU")</span>
+            <FluentCard Style="padding: 1.5rem; min-height: 150px;">
+                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
+                    <i class="bi bi-cpu-fill" style="font-size: 1.5rem;"></i>
+                    <FluentLabel Style="font-size: 0.875rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">@LocalizationService.GetString("CPU")</FluentLabel>
                     <FluentProgress Value="@((int)CpuUsage)" Max="100" Style="width: 100%; margin: 0.5rem 0;" aria-label="@LocalizationService.GetString("CPU")" />
-                    <span class="card-value">@CpuUsage.ToString("F1")%</span>
-                </div>
+                    <FluentLabel Style="font-size: 1.5rem; font-weight: 700;">@CpuUsage.ToString("F1")%</FluentLabel>
+                </FluentStack>
             </FluentCard>
 
             <!-- Network Card -->
-            <FluentCard class="status-card network-card">
-                <div class="card-content-network">
-                    <div class="network-item">
-                        <i class="bi bi-arrow-down"></i>
-                        <span class="network-label">@LocalizationService.GetString("Download")</span>
-                        <span class="network-value">@DownloadSpeed</span>
-                    </div>
-                    <div class="network-item">
-                        <i class="bi bi-arrow-up"></i>
-                        <span class="network-label">@LocalizationService.GetString("Upload")</span>
-                        <span class="network-value">@UploadSpeed</span>
-                    </div>
-                </div>
+            <FluentCard Style="padding: 1.5rem; min-height: 150px;">
+                <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-around;">
+                    <FluentStack Orientation="Orientation.Vertical" Style="align-items: center; gap: 0.5rem;">
+                        <i class="bi bi-arrow-down" style="font-size: 1.5rem;"></i>
+                        <FluentLabel Style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">@LocalizationService.GetString("Download")</FluentLabel>
+                        <FluentLabel Style="font-size: 1rem; font-weight: 700;">@DownloadSpeed</FluentLabel>
+                    </FluentStack>
+                    <FluentStack Orientation="Orientation.Vertical" Style="align-items: center; gap: 0.5rem;">
+                        <i class="bi bi-arrow-up" style="font-size: 1.5rem;"></i>
+                        <FluentLabel Style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">@LocalizationService.GetString("Upload")</FluentLabel>
+                        <FluentLabel Style="font-size: 1rem; font-weight: 700;">@UploadSpeed</FluentLabel>
+                    </FluentStack>
+                </FluentStack>
             </FluentCard>
-        </div>
+        </FluentStack>
 
-        <div class="status-cards-row">
+        <!-- Status Cards Row 2 -->
+        <FluentStack Orientation="Orientation.Horizontal" Style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 3rem; display: grid;">
             <!-- RAM Card -->
-            <FluentCard class="status-card ram-card">
-                <div class="card-content">
-                    <i class="bi bi-memory card-icon"></i>
-                    <span class="card-label">@LocalizationService.GetString("RAM")</span>
+            <FluentCard Style="padding: 1.5rem; min-height: 150px;">
+                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
+                    <i class="bi bi-memory" style="font-size: 1.5rem;"></i>
+                    <FluentLabel Style="font-size: 0.875rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">@LocalizationService.GetString("RAM")</FluentLabel>
                     <FluentProgress Value="@((int)RamUsage)" Max="100" Style="width: 100%; margin: 0.5rem 0;" aria-label="@LocalizationService.GetString("RAM")" />
-                    <span class="card-value">@RamUsage.ToString("F1")%</span>
-                </div>
+                    <FluentLabel Style="font-size: 1.5rem; font-weight: 700;">@RamUsage.ToString("F1")%</FluentLabel>
+                </FluentStack>
             </FluentCard>
-        </div>
+        </FluentStack>
 
         <!-- Application Center -->
-        <div class="apps-section">
-            <div class="apps-header">
-                <i class="bi bi-grid-3x3-gap-fill"></i>
-                <span class="apps-title">@LocalizationService.GetString("AppCenter")</span>
-            </div>
-            <div class="apps-grid">
+        <FluentStack Orientation="Orientation.Vertical" Style="margin-top: 2rem; padding-bottom: 100px;">
+            <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; margin-bottom: 1.5rem; gap: 0.5rem;">
+                <i class="bi bi-grid-3x3-gap-fill" style="font-size: 1.5rem;"></i>
+                <FluentLabel Typo="Typography.H6">@LocalizationService.GetString("AppCenter")</FluentLabel>
+            </FluentStack>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1.5rem;">
                 @foreach (var app in applications)
                 {
-                    <div class="app-item" @onclick="() => OpenApplication(app)">
-                        <div class="app-status @(app.IsOnline ? "online" : "offline")"></div>
-                        <div class="app-icon" style="background: @app.IconColor;">
-                            <i class="bi @app.Icon"></i>
+                    <FluentCard @onclick="() => OpenApplication(app)" Style="padding: 1.5rem 1rem; gap: 0.75rem; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; transition: transform 0.2s;">
+                        <div style="position: absolute; top: 0.75rem; right: 0.75rem; width: 0.625rem; height: 0.625rem; border-radius: 50%; background: @(app.IsOnline ? "var(--success)" : "var(--error)"); box-shadow: 0 0 0 2px var(--neutral-fill-layer-rest);"></div>
+                        <div style="width: 64px; height: 64px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; color: white; background: @app.IconColor; margin-bottom: 0.5rem;">
+                            <i class="bi @app.Icon" style="font-size: 32px;"></i>
                         </div>
-                        <span class="app-title">@app.Title</span>
-                        <span class="app-category">@app.Category</span>
-                    </div>
+                        <FluentLabel Style="font-size: 0.875rem; font-weight: 600; text-align: center;">@app.Title</FluentLabel>
+                        <FluentLabel Style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600; color: var(--neutral-foreground-hint);">@app.Category</FluentLabel>
+                    </FluentCard>
                 }
                 
                 <!-- Add App Button -->
-                <div class="app-item add-app-btn" @onclick="NavigateToAppManagement">
-                    <div class="add-app-icon">
+                <FluentCard @onclick="NavigateToAppManagement" Style="padding: 1.5rem 1rem; gap: 0.75rem; cursor: pointer; border: 2px dashed var(--neutral-stroke-divider-rest); background: transparent; display: flex; flex-direction: column; align-items: center; transition: border-color 0.2s;">
+                    <div style="width: 64px; height: 64px; border-radius: 2rem; font-size: 32px; display: flex; align-items: center; justify-content: center; background: var(--neutral-fill-stealth-rest); margin-bottom: 0.5rem;">
                         <i class="bi bi-plus-lg"></i>
                     </div>
-                    <span class="app-title">@LocalizationService.GetString("AddApp")</span>
-                </div>
+                    <FluentLabel Style="font-size: 0.875rem; font-weight: 600; text-align: center;">@LocalizationService.GetString("AddApp")</FluentLabel>
+                </FluentCard>
             </div>
-        </div>
-    </div>
-</div>
+        </FluentStack>
+    </FluentStack>
+</FluentStack>
 }
 
 @code {
