@@ -682,7 +682,7 @@ public class DiskManagementService : IDiskManagementService
             var lines = new List<string>();
             if (File.Exists(hdparmConfPath))
             {
-                lines = [.. await File.ReadAllLinesAsync(hdparmConfPath)];
+                lines = (await File.ReadAllLinesAsync(hdparmConfPath)).ToList();
             }
             else
             {
@@ -701,9 +701,9 @@ public class DiskManagementService : IDiskManagementService
             for (int i = 0; i < lines.Count; i++)
             {
                 var trimmedLine = lines[i].Trim();
-                // Use exact matching with word boundaries to avoid partial matches
+                // Use exact matching to avoid partial device path matches
                 // e.g., /dev/sda should not match /dev/sda1
-                if (trimmedLine == $"{devicePath} {{" || trimmedLine.StartsWith($"{devicePath} {{"))
+                if (trimmedLine == $"{devicePath} {{")
                 {
                     blockStartIndex = i;
                     // Find the closing brace
@@ -733,7 +733,7 @@ public class DiskManagementService : IDiskManagementService
                     
                     // Extract parameter name for exact matching
                     // Split on first '=' only to handle values that might contain '='
-                    var paramName = line.Contains('=') ? line.Split('=', 2)[0].Trim() : line;
+                    var paramName = line.Split('=', 2)[0].Trim();
                     
                     if (paramName.Equals("spindown_time", StringComparison.OrdinalIgnoreCase) ||
                         paramName.Equals("force_spindown_time", StringComparison.OrdinalIgnoreCase))
@@ -829,7 +829,14 @@ public class DiskManagementService : IDiskManagementService
                 // Clean up temporary file if it exists
                 if (File.Exists(tempPath))
                 {
-                    try { File.Delete(tempPath); } catch { /* Ignore cleanup errors */ }
+                    try 
+                    { 
+                        File.Delete(tempPath); 
+                    } 
+                    catch (IOException)
+                    { 
+                        // Ignore cleanup errors - temporary file will be cleaned up by system eventually
+                    }
                 }
                 throw;
             }
