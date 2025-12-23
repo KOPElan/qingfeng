@@ -53,20 +53,23 @@
     </div>
 </div>
 
+<!-- Scoped styles for hover effects (cannot be done inline) -->
 <style>
-    /* Hover effects for dock items */
-    a[style*="dock-item"]:hover > div:first-child,
-    button[style*="dock-item"]:hover > div:first-child {
+    /* Dock icon hover: scale and lift */
+    div[style*="fixed"][style*="bottom"] a > div:first-child:hover,
+    div[style*="fixed"][style*="bottom"] button > div:first-child:hover {
         transform: scale(1.1) translateY(-0.75rem);
     }
     
-    a[style*="dock-item"]:hover > div:nth-child(2),
-    button[style*="dock-item"]:hover > div:nth-child(2) {
+    /* Tooltip hover: show */
+    div[style*="fixed"][style*="bottom"] a:hover > div:nth-child(2),
+    div[style*="fixed"][style*="bottom"] button:hover > div:nth-child(2) {
         transform: scale(1);
         opacity: 1;
     }
     
-    button[style*="dock-item"]:hover {
+    /* Add button hover: full opacity */
+    div[style*="fixed"][style*="bottom"] button:hover {
         opacity: 1;
     }
 </style>
