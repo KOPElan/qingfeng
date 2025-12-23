@@ -23,7 +23,7 @@ public class DiskManagementService : IDiskManagementService
     private static readonly HashSet<string> ValidHdparmParams = new(StringComparer.OrdinalIgnoreCase)
     {
         "read_ahead_sect", "lookahead", "bus", "apm", "apm_battery", "io32_support",
-        "dma", "defect_mana", "cd_speed", "keep_settings_over_reset", 
+        "dma", "defect_mgmt", "cd_speed", "keep_settings_over_reset", 
         "keep_features_over_reset", "mult_sect_io", "prefetch_sect", "read_only",
         "write_read_verify", "poweron_standby", "spindown_time", "force_spindown_time",
         "interrupt_unmask", "write_cache", "transfer_mode", "acoustic_management",
@@ -701,7 +701,9 @@ public class DiskManagementService : IDiskManagementService
             for (int i = 0; i < lines.Count; i++)
             {
                 var trimmedLine = lines[i].Trim();
-                if (trimmedLine.StartsWith(devicePath) && trimmedLine.Contains("{"))
+                // Use exact matching with word boundaries to avoid partial matches
+                // e.g., /dev/sda should not match /dev/sda1
+                if (trimmedLine == $"{devicePath} {{" || trimmedLine.StartsWith($"{devicePath} {{"))
                 {
                     blockStartIndex = i;
                     // Find the closing brace
@@ -730,7 +732,8 @@ public class DiskManagementService : IDiskManagementService
                     var line = lines[i].Trim();
                     
                     // Extract parameter name for exact matching
-                    var paramName = line.Contains('=') ? line.Split('=')[0].Trim() : line;
+                    // Split on first '=' only to handle values that might contain '='
+                    var paramName = line.Contains('=') ? line.Split('=', 2)[0].Trim() : line;
                     
                     if (paramName.Equals("spindown_time", StringComparison.OrdinalIgnoreCase) ||
                         paramName.Equals("force_spindown_time", StringComparison.OrdinalIgnoreCase))
