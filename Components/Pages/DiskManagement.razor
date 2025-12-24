@@ -413,28 +413,28 @@
         <div style="margin-bottom: 1rem;">
             <FluentLabel>休眠超时时间（分钟）</FluentLabel>
             <FluentNumberField @bind-Value="spinDownTimeout" Min="0" Max="240" Style="width: 100%;" />
-            <small style="color: var(--neutral-foreground-hint);">0 = 禁用自动休眠，1-240 分钟</small>
+            <small style="color: var(--neutral-foreground-hint);">0 = 禁用自动休眠，1-240 分钟。设置将写入 /etc/hdparm.conf 并永久生效。</small>
         </div>
         <FluentButton Appearance="Appearance.Outline" OnClick="SetSpinDown" Disabled="@isProcessing" Style="font-size: 0.875rem;">
             @if (isProcessing && currentOperation == "spindown")
             {
                 <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.25rem;" />
             }
-            设置休眠超时
+            设置休眠超时（永久）
         </FluentButton>
 
         <FluentLabel Typo="Typography.H6" Style="margin-top: 1.5rem;">APM 电源管理级别</FluentLabel>
         <div style="margin-bottom: 1rem;">
             <FluentLabel>APM 级别（1-255）</FluentLabel>
             <FluentNumberField @bind-Value="apmLevel" Min="1" Max="255" Style="width: 100%;" />
-            <small style="color: var(--neutral-foreground-hint);">1 = 最省电，255 = 最高性能</small>
+            <small style="color: var(--neutral-foreground-hint);">1 = 最省电，255 = 最高性能。设置将写入 /etc/hdparm.conf 并永久生效。</small>
         </div>
         <FluentButton Appearance="Appearance.Outline" OnClick="SetApmLevel" Disabled="@isProcessing" Style="font-size: 0.875rem;">
             @if (isProcessing && currentOperation == "apm")
             {
                 <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.25rem;" />
             }
-            设置 APM 级别
+            设置 APM 级别（永久）
         </FluentButton>
     </FluentDialogBody>
     <FluentDialogFooter>

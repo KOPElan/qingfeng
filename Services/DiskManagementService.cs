@@ -12,6 +12,26 @@ public class DiskManagementService : IDiskManagementService
     private static readonly char[] InvalidCredentialChars = ['\n', '\r', '='];
     private static readonly HashSet<char> InvalidCredentialCharsSet = new(InvalidCredentialChars);
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+    
+    // Known valid hdparm flags (without assignment)
+    private static readonly HashSet<string> ValidHdparmFlags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "quiet", "standby", "sleep", "disable_seagate"
+    };
+    
+    // Known valid hdparm parameters (with assignment)
+    private static readonly HashSet<string> ValidHdparmParams = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "read_ahead_sect", "lookahead", "bus", "apm", "apm_battery", "io32_support",
+        "dma", "defect_mgmt", "cd_speed", "keep_settings_over_reset", 
+        "keep_features_over_reset", "mult_sect_io", "prefetch_sect", "read_only",
+        "write_read_verify", "poweron_standby", "spindown_time", "force_spindown_time",
+        "interrupt_unmask", "write_cache", "transfer_mode", "acoustic_management",
+        "chipset_pio_mode", "security_freeze", "security_unlock", "security_pass",
+        "security_disable", "user-master", "security_mode"
+    };
+    
+    private static readonly Regex HdparmSettingRegex = new(@"^\s*([a-z_-]+)\s*=\s*(.+)\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public Task<List<DiskInfo>> GetAllDisksAsync()
     {
@@ -488,10 +508,18 @@ public class DiskManagementService : IDiskManagementService
 
         try
         {
+            // Update /etc/hdparm.conf for persistent settings
+            var confResult = await UpdateHdparmConfAsync(devicePath, spindownTime: timeoutMinutes);
+            if (!confResult.Success)
+            {
+                return confResult.Message;
+            }
+
             // Convert minutes to hdparm units
             // hdparm uses 5-second units, so: minutes * 60 seconds / 5 = minutes * 12
             var hdparmValue = timeoutMinutes == 0 ? "0" : (timeoutMinutes * 12).ToString();
 
+            // Also apply immediately using hdparm command
             var processInfo = new ProcessStartInfo
             {
                 FileName = "hdparm",
@@ -512,17 +540,17 @@ public class DiskManagementService : IDiskManagementService
                 if (process.ExitCode == 0)
                 {
                     var msg = timeoutMinutes == 0
-                        ? $"Disabled spin-down for {devicePath}"
-                        : $"Set spin-down timeout to {timeoutMinutes} minutes for {devicePath}";
+                        ? $"Successfully disabled spin-down for {devicePath} (persistent)"
+                        : $"Successfully set spin-down timeout to {timeoutMinutes} minutes for {devicePath} (persistent)";
                     return msg;
                 }
                 else
                 {
-                    return $"Failed to set spin-down: {error}";
+                    return $"Configuration saved, but failed to apply immediately: {error}";
                 }
             }
 
-            return "Failed to start hdparm process";
+            return "Configuration saved, but failed to start hdparm process";
         }
         catch (Exception ex)
         {
@@ -549,6 +577,14 @@ public class DiskManagementService : IDiskManagementService
 
         try
         {
+            // Update /etc/hdparm.conf for persistent settings
+            var confResult = await UpdateHdparmConfAsync(devicePath, apmLevel: level);
+            if (!confResult.Success)
+            {
+                return confResult.Message;
+            }
+
+            // Also apply immediately using hdparm command
             var processInfo = new ProcessStartInfo
             {
                 FileName = "hdparm",
@@ -567,11 +603,11 @@ public class DiskManagementService : IDiskManagementService
                 var error = await process.StandardError.ReadToEndAsync();
 
                 return process.ExitCode == 0
-                    ? $"Set APM level to {level} for {devicePath}"
-                    : $"Failed to set APM level: {error}";
+                    ? $"Successfully set APM level to {level} for {devicePath} (persistent)"
+                    : $"Configuration saved, but failed to apply immediately: {error}";
             }
 
-            return "Failed to start hdparm process";
+            return "Configuration saved, but failed to start hdparm process";
         }
         catch (Exception ex)
         {
@@ -625,6 +661,220 @@ public class DiskManagementService : IDiskManagementService
         catch (Exception ex)
         {
             return $"Error getting disk power status: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Result of hdparm configuration update operation
+    /// </summary>
+    private record HdparmConfigResult(bool Success, string Message);
+
+    /// <summary>
+    /// Updates /etc/hdparm.conf with persistent power management settings for a device.
+    /// Creates or updates the device block in the configuration file.
+    /// </summary>
+    /// <param name="devicePath">The device path (e.g., /dev/sda)</param>
+    /// <param name="spindownTime">Optional spindown timeout in minutes (0-240). Uses hdparm's 5-second units internally.</param>
+    /// <param name="apmLevel">Optional APM level (1-255)</param>
+    /// <returns>Result indicating success or failure with a message</returns>
+    private static async Task<HdparmConfigResult> UpdateHdparmConfAsync(string devicePath, int? spindownTime = null, int? apmLevel = null)
+    {
+        const string hdparmConfPath = "/etc/hdparm.conf";
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return new HdparmConfigResult(false, "Updating /etc/hdparm.conf is only supported on Linux systems.");
+        }
+
+        // Fail fast if the application is not running with sufficient privileges (typically root).
+        // Note: This is a heuristic check - actual write permissions may still vary
+        if (!string.Equals(Environment.UserName, "root", StringComparison.Ordinal))
+        {
+            return new HdparmConfigResult(false, "Failed to update /etc/hdparm.conf: Permission denied. The application needs to run with sufficient privileges (e.g., as root).");
+        }
+
+        try
+        {
+            // Read existing configuration or create new one
+            var lines = new List<string>();
+            if (File.Exists(hdparmConfPath))
+            {
+                lines = (await File.ReadAllLinesAsync(hdparmConfPath)).ToList();
+            }
+            else
+            {
+                // Create a basic hdparm.conf header if file doesn't exist
+                lines.Add("## hdparm configuration file");
+                lines.Add("## Auto-generated by QingFeng disk management");
+                lines.Add("");
+                lines.Add("quiet");
+                lines.Add("");
+            }
+
+            // Find if a block for this device already exists
+            int blockStartIndex = -1;
+            int blockEndIndex = -1;
+            
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var trimmedLine = lines[i].Trim();
+                // Use exact matching on the device header line to avoid partial device path matches
+                // e.g., when searching for /dev/sda, do not accidentally identify the /dev/sda1 block
+                if (trimmedLine == $"{devicePath} {{")
+                {
+                    blockStartIndex = i;
+                    // Find the closing brace
+                    for (int j = i + 1; j < lines.Count; j++)
+                    {
+                        if (lines[j].Trim() == "}")
+                        {
+                            blockEndIndex = j;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // Build the device block content
+            var blockLines = new List<string>();
+            var existingSpindown = false;
+            var existingApm = false;
+
+            if (blockStartIndex >= 0 && blockEndIndex >= 0)
+            {
+                // Parse existing block to preserve other settings
+                for (int i = blockStartIndex + 1; i < blockEndIndex; i++)
+                {
+                    var line = lines[i].Trim();
+                    
+                    // Skip comments and empty lines
+                    if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+                    {
+                        continue;
+                    }
+                    
+                    // Extract parameter name for exact matching
+                    // Split on first '=' only to handle values that might contain '='
+                    var parts = line.Split('=', 2);
+                    var paramName = parts[0].Trim();
+                    
+                    if (paramName.Equals("spindown_time", StringComparison.OrdinalIgnoreCase) ||
+                        paramName.Equals("force_spindown_time", StringComparison.OrdinalIgnoreCase))
+                    {
+                        existingSpindown = true;
+                        if (spindownTime.HasValue)
+                        {
+                            var hdparmValue = spindownTime.Value == 0 ? 0 : spindownTime.Value * 12;
+                            blockLines.Add($"\tspindown_time = {hdparmValue}");
+                        }
+                        else
+                        {
+                            // Preserve existing spindown_time if not being updated
+                            blockLines.Add($"\t{line}");
+                        }
+                    }
+                    else if (paramName.Equals("apm", StringComparison.OrdinalIgnoreCase))
+                    {
+                        existingApm = true;
+                        if (apmLevel.HasValue)
+                        {
+                            blockLines.Add($"\tapm = {apmLevel.Value}");
+                        }
+                        else
+                        {
+                            // Preserve existing apm if not being updated
+                            blockLines.Add($"\t{line}");
+                        }
+                    }
+                    else
+                    {
+                        // Preserve other non-comment settings that are valid
+                        // Check if it's a valid flag or a valid parameter with assignment
+                        var match = HdparmSettingRegex.Match(line);
+                        if (match.Success && ValidHdparmParams.Contains(match.Groups[1].Value))
+                        {
+                            blockLines.Add($"\t{line}");
+                        }
+                        else if (ValidHdparmFlags.Contains(paramName))
+                        {
+                            blockLines.Add($"\t{line}");
+                        }
+                    }
+                }
+            }
+
+            // Add new settings if they weren't in the existing block
+            if (spindownTime.HasValue && !existingSpindown)
+            {
+                var hdparmValue = spindownTime.Value == 0 ? 0 : spindownTime.Value * 12;
+                blockLines.Add($"\tspindown_time = {hdparmValue}");
+            }
+            if (apmLevel.HasValue && !existingApm)
+            {
+                blockLines.Add($"\tapm = {apmLevel.Value}");
+            }
+
+            // Build the complete new block
+            var newBlock = new List<string>
+            {
+                $"{devicePath} {{",
+            };
+            newBlock.AddRange(blockLines);
+            newBlock.Add("}");
+
+            // Remove old block if it exists
+            if (blockStartIndex >= 0 && blockEndIndex >= 0)
+            {
+                lines.RemoveRange(blockStartIndex, blockEndIndex - blockStartIndex + 1);
+            }
+
+            // Add the new block at the end
+            if (lines.Count > 0 && !string.IsNullOrWhiteSpace(lines[^1]))
+            {
+                lines.Add(""); // Add blank line before new block
+            }
+            lines.AddRange(newBlock);
+
+            // Write the updated configuration using atomic file operations
+            // Write to a temporary file first, then move it to the final location
+            // This prevents corruption if the write operation fails
+            var tempPath = $"{hdparmConfPath}.tmp";
+            try
+            {
+                await File.WriteAllLinesAsync(tempPath, lines);
+                
+                // Move the temporary file to the final location
+                // This is an atomic operation on most filesystems
+                File.Move(tempPath, hdparmConfPath, overwrite: true);
+            }
+            catch
+            {
+                // Clean up temporary file if it exists
+                if (File.Exists(tempPath))
+                {
+                    try 
+                    { 
+                        File.Delete(tempPath); 
+                    } 
+                    catch (IOException ex)
+                    { 
+                        // Ignore cleanup errors - temporary file will be cleaned up by system eventually
+                        Debug.WriteLine($"Failed to delete temporary file '{tempPath}' during cleanup: {ex}");
+                    }
+                }
+                throw;
+            }
+
+            return new HdparmConfigResult(true, "Successfully updated /etc/hdparm.conf");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new HdparmConfigResult(false, "Failed to update /etc/hdparm.conf: Permission denied. The application needs to run with sufficient privileges.");
+        }
+        catch (Exception ex)
+        {
+            return new HdparmConfigResult(false, $"Failed to update /etc/hdparm.conf: {ex.Message}");
         }
     }
 
