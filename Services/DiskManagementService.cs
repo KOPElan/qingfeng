@@ -510,9 +510,9 @@ public class DiskManagementService : IDiskManagementService
         {
             // Update /etc/hdparm.conf for persistent settings
             var confResult = await UpdateHdparmConfAsync(devicePath, spindownTime: timeoutMinutes);
-            if (!confResult.StartsWith("Successfully"))
+            if (!confResult.Success)
             {
-                return confResult;
+                return confResult.Message;
             }
 
             // Convert minutes to hdparm units
@@ -579,9 +579,9 @@ public class DiskManagementService : IDiskManagementService
         {
             // Update /etc/hdparm.conf for persistent settings
             var confResult = await UpdateHdparmConfAsync(devicePath, apmLevel: level);
-            if (!confResult.StartsWith("Successfully"))
+            if (!confResult.Success)
             {
-                return confResult;
+                return confResult.Message;
             }
 
             // Also apply immediately using hdparm command
@@ -665,16 +665,33 @@ public class DiskManagementService : IDiskManagementService
     }
 
     /// <summary>
+    /// Result of hdparm configuration update operation
+    /// </summary>
+    private record HdparmConfigResult(bool Success, string Message);
+
+    /// <summary>
     /// Updates /etc/hdparm.conf with persistent power management settings for a device.
     /// Creates or updates the device block in the configuration file.
     /// </summary>
     /// <param name="devicePath">The device path (e.g., /dev/sda)</param>
     /// <param name="spindownTime">Optional spindown timeout in minutes (0-240). Uses hdparm's 5-second units internally.</param>
     /// <param name="apmLevel">Optional APM level (1-255)</param>
-    /// <returns>Status message indicating success or failure</returns>
-    private static async Task<string> UpdateHdparmConfAsync(string devicePath, int? spindownTime = null, int? apmLevel = null)
+    /// <returns>Result indicating success or failure with a message</returns>
+    private static async Task<HdparmConfigResult> UpdateHdparmConfAsync(string devicePath, int? spindownTime = null, int? apmLevel = null)
     {
         const string hdparmConfPath = "/etc/hdparm.conf";
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return new HdparmConfigResult(false, "Updating /etc/hdparm.conf is only supported on Linux systems.");
+        }
+
+        // Fail fast if the application is not running with sufficient privileges (typically root).
+        // Note: This is a heuristic check - actual write permissions may still vary
+        if (!string.Equals(Environment.UserName, "root", StringComparison.Ordinal))
+        {
+            return new HdparmConfigResult(false, "Failed to update /etc/hdparm.conf: Permission denied. The application needs to run with sufficient privileges (e.g., as root).");
+        }
 
         try
         {
@@ -701,8 +718,8 @@ public class DiskManagementService : IDiskManagementService
             for (int i = 0; i < lines.Count; i++)
             {
                 var trimmedLine = lines[i].Trim();
-                // Use exact matching to avoid partial device path matches
-                // e.g., /dev/sda should not match /dev/sda1
+                // Use exact matching on the device header line to avoid partial device path matches
+                // e.g., when searching for /dev/sda, do not accidentally identify the /dev/sda1 block
                 if (trimmedLine == $"{devicePath} {{")
                 {
                     blockStartIndex = i;
@@ -731,9 +748,16 @@ public class DiskManagementService : IDiskManagementService
                 {
                     var line = lines[i].Trim();
                     
+                    // Skip comments and empty lines
+                    if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+                    {
+                        continue;
+                    }
+                    
                     // Extract parameter name for exact matching
                     // Split on first '=' only to handle values that might contain '='
-                    var paramName = line.Split('=', 2)[0].Trim();
+                    var parts = line.Split('=', 2);
+                    var paramName = parts[0].Trim();
                     
                     if (paramName.Equals("spindown_time", StringComparison.OrdinalIgnoreCase) ||
                         paramName.Equals("force_spindown_time", StringComparison.OrdinalIgnoreCase))
@@ -763,7 +787,7 @@ public class DiskManagementService : IDiskManagementService
                             blockLines.Add($"\t{line}");
                         }
                     }
-                    else if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("#"))
+                    else
                     {
                         // Preserve other non-comment settings that are valid
                         // Check if it's a valid flag or a valid parameter with assignment
@@ -833,23 +857,24 @@ public class DiskManagementService : IDiskManagementService
                     { 
                         File.Delete(tempPath); 
                     } 
-                    catch (IOException)
+                    catch (IOException ex)
                     { 
                         // Ignore cleanup errors - temporary file will be cleaned up by system eventually
+                        Debug.WriteLine($"Failed to delete temporary file '{tempPath}' during cleanup: {ex}");
                     }
                 }
                 throw;
             }
 
-            return "Successfully updated /etc/hdparm.conf";
+            return new HdparmConfigResult(true, "Successfully updated /etc/hdparm.conf");
         }
         catch (UnauthorizedAccessException)
         {
-            return "Failed to update /etc/hdparm.conf: Permission denied. The application needs to run with sufficient privileges.";
+            return new HdparmConfigResult(false, "Failed to update /etc/hdparm.conf: Permission denied. The application needs to run with sufficient privileges.");
         }
         catch (Exception ex)
         {
-            return $"Failed to update /etc/hdparm.conf: {ex.Message}";
+            return new HdparmConfigResult(false, $"Failed to update /etc/hdparm.conf: {ex.Message}");
         }
     }
 
