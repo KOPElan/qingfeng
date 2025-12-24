@@ -699,6 +699,8 @@ public class DiskManagementService : IDiskManagementService
         {
             // 241-251: multiples of 30 minutes (30 to 330 minutes = 5.5 hours)
             // 241 = 30 min, 242 = 60 min, ..., 251 = 330 min
+            // Round up to the nearest 30-minute boundary
+            // Examples: 22-30 => 241, 31-60 => 242, 61-90 => 243
             int thirtyMinuteUnits = (minutes + 29) / 30; // Round up to nearest 30 min unit
             return 240 + thirtyMinuteUnits;
         }
