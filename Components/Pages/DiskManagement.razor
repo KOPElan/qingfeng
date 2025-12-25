@@ -413,7 +413,7 @@
         <div style="margin-bottom: 1rem;">
             <FluentLabel>休眠超时时间（分钟）</FluentLabel>
             <FluentNumberField @bind-Value="spinDownTimeout" Min="0" Max="330" Style="width: 100%;" />
-            <small style="color: var(--neutral-foreground-hint);">0 = 禁用自动休眠，1-330 分钟（最长 5.5 小时）。设置将写入 /etc/hdparm.conf 并永久生效。</small>
+            <small style="color: var(--neutral-foreground-hint);">0 = 禁用自动休眠，1-330 分钟（最长 5.5 小时）。设置将写入 /etc/hdparm.conf 并永久生效。注意：21 分钟以上的值将向上取整到 30 分钟的倍数。</small>
         </div>
         <FluentButton Appearance="Appearance.Outline" OnClick="SetSpinDown" Disabled="@isProcessing" Style="font-size: 0.875rem;">
             @if (isProcessing && currentOperation == "spindown")
