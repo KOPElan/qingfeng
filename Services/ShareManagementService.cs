@@ -507,7 +507,6 @@ public class ShareManagementService : IShareManagementService
             var lines = await File.ReadAllLinesAsync(NfsExportsPath);
             var newLines = new List<string>();
             bool exportFound = false;
-            bool skipNextComment = false;
             
             for (int i = 0; i < lines.Length; i++)
             {
@@ -519,7 +518,6 @@ public class ShareManagementService : IShareManagementService
                     trimmedLine.StartsWith(exportPath))
                 {
                     exportFound = true;
-                    skipNextComment = false;
                     
                     // Also skip the comment line before this export if it exists
                     if (newLines.Count > 0 && newLines[^1].Trim().StartsWith("#"))
