@@ -131,10 +131,18 @@
                             <td>@(string.IsNullOrWhiteSpace(share.ValidUsers) ? "所有用户" : share.ValidUsers)</td>
                             <td>
                                 <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
-                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowEditShareDialog(share)" Title="编辑权限" Style="font-size: 0.875rem;">
+                                    <FluentButton Appearance="Appearance.Outline" 
+                                                  OnClick="() => ShowEditShareDialog(share)" 
+                                                  Title="编辑权限" 
+                                                  aria-label="@($"编辑共享 {share.Name}")"
+                                                  Style="font-size: 0.875rem;">
                                         ✏️ 编辑
                                     </FluentButton>
-                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowRemoveConfirmation(share)" Title="删除共享" Style="font-size: 0.875rem;">
+                                    <FluentButton Appearance="Appearance.Outline" 
+                                                  OnClick="() => ShowRemoveConfirmation(share)" 
+                                                  Title="删除共享" 
+                                                  aria-label="@($"删除共享 {share.Name}")"
+                                                  Style="font-size: 0.875rem;">
                                         🗑️ 删除
                                     </FluentButton>
                                 </FluentStack>
@@ -205,10 +213,18 @@
                             </td>
                             <td>
                                 <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
-                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowEditShareDialog(share)" Title="编辑导出" Style="font-size: 0.875rem;">
+                                    <FluentButton Appearance="Appearance.Outline" 
+                                                  OnClick="() => ShowEditShareDialog(share)" 
+                                                  Title="编辑导出" 
+                                                  aria-label="@($"编辑导出 {share.Path}")"
+                                                  Style="font-size: 0.875rem;">
                                         ✏️ 编辑
                                     </FluentButton>
-                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowRemoveConfirmation(share)" Title="删除导出" Style="font-size: 0.875rem;">
+                                    <FluentButton Appearance="Appearance.Outline" 
+                                                  OnClick="() => ShowRemoveConfirmation(share)" 
+                                                  Title="删除导出" 
+                                                  aria-label="@($"删除导出 {share.Path}")"
+                                                  Style="font-size: 0.875rem;">
                                         🗑️ 删除
                                     </FluentButton>
                                 </FluentStack>
@@ -460,35 +476,16 @@
         
         try
         {
-            string result;
-            
-            if (isEditMode)
-            {
-                // Update existing share
-                if (shareRequest.Type == ShareType.CIFS)
-                {
-                    result = await ShareManagementService.UpdateCifsShareAsync(originalShareName!, shareRequest);
-                }
-                else
-                {
-                    result = await ShareManagementService.UpdateNfsShareAsync(originalShareName!, shareRequest);
-                }
-            }
-            else
-            {
-                // Add new share
-                if (shareRequest.Type == ShareType.CIFS)
-                {
-                    result = await ShareManagementService.AddCifsShareAsync(shareRequest);
-                }
-                else
-                {
-                    result = await ShareManagementService.AddNfsShareAsync(shareRequest);
-                }
-            }
+            var result = isEditMode
+                ? (shareRequest.Type == ShareType.CIFS
+                    ? await ShareManagementService.UpdateCifsShareAsync(originalShareName!, shareRequest)
+                    : await ShareManagementService.UpdateNfsShareAsync(originalShareName!, shareRequest))
+                : (shareRequest.Type == ShareType.CIFS
+                    ? await ShareManagementService.AddCifsShareAsync(shareRequest)
+                    : await ShareManagementService.AddNfsShareAsync(shareRequest));
             
             dialogMessage = result;
-            dialogError = !result.Contains("Success", StringComparison.OrdinalIgnoreCase);
+            dialogError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
             
             if (!dialogError)
             {
@@ -530,19 +527,12 @@
         
         try
         {
-            string result;
-            
-            if (shareToRemove.Type == ShareType.CIFS)
-            {
-                result = await ShareManagementService.RemoveCifsShareAsync(shareToRemove.Name);
-            }
-            else
-            {
-                result = await ShareManagementService.RemoveNfsShareAsync(shareToRemove.Path);
-            }
+            var result = shareToRemove.Type == ShareType.CIFS
+                ? await ShareManagementService.RemoveCifsShareAsync(shareToRemove.Name)
+                : await ShareManagementService.RemoveNfsShareAsync(shareToRemove.Path);
             
             message = result;
-            isError = !result.Contains("Success", StringComparison.OrdinalIgnoreCase);
+            isError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
             
             if (!isError)
             {
@@ -570,7 +560,7 @@
         {
             var result = await ShareManagementService.RestartSambaServiceAsync();
             message = result;
-            isError = !result.Contains("Success", StringComparison.OrdinalIgnoreCase);
+            isError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
@@ -592,7 +582,7 @@
         {
             var result = await ShareManagementService.RestartNfsServiceAsync();
             message = result;
-            isError = !result.Contains("Success", StringComparison.OrdinalIgnoreCase);
+            isError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {

@@ -10,9 +10,10 @@ public class ShareManagementService : IShareManagementService
     private const string SambaConfigPath = "/etc/samba/smb.conf";
     private const string NfsExportsPath = "/etc/exports";
     
-    private static readonly string[] InvalidChars = ["&&", ";", "|", "`", "$", "(", ")", "<", ">", "\"", "'", "\n", "\r", "\t"];
+    private static readonly string[] InvalidChars = ["&&", ";", "|", "`", "$", "<", ">", "\"", "'", "\n", "\r", "\t"];
     private static readonly Regex ShareNameRegex = new(@"^\[([^\]]+)\]$", RegexOptions.Compiled);
     private static readonly Regex ParameterRegex = new(@"^\s*([a-zA-Z0-9_\-\s]+?)\s*=\s*(.+?)\s*$", RegexOptions.Compiled);
+    private static readonly Regex HostOptionRegex = new(@"([^\s(]+)\(([^)]+)\)", RegexOptions.Compiled);
     
     public async Task<List<ShareInfo>> GetAllSharesAsync()
     {
@@ -182,8 +183,7 @@ public class ShareManagementService : IShareManagementService
                 var options = new List<string>();
                 
                 // Match patterns like: *(rw,sync) or 192.168.1.0/24(ro) or host.domain.com(rw)
-                var hostOptionRegex = new Regex(@"([^\s(]+)\(([^)]+)\)", RegexOptions.Compiled);
-                var matches = hostOptionRegex.Matches(hostsAndOptions);
+                var matches = HostOptionRegex.Matches(hostsAndOptions);
                 
                 foreach (Match match in matches)
                 {
@@ -194,14 +194,31 @@ public class ShareManagementService : IShareManagementService
                     }
                 }
                 
+                // Skip malformed lines that don't have valid host/option pairs
+                if (allowedHosts.Count == 0 || options.Count == 0)
+                {
+                    continue;
+                }
+                
+                // Determine read-only status: if ANY host has rw, share is not read-only
+                var hasRw = options.Any(o => o.Contains("rw", StringComparison.OrdinalIgnoreCase));
+                var hasRo = options.Any(o => o.Contains("ro", StringComparison.OrdinalIgnoreCase));
+                var isReadOnly = !hasRw && hasRo;
+                
+                // Join distinct options for display
+                var distinctOptions = options.Distinct().ToList();
+                var nfsOptions = distinctOptions.Count == 1 
+                    ? distinctOptions[0] 
+                    : string.Join(" | ", distinctOptions);
+                
                 var share = new ShareInfo
                 {
                     Name = Path.GetFileName(exportPath) ?? exportPath,
                     Path = exportPath,
                     Type = ShareType.NFS,
-                    AllowedHosts = allowedHosts.Count > 0 ? string.Join(", ", allowedHosts) : "*",
-                    NfsOptions = options.Count > 0 ? options[0] : "rw,sync,no_subtree_check",
-                    ReadOnly = options.Count > 0 && options[0].Contains("ro")
+                    AllowedHosts = string.Join(", ", allowedHosts),
+                    NfsOptions = nfsOptions,
+                    ReadOnly = isReadOnly
                 };
                 
                 shares.Add(share);
@@ -391,7 +408,7 @@ public class ShareManagementService : IShareManagementService
     {
         // For CIFS, we need to remove the old share and add the new one
         var removeResult = await RemoveCifsShareAsync(shareName);
-        if (!removeResult.Contains("Success", StringComparison.OrdinalIgnoreCase))
+        if (!removeResult.Contains("Successfully", StringComparison.OrdinalIgnoreCase))
         {
             return removeResult;
         }
@@ -403,7 +420,7 @@ public class ShareManagementService : IShareManagementService
     {
         // For NFS, we need to remove the old export and add the new one
         var removeResult = await RemoveNfsShareAsync(exportPath);
-        if (!removeResult.Contains("Success", StringComparison.OrdinalIgnoreCase))
+        if (!removeResult.Contains("Successfully", StringComparison.OrdinalIgnoreCase))
         {
             return removeResult;
         }
@@ -514,14 +531,17 @@ public class ShareManagementService : IShareManagementService
                 var trimmedLine = lines[i].Trim();
                 
                 // Check if this line is the export we want to remove
+                // Use exact matching to avoid removing wrong exports (e.g., /srv/data vs /srv/data2)
                 if (!string.IsNullOrWhiteSpace(trimmedLine) && 
                     !trimmedLine.StartsWith("#") &&
-                    trimmedLine.StartsWith(exportPath))
+                    (trimmedLine.Equals(exportPath, StringComparison.Ordinal) ||
+                     trimmedLine.StartsWith(exportPath + " ", StringComparison.Ordinal) ||
+                     trimmedLine.StartsWith(exportPath + "\t", StringComparison.Ordinal)))
                 {
                     exportFound = true;
                     
                     // Also skip the comment line before this export if it exists
-                    if (newLines.Count > 0 && newLines[^1].Trim().StartsWith("#"))
+                    if (newLines.Count > 0 && newLines[newLines.Count - 1].Trim().StartsWith("#"))
                     {
                         newLines.RemoveAt(newLines.Count - 1);
                     }
@@ -604,20 +624,20 @@ public class ShareManagementService : IShareManagementService
         try
         {
             // Try systemctl first
-            var result = await ExecuteCommandAsync("systemctl", "restart nfs-server");
-            if (result.exitCode == 0)
+            var nfsServerResult = await ExecuteCommandAsync("systemctl", "restart nfs-server");
+            if (nfsServerResult.exitCode == 0)
             {
                 return "Successfully restarted NFS service";
             }
             
             // Try nfs-kernel-server for Debian/Ubuntu
-            result = await ExecuteCommandAsync("systemctl", "restart nfs-kernel-server");
-            if (result.exitCode == 0)
+            var nfsKernelServerResult = await ExecuteCommandAsync("systemctl", "restart nfs-kernel-server");
+            if (nfsKernelServerResult.exitCode == 0)
             {
                 return "Successfully restarted NFS service";
             }
             
-            return $"Failed to restart NFS service: {result.error}";
+            return $"Failed to restart NFS service. nfs-server: {nfsServerResult.error}; nfs-kernel-server: {nfsKernelServerResult.error}";
         }
         catch (Exception ex)
         {
@@ -701,17 +721,68 @@ public class ShareManagementService : IShareManagementService
     private static async Task WriteConfigFileAsync(string filePath, List<string> lines)
     {
         var tempPath = $"{filePath}.tmp";
+        var backupPath = $"{filePath}.bak";
+        var backupCreated = false;
+        
         try
         {
+            // Write new configuration to a temporary file
             await File.WriteAllLinesAsync(tempPath, lines);
-            File.Move(tempPath, filePath, overwrite: true);
+            
+            // Verify the temp file was written successfully
+            var tempInfo = new FileInfo(tempPath);
+            if (!tempInfo.Exists || tempInfo.Length == 0)
+            {
+                throw new IOException($"Temporary configuration file '{tempPath}' was not written correctly.");
+            }
+            
+            // Create a backup of the existing file, if any
+            if (File.Exists(filePath))
+            {
+                File.Copy(filePath, backupPath, overwrite: true);
+                backupCreated = true;
+                File.Delete(filePath);
+            }
+            
+            // Move the temp file into place
+            File.Move(tempPath, filePath);
+            
+            // If we succeeded, remove the backup
+            if (backupCreated && File.Exists(backupPath))
+            {
+                try { File.Delete(backupPath); } catch { }
+            }
         }
         catch
         {
+            // Attempt rollback using backup if available
+            if (backupCreated && File.Exists(backupPath))
+            {
+                try
+                {
+                    if (File.Exists(filePath))
+                    {
+                        try { File.Delete(filePath); } catch { }
+                    }
+                    File.Move(backupPath, filePath);
+                }
+                catch (Exception rollbackEx)
+                {
+                    Debug.WriteLine($"Failed to rollback configuration file '{filePath}' from backup: {rollbackEx}");
+                }
+            }
+            
             // Clean up temporary file if it exists
             if (File.Exists(tempPath))
             {
-                try { File.Delete(tempPath); } catch { }
+                try 
+                { 
+                    File.Delete(tempPath); 
+                }
+                catch (Exception cleanupEx)
+                {
+                    Debug.WriteLine($"Failed to delete temporary config file '{tempPath}': {cleanupEx}");
+                }
             }
             throw;
         }
