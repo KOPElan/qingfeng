@@ -501,9 +501,9 @@ public class DiskManagementService : IDiskManagementService
             return "Invalid device path";
         }
 
-        if (timeoutMinutes < 0 || timeoutMinutes > 240)
+        if (timeoutMinutes < 0 || timeoutMinutes > 330)
         {
-            return "Timeout must be between 0 and 240 minutes";
+            return "Timeout must be between 0 and 330 minutes (0 = disabled, max 5.5 hours)";
         }
 
         try
@@ -515,9 +515,8 @@ public class DiskManagementService : IDiskManagementService
                 return confResult.Message;
             }
 
-            // Convert minutes to hdparm units
-            // hdparm uses 5-second units, so: minutes * 60 seconds / 5 = minutes * 12
-            var hdparmValue = timeoutMinutes == 0 ? "0" : (timeoutMinutes * 12).ToString();
+            // Convert minutes to hdparm encoding (0-255)
+            var hdparmValue = ConvertMinutesToHdparmEncoding(timeoutMinutes).ToString();
 
             // Also apply immediately using hdparm command
             var processInfo = new ProcessStartInfo
@@ -665,6 +664,55 @@ public class DiskManagementService : IDiskManagementService
     }
 
     /// <summary>
+    /// Converts minutes to hdparm standby timeout encoding.
+    /// hdparm -S uses a special encoding:
+    /// - 0 = disabled
+    /// - 1-240 = multiples of 5 seconds (5 seconds to 20 minutes)
+    /// - 241-251 = fixed 30-minute increments (241 = 30min, 242 = 60min, ..., 251 = 330min / 5.5 hours).
+    ///             Input values from 22-330 minutes are rounded up to the nearest 30-minute boundary:
+    ///             22-30 → 30min (241), 31-60 → 60min (242), 61-90 → 90min (243), etc.
+    /// - 252 = 21 minutes
+    /// - 253 = vendor-defined (8-12 hours)
+    /// - 254 = reserved
+    /// - 255 = 21 minutes + 15 seconds
+    /// </summary>
+    /// <param name="minutes">Timeout in minutes (0-330). Values from 22-330 (except exactly 21) 
+    /// will be rounded up to the nearest 30-minute boundary.</param>
+    /// <returns>hdparm encoded value (0-255)</returns>
+    private static int ConvertMinutesToHdparmEncoding(int minutes)
+    {
+        if (minutes <= 0)
+        {
+            return 0; // Disabled
+        }
+        
+        if (minutes <= 20)
+        {
+            // 1-240: multiples of 5 seconds
+            // minutes * 60 seconds / 5 = minutes * 12
+            return minutes * 12;
+        }
+        
+        if (minutes == 21)
+        {
+            return 252; // Special value for exactly 21 minutes
+        }
+        
+        if (minutes <= 330)
+        {
+            // 241-251: multiples of 30 minutes (30 to 330 minutes = 5.5 hours)
+            // 241 = 30 min, 242 = 60 min, ..., 251 = 330 min
+            // Round up to the nearest 30-minute boundary
+            // Examples: 22-30 => 241, 31-60 => 242, 61-90 => 243
+            int thirtyMinuteUnits = (minutes + 29) / 30; // Round up to nearest 30 min unit
+            return 240 + thirtyMinuteUnits;
+        }
+        
+        // For values > 330 minutes, use the highest available value (251 = 330 minutes)
+        return 251;
+    }
+    
+    /// <summary>
     /// Result of hdparm configuration update operation
     /// </summary>
     private record HdparmConfigResult(bool Success, string Message);
@@ -674,7 +722,7 @@ public class DiskManagementService : IDiskManagementService
     /// Creates or updates the device block in the configuration file.
     /// </summary>
     /// <param name="devicePath">The device path (e.g., /dev/sda)</param>
-    /// <param name="spindownTime">Optional spindown timeout in minutes (0-240). Uses hdparm's 5-second units internally.</param>
+    /// <param name="spindownTime">Optional spindown timeout in minutes (0-330). Uses hdparm's encoding scheme internally.</param>
     /// <param name="apmLevel">Optional APM level (1-255)</param>
     /// <returns>Result indicating success or failure with a message</returns>
     private static async Task<HdparmConfigResult> UpdateHdparmConfAsync(string devicePath, int? spindownTime = null, int? apmLevel = null)
@@ -765,7 +813,7 @@ public class DiskManagementService : IDiskManagementService
                         existingSpindown = true;
                         if (spindownTime.HasValue)
                         {
-                            var hdparmValue = spindownTime.Value == 0 ? 0 : spindownTime.Value * 12;
+                            var hdparmValue = ConvertMinutesToHdparmEncoding(spindownTime.Value);
                             blockLines.Add($"\tspindown_time = {hdparmValue}");
                         }
                         else
@@ -807,7 +855,7 @@ public class DiskManagementService : IDiskManagementService
             // Add new settings if they weren't in the existing block
             if (spindownTime.HasValue && !existingSpindown)
             {
-                var hdparmValue = spindownTime.Value == 0 ? 0 : spindownTime.Value * 12;
+                var hdparmValue = ConvertMinutesToHdparmEncoding(spindownTime.Value);
                 blockLines.Add($"\tspindown_time = {hdparmValue}");
             }
             if (apmLevel.HasValue && !existingApm)
