@@ -732,7 +732,44 @@
             }
             else
             {
-                <FluentMessageBar Intent="MessageIntent.Info">此文件类型暂不支持预览</FluentMessageBar>
+                <!-- Display file information for non-previewable files -->
+                <FluentStack Orientation="Orientation.Vertical" Style="padding: 24px; align-items: center; gap: 16px;">
+                    <div style="text-align: center;">
+                        <FluentIcon Value="@((Icon)GetFluentFileIcon(Path.GetExtension(previewFilePath)))" 
+                                    Color="@Color.Custom" 
+                                    CustomColor="#42A5F5" 
+                                    Style="font-size: 96px;" />
+                    </div>
+                    <FluentLabel Typo="Typography.Body" Style="font-size: 16px; text-align: center;">
+                        此文件类型暂不支持在线预览
+                    </FluentLabel>
+                    @if (!string.IsNullOrEmpty(previewFilePath) && File.Exists(previewFilePath))
+                    {
+                        var fileInfo = new FileInfo(previewFilePath);
+                        <FluentStack Orientation="Orientation.Vertical" Style="width: 100%; gap: 12px; background-color: var(--neutral-layer-1); padding: 16px; border-radius: 8px;">
+                            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between;">
+                                <FluentLabel Style="font-weight: 600;">文件名:</FluentLabel>
+                                <FluentLabel>@fileInfo.Name</FluentLabel>
+                            </FluentStack>
+                            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between;">
+                                <FluentLabel Style="font-weight: 600;">文件大小:</FluentLabel>
+                                <FluentLabel>@FileUtilities.FormatSize(fileInfo.Length)</FluentLabel>
+                            </FluentStack>
+                            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between;">
+                                <FluentLabel Style="font-weight: 600;">文件类型:</FluentLabel>
+                                <FluentLabel>@(string.IsNullOrEmpty(fileInfo.Extension) ? "未知" : fileInfo.Extension.ToUpperInvariant())</FluentLabel>
+                            </FluentStack>
+                            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between;">
+                                <FluentLabel Style="font-weight: 600;">修改时间:</FluentLabel>
+                                <FluentLabel>@fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")</FluentLabel>
+                            </FluentStack>
+                            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between;">
+                                <FluentLabel Style="font-weight: 600;">创建时间:</FluentLabel>
+                                <FluentLabel>@fileInfo.CreationTime.ToString("yyyy-MM-dd HH:mm:ss")</FluentLabel>
+                            </FluentStack>
+                        </FluentStack>
+                    }
+                </FluentStack>
             }
         </div>
     </FluentDialogBody>
@@ -875,17 +912,8 @@
         }
         else if (File.Exists(path))
         {
-            // Handle file click - show preview for supported file types
-            var extension = Path.GetExtension(path).ToLowerInvariant();
-            if (IsPreviewableFile(extension))
-            {
-                await ShowFilePreview(path);
-            }
-            else
-            {
-                // Download non-previewable files
-                await DownloadFile(path);
-            }
+            // Handle file click - always show preview dialog for all files
+            await ShowFilePreview(path);
         }
     }
 
