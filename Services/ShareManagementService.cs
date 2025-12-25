@@ -567,21 +567,25 @@ public class ShareManagementService : IShareManagementService
         
         try
         {
-            // Try systemctl first
-            var result = await ExecuteCommandAsync("systemctl", "restart smbd nmbd");
-            if (result.exitCode == 0)
+            // Try systemctl first - restart both smbd and nmbd
+            var resultSmbd = await ExecuteCommandAsync("systemctl", "restart smbd");
+            var resultNmbd = await ExecuteCommandAsync("systemctl", "restart nmbd");
+            
+            if (resultSmbd.exitCode == 0 && resultNmbd.exitCode == 0)
             {
                 return "Successfully restarted Samba service";
             }
             
             // Try service command as fallback
-            result = await ExecuteCommandAsync("service", "smbd restart && service nmbd restart");
-            if (result.exitCode == 0)
+            resultSmbd = await ExecuteCommandAsync("service", "smbd restart");
+            resultNmbd = await ExecuteCommandAsync("service", "nmbd restart");
+            
+            if (resultSmbd.exitCode == 0 && resultNmbd.exitCode == 0)
             {
                 return "Successfully restarted Samba service";
             }
             
-            return $"Failed to restart Samba service: {result.error}";
+            return $"Failed to restart Samba service. smbd: {resultSmbd.error}, nmbd: {resultNmbd.error}";
         }
         catch (Exception ex)
         {
@@ -678,9 +682,16 @@ public class ShareManagementService : IShareManagementService
             return (false, "Share path must be an absolute path");
         }
         
-        if (InvalidChars.Any(c => request.Name.Contains(c) || request.Path.Contains(c)))
+        // Check for invalid characters in name (only if CIFS and name is provided)
+        if (type == ShareType.CIFS && !string.IsNullOrEmpty(request.Name) && InvalidChars.Any(c => request.Name.Contains(c)))
         {
-            return (false, "Invalid characters in share name or path");
+            return (false, "Invalid characters in share name");
+        }
+        
+        // Check for invalid characters in path
+        if (InvalidChars.Any(c => request.Path.Contains(c)))
+        {
+            return (false, "Invalid characters in share path");
         }
         
         return (true, string.Empty);
