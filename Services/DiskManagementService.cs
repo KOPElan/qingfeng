@@ -800,9 +800,10 @@ public class DiskManagementService : IDiskManagementService
     /// <summary>
     /// Converts hdparm standby timeout encoding to minutes.
     /// This is the reverse of ConvertMinutesToHdparmEncoding.
+    /// Note: Values 1-11 represent less than 1 minute and will be rounded up to 1 minute for display.
     /// </summary>
     /// <param name="hdparmValue">hdparm encoded value (0-255)</param>
-    /// <returns>Timeout in minutes</returns>
+    /// <returns>Timeout in minutes (rounded up for values less than 1 minute)</returns>
     private static int ConvertHdparmEncodingToMinutes(int hdparmValue)
     {
         if (hdparmValue <= 0)
@@ -814,7 +815,13 @@ public class DiskManagementService : IDiskManagementService
         {
             // 1-240: multiples of 5 seconds
             // hdparmValue * 5 seconds / 60 = hdparmValue / 12
-            return hdparmValue / 12;
+            // Round up to ensure we never show 0 for non-zero values
+            int minutes = hdparmValue / 12;
+            if (minutes == 0 && hdparmValue > 0)
+            {
+                return 1; // Values 1-11 (5-55 seconds) are displayed as 1 minute
+            }
+            return minutes;
         }
         
         if (hdparmValue >= 241 && hdparmValue <= 251)
@@ -826,7 +833,8 @@ public class DiskManagementService : IDiskManagementService
         
         if (hdparmValue == 252 || hdparmValue == 255)
         {
-            return 21; // Special values for 21 minutes
+            // 252 = 21 minutes, 255 = 21 minutes + 15 seconds (displayed as 21 for UI purposes)
+            return 21;
         }
         
         // For other values, return 0 (disabled/unknown)
