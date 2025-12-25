@@ -668,14 +668,16 @@ public class DiskManagementService : IDiskManagementService
     /// hdparm -S uses a special encoding:
     /// - 0 = disabled
     /// - 1-240 = multiples of 5 seconds (5 seconds to 20 minutes)
-    /// - 241-251 = fixed 30-minute increments (241 = 30min, 242 = 60min, ..., 251 = 330min / 5.5 hours),
-    ///             with timeouts in this range rounded up to the nearest 30-minute boundary
+    /// - 241-251 = fixed 30-minute increments (241 = 30min, 242 = 60min, ..., 251 = 330min / 5.5 hours).
+    ///             Input values from 22-330 minutes are rounded up to the nearest 30-minute boundary:
+    ///             22-30 → 30min (241), 31-60 → 60min (242), 61-90 → 90min (243), etc.
     /// - 252 = 21 minutes
     /// - 253 = vendor-defined (8-12 hours)
     /// - 254 = reserved
     /// - 255 = 21 minutes + 15 seconds
     /// </summary>
-    /// <param name="minutes">Timeout in minutes (0-330). Values between 22-29 will be rounded up to 30 minutes.</param>
+    /// <param name="minutes">Timeout in minutes (0-330). Values from 22-330 (except exactly 21) 
+    /// will be rounded up to the nearest 30-minute boundary.</param>
     /// <returns>hdparm encoded value (0-255)</returns>
     private static int ConvertMinutesToHdparmEncoding(int minutes)
     {
