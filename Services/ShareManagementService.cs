@@ -1,7 +1,6 @@
 using QingFeng.Models;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace QingFeng.Services;
@@ -264,32 +263,34 @@ public class ShareManagementService : IShareManagementService
             }
             
             // Build share configuration
-            var shareConfig = new StringBuilder();
-            shareConfig.AppendLine();
-            shareConfig.AppendLine($"[{request.Name}]");
-            shareConfig.AppendLine($"   path = {request.Path}");
+            var shareConfigLines = new List<string>
+            {
+                "",  // Empty line before share section
+                $"[{request.Name}]",
+                $"   path = {request.Path}"
+            };
             
             if (!string.IsNullOrWhiteSpace(request.Comment))
             {
-                shareConfig.AppendLine($"   comment = {request.Comment}");
+                shareConfigLines.Add($"   comment = {request.Comment}");
             }
             
-            shareConfig.AppendLine($"   browseable = {(request.Browseable ? "yes" : "no")}");
-            shareConfig.AppendLine($"   read only = {(request.ReadOnly ? "yes" : "no")}");
-            shareConfig.AppendLine($"   guest ok = {(request.GuestOk ? "yes" : "no")}");
+            shareConfigLines.Add($"   browseable = {(request.Browseable ? "yes" : "no")}");
+            shareConfigLines.Add($"   read only = {(request.ReadOnly ? "yes" : "no")}");
+            shareConfigLines.Add($"   guest ok = {(request.GuestOk ? "yes" : "no")}");
             
             if (!string.IsNullOrWhiteSpace(request.ValidUsers))
             {
-                shareConfig.AppendLine($"   valid users = {request.ValidUsers}");
+                shareConfigLines.Add($"   valid users = {request.ValidUsers}");
             }
             
             if (!string.IsNullOrWhiteSpace(request.WriteList) && request.ReadOnly)
             {
-                shareConfig.AppendLine($"   write list = {request.WriteList}");
+                shareConfigLines.Add($"   write list = {request.WriteList}");
             }
             
             // Append to configuration file
-            lines.Add(shareConfig.ToString());
+            lines.AddRange(shareConfigLines);
             
             // Write configuration atomically
             await WriteConfigFileAsync(SambaConfigPath, lines);

@@ -294,7 +294,7 @@
                 <div>
                     <FluentLabel>有效用户（可选）</FluentLabel>
                     <FluentTextField @bind-Value="shareRequest.ValidUsers" Placeholder="user1, user2, group" Style="width: 100%;" />
-                    <small style="color: var(--neutral-foreground-hint);">允许访问的用户列表，用逗号分隔。使用 @@ 前缀表示组。留空表示允许所有用户</small>
+                    <small style="color: var(--neutral-foreground-hint);">允许访问的用户列表，用逗号分隔。使用 &commat; 前缀表示组。留空表示允许所有用户</small>
                 </div>
 
                 @if (shareRequest.ReadOnly)
@@ -302,7 +302,7 @@
                     <div>
                         <FluentLabel>写入列表（可选）</FluentLabel>
                         <FluentTextField @bind-Value="shareRequest.WriteList" Placeholder="admin, admins" Style="width: 100%;" />
-                        <small style="color: var(--neutral-foreground-hint);">在只读共享中允许写入的用户列表。使用 @@ 前缀表示组</small>
+                        <small style="color: var(--neutral-foreground-hint);">在只读共享中允许写入的用户列表。使用 &commat; 前缀表示组</small>
                     </div>
                 }
             }
