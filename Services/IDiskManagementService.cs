@@ -15,6 +15,7 @@ public interface IDiskManagementService
     Task<string> SetDiskSpinDownAsync(string devicePath, int timeoutMinutes);
     Task<string> SetDiskApmLevelAsync(string devicePath, int level);
     Task<string> GetDiskPowerStatusAsync(string devicePath);
+    Task<DiskPowerSettings> GetDiskPowerSettingsAsync(string devicePath);
     
     // Network disk management
     Task<List<NetworkDiskInfo>> GetNetworkDisksAsync();

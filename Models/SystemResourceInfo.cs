@@ -100,3 +100,17 @@ public class NetworkDiskInfo
         ? $"{Server}:/{SharePath}"
         : $"//{Server}/{SharePath}";
 }
+
+public class DiskPowerSettings
+{
+    /// <summary>
+    /// Spindown timeout in minutes. 0 means disabled.
+    /// </summary>
+    public int SpinDownTimeoutMinutes { get; set; }
+    
+    /// <summary>
+    /// APM (Advanced Power Management) level. 1-255, where 1 = minimum power, 255 = maximum performance.
+    /// null if not set.
+    /// </summary>
+    public int? ApmLevel { get; set; }
+}

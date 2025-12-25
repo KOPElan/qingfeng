@@ -663,6 +663,91 @@ public class DiskManagementService : IDiskManagementService
         }
     }
 
+    public async Task<DiskPowerSettings> GetDiskPowerSettingsAsync(string devicePath)
+    {
+        var settings = new DiskPowerSettings
+        {
+            SpinDownTimeoutMinutes = 0,
+            ApmLevel = null
+        };
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return settings;
+        }
+
+        if (!ValidateDevicePath(devicePath))
+        {
+            return settings;
+        }
+
+        const string hdparmConfPath = "/etc/hdparm.conf";
+
+        try
+        {
+            // Check if hdparm.conf exists
+            if (!File.Exists(hdparmConfPath))
+            {
+                return settings;
+            }
+
+            var lines = await File.ReadAllLinesAsync(hdparmConfPath);
+            
+            // Find the device block
+            bool inDeviceBlock = false;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var trimmedLine = lines[i].Trim();
+                
+                // Check if this is the start of our device block
+                if (trimmedLine == $"{devicePath} {{")
+                {
+                    inDeviceBlock = true;
+                    continue;
+                }
+                
+                // Check if we've reached the end of the device block
+                if (inDeviceBlock && trimmedLine == "}")
+                {
+                    break;
+                }
+                
+                // Parse settings within the device block
+                if (inDeviceBlock && !string.IsNullOrWhiteSpace(trimmedLine) && !trimmedLine.StartsWith("#"))
+                {
+                    var match = HdparmSettingRegex.Match(trimmedLine);
+                    if (match.Success)
+                    {
+                        var paramName = match.Groups[1].Value.Trim();
+                        var paramValue = match.Groups[2].Value.Trim();
+                        
+                        if (paramName.Equals("spindown_time", StringComparison.OrdinalIgnoreCase) ||
+                            paramName.Equals("force_spindown_time", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (int.TryParse(paramValue, out int hdparmValue))
+                            {
+                                settings.SpinDownTimeoutMinutes = ConvertHdparmEncodingToMinutes(hdparmValue);
+                            }
+                        }
+                        else if (paramName.Equals("apm", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (int.TryParse(paramValue, out int apmValue))
+                            {
+                                settings.ApmLevel = apmValue;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error reading disk power settings from {hdparmConfPath}: {ex.Message}");
+        }
+
+        return settings;
+    }
+
     /// <summary>
     /// Converts minutes to hdparm standby timeout encoding.
     /// hdparm -S uses a special encoding:
@@ -710,6 +795,57 @@ public class DiskManagementService : IDiskManagementService
         
         // For values > 330 minutes, use the highest available value (251 = 330 minutes)
         return 251;
+    }
+    
+    /// <summary>
+    /// Converts hdparm standby timeout encoding to minutes.
+    /// This is the reverse of ConvertMinutesToHdparmEncoding.
+    /// Note: Values 1-11 represent less than 1 minute and will be rounded up to 1 minute for display.
+    /// </summary>
+    /// <param name="hdparmValue">hdparm encoded value (0-255)</param>
+    /// <returns>Timeout in minutes (rounded up for values less than 1 minute)</returns>
+    private static int ConvertHdparmEncodingToMinutes(int hdparmValue)
+    {
+        if (hdparmValue <= 0)
+        {
+            return 0; // Disabled
+        }
+        
+        if (hdparmValue <= 240)
+        {
+            // 1-240: multiples of 5 seconds
+            // hdparmValue * 5 seconds / 60 = hdparmValue / 12
+            // Round up to ensure we never show 0 for non-zero values
+            int minutes = hdparmValue / 12;
+            if (minutes == 0 && hdparmValue > 0)
+            {
+                return 1; // Values 1-11 (5-55 seconds) are displayed as 1 minute
+            }
+            return minutes;
+        }
+        
+        if (hdparmValue >= 241 && hdparmValue <= 251)
+        {
+            // 241-251: multiples of 30 minutes
+            // 241 = 30 min, 242 = 60 min, ..., 251 = 330 min
+            return (hdparmValue - 240) * 30;
+        }
+        
+        if (hdparmValue == 252 || hdparmValue == 255)
+        {
+            // 252 = 21 minutes, 255 = 21 minutes + 15 seconds (displayed as 21 for UI purposes)
+            return 21;
+        }
+        
+        if (hdparmValue == 253)
+        {
+            // 253 = vendor-defined (typically 8-12 hours), not commonly used
+            // Return 0 as we can't reliably determine the actual timeout
+            return 0;
+        }
+        
+        // For value 254 (reserved) and other unknown values, return 0 (disabled/unknown)
+        return 0;
     }
     
     /// <summary>
