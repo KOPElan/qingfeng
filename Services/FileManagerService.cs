@@ -645,6 +645,13 @@ public class FileManagerService : IFileManagerService
                 var fileName = Path.GetFileName(sourcePath);
                 var destPath = Path.Combine(destinationPath, fileName);
                 
+                // Check if destination already exists
+                if (File.Exists(destPath) || Directory.Exists(destPath))
+                {
+                    errors.Add($"{fileName}: Destination already exists");
+                    continue;
+                }
+                
                 await MoveAsync(sourcePath, destPath);
             }
             catch (Exception ex)

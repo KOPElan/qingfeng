@@ -449,7 +449,7 @@
                                 @if (isSelectionMode)
                                 {
                                     <th scope="col" style="width: 50px;">
-                                        <FluentCheckbox Value="@(selectedFiles.Count > 0 && selectedFiles.Count == files.Where(f => f.Name != "..").Count())"
+                                        <FluentCheckbox Value="@(selectedFiles.Count > 0 && selectedFiles.Count == SelectableFilesCount)"
                                                         ValueChanged="@((bool _) => ToggleSelectAll())"
                                                         Title="全选/取消全选" />
                                     </th>
@@ -988,6 +988,9 @@
     private bool batchMoveSuccess = false;
     private string batchDeleteMessage = string.Empty;
     private bool batchDeleteSuccess = false;
+    
+    // Computed property for selectable files count
+    private int SelectableFilesCount => files?.Where(f => f.Name != "..").Count() ?? 0;
     
     private string previewFilePath = string.Empty;
     private string previewFileName = string.Empty;
@@ -1884,7 +1887,7 @@
     }
 
     // Selection management methods
-    private async void HandleFileItemClick(string filePath, Microsoft.AspNetCore.Components.Web.MouseEventArgs? e)
+    private async Task HandleFileItemClick(string filePath, Microsoft.AspNetCore.Components.Web.MouseEventArgs? e)
     {
         if (isSelectionMode)
         {
@@ -1983,11 +1986,7 @@
             batchCopyMessage = $"成功复制 {selectedFiles.Count} 个文件";
             batchCopySuccess = true;
             
-            // Clear selection and close dialog after short delay
-            await Task.Delay(DIALOG_AUTO_CLOSE_DELAY_MS);
-            selectedFiles.Clear();
-            CloseBatchCopyDialog();
-            await RefreshFiles();
+            await CompleteBatchOperationAsync(CloseBatchCopyDialog);
         }
         catch (AggregateException ex)
         {
@@ -2039,11 +2038,7 @@
             batchMoveMessage = $"成功移动 {selectedFiles.Count} 个文件";
             batchMoveSuccess = true;
             
-            // Clear selection and close dialog after short delay
-            await Task.Delay(DIALOG_AUTO_CLOSE_DELAY_MS);
-            selectedFiles.Clear();
-            CloseBatchMoveDialog();
-            await RefreshFiles();
+            await CompleteBatchOperationAsync(CloseBatchMoveDialog);
         }
         catch (AggregateException ex)
         {
@@ -2086,11 +2081,7 @@
             batchDeleteMessage = $"成功删除 {selectedFiles.Count} 个文件";
             batchDeleteSuccess = true;
             
-            // Clear selection and close dialog after short delay
-            await Task.Delay(DIALOG_AUTO_CLOSE_DELAY_MS);
-            selectedFiles.Clear();
-            CloseBatchDeleteDialog();
-            await RefreshFiles();
+            await CompleteBatchOperationAsync(CloseBatchDeleteDialog);
         }
         catch (AggregateException ex)
         {
@@ -2104,6 +2095,15 @@
         }
     }
 
+    private async Task CompleteBatchOperationAsync(Action closeDialog)
+    {
+        // Clear selection and close dialog after short delay
+        await Task.Delay(DIALOG_AUTO_CLOSE_DELAY_MS);
+        selectedFiles.Clear();
+        closeDialog();
+        await RefreshFiles();
+    }
+
     private async Task BatchDownloadFiles()
     {
         try
@@ -2114,8 +2114,8 @@
                 return;
             }
 
-            // For batch download, we'll download each file individually
-            // In a production system, you might want to create a ZIP file
+            // TODO: In a production system, consider creating a ZIP file for batch downloads
+            // For now, download each file individually
             var fileCount = 0;
             foreach (var filePath in selectedFiles)
             {
