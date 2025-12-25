@@ -807,14 +807,18 @@
         }
     }
 
-    private void ShowPowerManagement(DiskInfo disk)
+    private async Task ShowPowerManagement(DiskInfo disk)
     {
         selectedDiskForPower = disk;
         powerStatus = string.Empty;
         powerMessage = string.Empty;
         powerError = false;
-        spinDownTimeout = 0;
-        apmLevel = 128;
+        
+        // Load existing power settings from hdparm.conf
+        var settings = await DiskManagementService.GetDiskPowerSettingsAsync(disk.DevicePath);
+        spinDownTimeout = settings.SpinDownTimeoutMinutes;
+        apmLevel = settings.ApmLevel ?? 128;
+        
         showPowerManagement = true;
     }
 
