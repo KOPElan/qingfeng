@@ -28,4 +28,9 @@ public interface IFileManagerService
     Task<FavoriteFolder> AddFavoriteFolderAsync(string name, string path, string icon = "folder");
     Task RemoveFavoriteFolderAsync(int id);
     Task UpdateFavoriteFolderAsync(int id, string name, string icon);
+    
+    // Batch operations
+    Task BatchCopyAsync(List<string> sourcePaths, string destinationPath);
+    Task BatchMoveAsync(List<string> sourcePaths, string destinationPath);
+    Task BatchDeleteAsync(List<string> paths);
 }

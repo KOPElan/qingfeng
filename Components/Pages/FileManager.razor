@@ -139,6 +139,11 @@
         background-color: var(--neutral-fill-secondary-hover);
     }
     
+    .file-item.selected {
+        background-color: var(--accent-fill-rest);
+        color: white;
+    }
+    
     .file-name {
         font-size: 13px;
         text-align: center;
@@ -190,6 +195,11 @@
     
     .fluent-table tr:hover {
         background-color: var(--neutral-fill-secondary-hover);
+    }
+    
+    .fluent-table tr.selected-row {
+        background-color: var(--accent-fill-rest);
+        color: white;
     }
 </style>
 
@@ -333,7 +343,55 @@
                           Title="切换视图">
                 <FluentIcon Value="@((Icon)(isGridView ? new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.List() : new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.GridDots()))" />
             </FluentButton>
+            <FluentButton Appearance="@(isSelectionMode ? Appearance.Accent : Appearance.Stealth)" 
+                          IconOnly="true"
+                          OnClick="ToggleSelectionMode" 
+                          Title="@(isSelectionMode ? "退出选择模式" : "选择模式")">
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.CheckboxChecked())" />
+            </FluentButton>
         </div>
+        
+        <!-- Batch Operation Toolbar (shown when files are selected) -->
+        @if (isSelectionMode && selectedFiles.Count > 0)
+        {
+            <div style="padding: 8px 24px; background-color: var(--accent-fill-rest); color: white; display: flex; align-items: center; gap: 8px;">
+                <span style="flex: 1;">已选择 @selectedFiles.Count 项</span>
+                <FluentButton Appearance="Appearance.Lightweight" 
+                              IconOnly="true"
+                              OnClick="ShowBatchCopyDialog" 
+                              Title="批量复制"
+                              Style="color: white;">
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Copy())" />
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Lightweight" 
+                              IconOnly="true"
+                              OnClick="ShowBatchMoveDialog" 
+                              Title="批量移动"
+                              Style="color: white;">
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowMove())" />
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Lightweight" 
+                              IconOnly="true"
+                              OnClick="ShowBatchDeleteDialog" 
+                              Title="批量删除"
+                              Style="color: white;">
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Delete())" />
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Lightweight" 
+                              IconOnly="true"
+                              OnClick="BatchDownloadFiles" 
+                              Title="批量下载"
+                              Style="color: white;">
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowDownload())" />
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Lightweight" 
+                              OnClick="@(() => selectedFiles.Clear())" 
+                              Title="取消选择"
+                              Style="color: white;">
+                    取消选择
+                </FluentButton>
+            </div>
+        }
         
         <!-- File Grid View -->
         @if (isGridView)
@@ -343,7 +401,17 @@
                 {
                     @foreach (var file in files.Where(f => f.Name != ".."))
                     {
-                        <div class="file-item" @onclick="@(() => NavigateTo(file.Path))" title="@file.Path">
+                        <div class="file-item @(IsFileSelected(file.Path) ? "selected" : "")" 
+                             @onclick="@((e) => HandleFileItemClick(file.Path, e))" 
+                             title="@file.Path"
+                             style="position: relative;">
+                            @if (isSelectionMode)
+                            {
+                                <div style="position: absolute; top: 8px; left: 8px; z-index: 1;" @onclick:stopPropagation="true">
+                                    <FluentCheckbox Value="@IsFileSelected(file.Path)"
+                                                    ValueChanged="@((bool _) => ToggleFileSelection(file.Path))" />
+                                </div>
+                            }
                             @if (file.IsDirectory)
                             {
                                 <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Folder())" Color="@Color.Custom" CustomColor="#FFA726" />
@@ -378,6 +446,14 @@
                     <table class="fluent-table" role="table" aria-label="文件列表">
                         <thead>
                             <tr>
+                                @if (isSelectionMode)
+                                {
+                                    <th scope="col" style="width: 50px;">
+                                        <FluentCheckbox Value="@(selectedFiles.Count > 0 && selectedFiles.Count == SelectableFilesCount)"
+                                                        ValueChanged="@((bool _) => ToggleSelectAll())"
+                                                        Title="全选/取消全选" />
+                                    </th>
+                                }
                                 <th scope="col">名称</th>
                                 <th scope="col">类型</th>
                                 <th scope="col">大小</th>
@@ -388,18 +464,29 @@
                         <tbody>
                             @foreach (var file in files)
                             {
-                                <tr>
-                                    <td>
+                                <tr class="@(IsFileSelected(file.Path) ? "selected-row" : "")">
+                                    @if (isSelectionMode && file.Name != "..")
+                                    {
+                                        <td @onclick:stopPropagation="true">
+                                            <FluentCheckbox Value="@IsFileSelected(file.Path)"
+                                                            ValueChanged="@((bool _) => ToggleFileSelection(file.Path))" />
+                                        </td>
+                                    }
+                                    else if (isSelectionMode)
+                                    {
+                                        <td></td>
+                                    }
+                                    <td @onclick="@(() => HandleFileItemClick(file.Path, null))">
                                         @if (file.IsDirectory)
                                         {
-                                            <a @onclick="(() => NavigateTo(file.Path))" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                                            <div style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
                                                 <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Folder())" />
                                                 @file.Name
-                                            </a>
+                                            </div>
                                         }
                                         else
                                         {
-                                            <div style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;" @onclick="(() => NavigateTo(file.Path))">
+                                            <div style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
                                                 <FluentIcon Value="@((Icon)GetFluentFileIcon(file.Extension))" />
                                                 <span>@file.Name</span>
                                             </div>
@@ -779,7 +866,80 @@
     </FluentDialogFooter>
 </FluentDialog>
 
+<!-- Batch Copy Dialog -->
+<FluentDialog Hidden="@(!showBatchCopyDialog)" Modal="true" OnDismiss="CloseBatchCopyDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">批量复制</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>已选择 @selectedFiles.Count 个文件/文件夹</FluentLabel>
+            <FluentLabel>目标路径</FluentLabel>
+            <FluentTextField @bind-Value="batchCopyDestination" Placeholder="输入目标路径" Style="width: 100%;" />
+            @if (!string.IsNullOrEmpty(batchCopyMessage))
+            {
+                <FluentMessageBar Intent="@(batchCopySuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @batchCopyMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseBatchCopyDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="BatchCopyFiles">复制</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<!-- Batch Move Dialog -->
+<FluentDialog Hidden="@(!showBatchMoveDialog)" Modal="true" OnDismiss="CloseBatchMoveDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">批量移动</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>已选择 @selectedFiles.Count 个文件/文件夹</FluentLabel>
+            <FluentLabel>目标路径</FluentLabel>
+            <FluentTextField @bind-Value="batchMoveDestination" Placeholder="输入目标路径" Style="width: 100%;" />
+            @if (!string.IsNullOrEmpty(batchMoveMessage))
+            {
+                <FluentMessageBar Intent="@(batchMoveSuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @batchMoveMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseBatchMoveDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="BatchMoveFiles">移动</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<!-- Batch Delete Confirmation Dialog -->
+<FluentDialog Hidden="@(!showBatchDeleteDialog)" Modal="true" OnDismiss="CloseBatchDeleteDialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">批量删除确认</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>确定要删除这 @selectedFiles.Count 个文件/文件夹吗？</FluentLabel>
+            <FluentLabel Style="color: var(--error); font-size: 12px;">此操作不可撤销！</FluentLabel>
+            @if (!string.IsNullOrEmpty(batchDeleteMessage))
+            {
+                <FluentMessageBar Intent="@(batchDeleteSuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @batchDeleteMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseBatchDeleteDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="BatchDeleteFiles" Style="background-color: var(--error);">删除</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
 @code {
+    private const int DIALOG_AUTO_CLOSE_DELAY_MS = 1000;
+    
     private List<FileItemInfo>? files;
     private List<DriveItemInfo>? drives;
     private List<FavoriteFolder>? favoriteFolders;
@@ -791,6 +951,10 @@
     private Stack<string> navigationHistory = new Stack<string>();
     private Stack<string> forwardHistory = new Stack<string>();
 
+    // Selection state
+    private HashSet<string> selectedFiles = new HashSet<string>();
+    private bool isSelectionMode = false;
+
     // Dialog states
     private bool showUploadDialog = false;
     private bool showCreateFolderDialog = false;
@@ -800,6 +964,9 @@
     private bool showSearchDialog = false;
     private bool showPreviewDialog = false;
     private bool showFavoriteDialog = false;
+    private bool showBatchCopyDialog = false;
+    private bool showBatchMoveDialog = false;
+    private bool showBatchDeleteDialog = false;
 
     // Dialog data
     private string newFolderName = string.Empty;
@@ -811,6 +978,20 @@
     private FileItemInfo? moveItem = null;
     private string searchPattern = string.Empty;
     private List<FileItemInfo>? searchResults = null;
+    
+    // Batch operation data
+    private string batchCopyDestination = string.Empty;
+    private string batchMoveDestination = string.Empty;
+    private string batchCopyMessage = string.Empty;
+    private bool batchCopySuccess = false;
+    private string batchMoveMessage = string.Empty;
+    private bool batchMoveSuccess = false;
+    private string batchDeleteMessage = string.Empty;
+    private bool batchDeleteSuccess = false;
+    
+    // Computed property for selectable files count
+    private int SelectableFilesCount => files?.Where(f => f.Name != "..").Count() ?? 0;
+    
     private string previewFilePath = string.Empty;
     private string previewFileName = string.Empty;
     private string previewImageUrl = string.Empty;
@@ -1703,5 +1884,257 @@
             "home" => "主页",
             _ => "文件夹"
         };
+    }
+
+    // Selection management methods
+    private async Task HandleFileItemClick(string filePath, Microsoft.AspNetCore.Components.Web.MouseEventArgs? e)
+    {
+        if (isSelectionMode)
+        {
+            ToggleFileSelection(filePath);
+        }
+        else
+        {
+            await NavigateTo(filePath);
+        }
+    }
+
+    private void ToggleSelectionMode()
+    {
+        isSelectionMode = !isSelectionMode;
+        if (!isSelectionMode)
+        {
+            selectedFiles.Clear();
+        }
+    }
+
+    private void ToggleFileSelection(string filePath)
+    {
+        if (selectedFiles.Contains(filePath))
+        {
+            selectedFiles.Remove(filePath);
+        }
+        else
+        {
+            selectedFiles.Add(filePath);
+        }
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (files == null) return;
+        
+        var selectableFiles = files.Where(f => f.Name != "..").ToList();
+        
+        if (selectedFiles.Count == selectableFiles.Count)
+        {
+            // Deselect all
+            selectedFiles.Clear();
+        }
+        else
+        {
+            // Select all
+            selectedFiles.Clear();
+            foreach (var file in selectableFiles)
+            {
+                selectedFiles.Add(file.Path);
+            }
+        }
+    }
+
+    private bool IsFileSelected(string filePath)
+    {
+        return selectedFiles.Contains(filePath);
+    }
+
+    // Batch operation methods
+    private void ShowBatchCopyDialog()
+    {
+        if (selectedFiles.Count == 0)
+        {
+            ShowNotification("请先选择要复制的文件", true);
+            return;
+        }
+        
+        showBatchCopyDialog = true;
+        batchCopyDestination = string.Empty;
+        batchCopyMessage = string.Empty;
+        batchCopySuccess = false;
+    }
+
+    private void CloseBatchCopyDialog()
+    {
+        showBatchCopyDialog = false;
+        batchCopyDestination = string.Empty;
+        batchCopyMessage = string.Empty;
+        batchCopySuccess = false;
+    }
+
+    private async Task BatchCopyFiles()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(batchCopyDestination))
+            {
+                batchCopyMessage = "请输入目标路径";
+                batchCopySuccess = false;
+                return;
+            }
+
+            await FileManagerService.BatchCopyAsync(selectedFiles.ToList(), batchCopyDestination);
+            
+            batchCopyMessage = $"成功复制 {selectedFiles.Count} 个文件";
+            batchCopySuccess = true;
+            
+            await CompleteBatchOperationAsync(CloseBatchCopyDialog);
+        }
+        catch (AggregateException ex)
+        {
+            batchCopyMessage = ex.Message;
+            batchCopySuccess = false;
+        }
+        catch (Exception ex)
+        {
+            batchCopyMessage = $"复制失败: {ex.Message}";
+            batchCopySuccess = false;
+        }
+    }
+
+    private void ShowBatchMoveDialog()
+    {
+        if (selectedFiles.Count == 0)
+        {
+            ShowNotification("请先选择要移动的文件", true);
+            return;
+        }
+        
+        showBatchMoveDialog = true;
+        batchMoveDestination = string.Empty;
+        batchMoveMessage = string.Empty;
+        batchMoveSuccess = false;
+    }
+
+    private void CloseBatchMoveDialog()
+    {
+        showBatchMoveDialog = false;
+        batchMoveDestination = string.Empty;
+        batchMoveMessage = string.Empty;
+        batchMoveSuccess = false;
+    }
+
+    private async Task BatchMoveFiles()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(batchMoveDestination))
+            {
+                batchMoveMessage = "请输入目标路径";
+                batchMoveSuccess = false;
+                return;
+            }
+
+            await FileManagerService.BatchMoveAsync(selectedFiles.ToList(), batchMoveDestination);
+            
+            batchMoveMessage = $"成功移动 {selectedFiles.Count} 个文件";
+            batchMoveSuccess = true;
+            
+            await CompleteBatchOperationAsync(CloseBatchMoveDialog);
+        }
+        catch (AggregateException ex)
+        {
+            batchMoveMessage = ex.Message;
+            batchMoveSuccess = false;
+        }
+        catch (Exception ex)
+        {
+            batchMoveMessage = $"移动失败: {ex.Message}";
+            batchMoveSuccess = false;
+        }
+    }
+
+    private void ShowBatchDeleteDialog()
+    {
+        if (selectedFiles.Count == 0)
+        {
+            ShowNotification("请先选择要删除的文件", true);
+            return;
+        }
+        
+        showBatchDeleteDialog = true;
+        batchDeleteMessage = string.Empty;
+        batchDeleteSuccess = false;
+    }
+
+    private void CloseBatchDeleteDialog()
+    {
+        showBatchDeleteDialog = false;
+        batchDeleteMessage = string.Empty;
+        batchDeleteSuccess = false;
+    }
+
+    private async Task BatchDeleteFiles()
+    {
+        try
+        {
+            await FileManagerService.BatchDeleteAsync(selectedFiles.ToList());
+            
+            batchDeleteMessage = $"成功删除 {selectedFiles.Count} 个文件";
+            batchDeleteSuccess = true;
+            
+            await CompleteBatchOperationAsync(CloseBatchDeleteDialog);
+        }
+        catch (AggregateException ex)
+        {
+            batchDeleteMessage = ex.Message;
+            batchDeleteSuccess = false;
+        }
+        catch (Exception ex)
+        {
+            batchDeleteMessage = $"删除失败: {ex.Message}";
+            batchDeleteSuccess = false;
+        }
+    }
+
+    private async Task CompleteBatchOperationAsync(Action closeDialog)
+    {
+        // Clear selection and close dialog after short delay
+        await Task.Delay(DIALOG_AUTO_CLOSE_DELAY_MS);
+        selectedFiles.Clear();
+        closeDialog();
+        await RefreshFiles();
+    }
+
+    private async Task BatchDownloadFiles()
+    {
+        try
+        {
+            if (selectedFiles.Count == 0)
+            {
+                ShowNotification("请先选择要下载的文件", true);
+                return;
+            }
+
+            // TODO: In a production system, consider creating a ZIP file for batch downloads
+            // For now, download each file individually
+            var fileCount = 0;
+            foreach (var filePath in selectedFiles)
+            {
+                // Only download files, not directories - check using file info from current list
+                var fileInfo = files?.FirstOrDefault(f => f.Path == filePath);
+                if (fileInfo != null && !fileInfo.IsDirectory)
+                {
+                    await DownloadFile(filePath);
+                    fileCount++;
+                }
+            }
+            
+            ShowNotification($"开始下载 {fileCount} 个文件", false);
+            selectedFiles.Clear();
+            isSelectionMode = false;
+        }
+        catch (Exception ex)
+        {
+            ShowNotification($"下载失败: {ex.Message}", true);
+        }
     }
 }

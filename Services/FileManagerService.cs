@@ -583,4 +583,127 @@ public class FileManagerService : IFileManagerService
         if (icon.Length > 100)
             throw new ArgumentException("Icon cannot exceed 100 characters", nameof(icon));
     }
+
+    // Batch operations
+    public async Task BatchCopyAsync(List<string> sourcePaths, string destinationPath)
+    {
+        if (!IsPathAllowed(destinationPath))
+            throw new UnauthorizedAccessException("Access to destination path is not allowed");
+
+        if (!Directory.Exists(destinationPath))
+            throw new DirectoryNotFoundException($"Destination directory not found: {destinationPath}");
+
+        var errors = new List<string>();
+        
+        foreach (var sourcePath in sourcePaths)
+        {
+            try
+            {
+                if (!IsPathAllowed(sourcePath))
+                {
+                    errors.Add($"{Path.GetFileName(sourcePath)}: Access denied");
+                    continue;
+                }
+
+                var fileName = Path.GetFileName(sourcePath);
+                var destPath = Path.Combine(destinationPath, fileName);
+                
+                await CopyAsync(sourcePath, destPath);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{Path.GetFileName(sourcePath)}: {ex.Message}");
+            }
+        }
+
+        if (errors.Any())
+        {
+            throw new AggregateException($"Some files failed to copy:\n{string.Join("\n", errors)}");
+        }
+    }
+
+    public async Task BatchMoveAsync(List<string> sourcePaths, string destinationPath)
+    {
+        if (!IsPathAllowed(destinationPath))
+            throw new UnauthorizedAccessException("Access to destination path is not allowed");
+
+        if (!Directory.Exists(destinationPath))
+            throw new DirectoryNotFoundException($"Destination directory not found: {destinationPath}");
+
+        var errors = new List<string>();
+        
+        foreach (var sourcePath in sourcePaths)
+        {
+            try
+            {
+                if (!IsPathAllowed(sourcePath))
+                {
+                    errors.Add($"{Path.GetFileName(sourcePath)}: Access denied");
+                    continue;
+                }
+
+                var fileName = Path.GetFileName(sourcePath);
+                var destPath = Path.Combine(destinationPath, fileName);
+                
+                // Check if destination already exists
+                if (File.Exists(destPath) || Directory.Exists(destPath))
+                {
+                    errors.Add($"{fileName}: Destination already exists");
+                    continue;
+                }
+                
+                await MoveAsync(sourcePath, destPath);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{Path.GetFileName(sourcePath)}: {ex.Message}");
+            }
+        }
+
+        if (errors.Any())
+        {
+            throw new AggregateException($"Some files failed to move:\n{string.Join("\n", errors)}");
+        }
+    }
+
+    public Task BatchDeleteAsync(List<string> paths)
+    {
+        var errors = new List<string>();
+        
+        foreach (var path in paths)
+        {
+            try
+            {
+                if (!IsPathAllowed(path))
+                {
+                    errors.Add($"{Path.GetFileName(path)}: Access denied");
+                    continue;
+                }
+
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+                else if (Directory.Exists(path))
+                {
+                    Directory.Delete(path, true);
+                }
+                else
+                {
+                    errors.Add($"{Path.GetFileName(path)}: Not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{Path.GetFileName(path)}: {ex.Message}");
+            }
+        }
+
+        if (errors.Any())
+        {
+            throw new AggregateException($"Some files failed to delete:\n{string.Join("\n", errors)}");
+        }
+
+        return Task.CompletedTask;
+    }
 }
