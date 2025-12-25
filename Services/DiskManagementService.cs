@@ -837,7 +837,14 @@ public class DiskManagementService : IDiskManagementService
             return 21;
         }
         
-        // For other values, return 0 (disabled/unknown)
+        if (hdparmValue == 253)
+        {
+            // 253 = vendor-defined (typically 8-12 hours), not commonly used
+            // Return 0 as we can't reliably determine the actual timeout
+            return 0;
+        }
+        
+        // For value 254 (reserved) and other unknown values, return 0 (disabled/unknown)
         return 0;
     }
     
