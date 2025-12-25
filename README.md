@@ -30,6 +30,16 @@
   - 磁盘电源管理（休眠/APM设置）
   - 查看Samba共享配置
 
+- **共享目录管理**：管理宿主机共享目录
+  - 查看当前 CIFS/Samba 共享配置
+  - 查看当前 NFS 导出配置
+  - 添加新的 CIFS 共享
+  - 添加新的 NFS 导出
+  - 编辑共享权限和选项
+  - 删除共享配置
+  - 重启 Samba/NFS 服务
+  - 配置语法验证
+
 - **Docker管理**：管理Docker容器和镜像
   - 查看容器列表
   - 启动/停止/重启/删除容器
@@ -75,11 +85,29 @@
   - `hdparm` - 磁盘电源管理和性能调优（可选）
   - `cifs-utils` - CIFS/SMB网络磁盘支持（可选）
   - `nfs-common` - NFS网络磁盘支持（可选）
+- （Linux）共享目录管理功能需要以下系统工具：
+  - `samba` - Samba/CIFS 服务器（可选）
+  - `nfs-kernel-server` - NFS 服务器（可选）
+  - `testparm` - Samba 配置测试工具（随 Samba 安装）
+  - `exportfs` - NFS 导出管理工具（随 NFS 服务器安装）
 
 **安装网络磁盘工具**（Ubuntu/Debian）：
 ```bash
 sudo apt-get update
 sudo apt-get install cifs-utils nfs-common
+```
+
+**安装共享服务器**（Ubuntu/Debian）：
+```bash
+sudo apt-get update
+sudo apt-get install samba samba-common-bin nfs-kernel-server
+```
+
+**安装共享服务器**（CentOS/RHEL/Fedora）：
+```bash
+sudo yum install samba samba-common nfs-utils
+# 或
+sudo dnf install samba samba-common nfs-utils
 ```
 
 **注意**：磁盘挂载和电源管理功能需要 sudo 权限。建议使用以下方式之一运行：
