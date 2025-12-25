@@ -1,0 +1,74 @@
+using QingFeng.Models;
+
+namespace QingFeng.Services;
+
+/// <summary>
+/// Service for managing host shared directories (CIFS/Samba and NFS exports)
+/// </summary>
+public interface IShareManagementService
+{
+    /// <summary>
+    /// Get all configured shares (both CIFS and NFS)
+    /// </summary>
+    Task<List<ShareInfo>> GetAllSharesAsync();
+    
+    /// <summary>
+    /// Get all CIFS/Samba shares
+    /// </summary>
+    Task<List<ShareInfo>> GetCifsSharesAsync();
+    
+    /// <summary>
+    /// Get all NFS exports
+    /// </summary>
+    Task<List<ShareInfo>> GetNfsSharesAsync();
+    
+    /// <summary>
+    /// Get a specific share by name and type
+    /// </summary>
+    Task<ShareInfo?> GetShareAsync(string name, ShareType type);
+    
+    /// <summary>
+    /// Add a new CIFS share
+    /// </summary>
+    Task<string> AddCifsShareAsync(ShareRequest request);
+    
+    /// <summary>
+    /// Add a new NFS export
+    /// </summary>
+    Task<string> AddNfsShareAsync(ShareRequest request);
+    
+    /// <summary>
+    /// Update an existing CIFS share
+    /// </summary>
+    Task<string> UpdateCifsShareAsync(string shareName, ShareRequest request);
+    
+    /// <summary>
+    /// Update an existing NFS export
+    /// </summary>
+    Task<string> UpdateNfsShareAsync(string exportPath, ShareRequest request);
+    
+    /// <summary>
+    /// Remove a CIFS share
+    /// </summary>
+    Task<string> RemoveCifsShareAsync(string shareName);
+    
+    /// <summary>
+    /// Remove an NFS export
+    /// </summary>
+    Task<string> RemoveNfsShareAsync(string exportPath);
+    
+    /// <summary>
+    /// Restart Samba service to apply configuration changes
+    /// </summary>
+    Task<string> RestartSambaServiceAsync();
+    
+    /// <summary>
+    /// Restart NFS service to apply configuration changes
+    /// </summary>
+    Task<string> RestartNfsServiceAsync();
+    
+    /// <summary>
+    /// Test Samba configuration for syntax errors
+    /// </summary>
+    Task<string> TestSambaConfigAsync();
+}
