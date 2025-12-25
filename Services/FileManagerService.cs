@@ -645,7 +645,7 @@ public class FileManagerService : IFileManagerService
                 var fileName = Path.GetFileName(sourcePath);
                 var destPath = Path.Combine(destinationPath, fileName);
                 
-                await Task.Run(() => MoveAsync(sourcePath, destPath));
+                await MoveAsync(sourcePath, destPath);
             }
             catch (Exception ex)
             {

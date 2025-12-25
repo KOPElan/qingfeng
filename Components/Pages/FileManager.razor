@@ -938,6 +938,8 @@
 </FluentDialog>
 
 @code {
+    private const int DIALOG_AUTO_CLOSE_DELAY_MS = 1000;
+    
     private List<FileItemInfo>? files;
     private List<DriveItemInfo>? drives;
     private List<FavoriteFolder>? favoriteFolders;
@@ -1982,7 +1984,7 @@
             batchCopySuccess = true;
             
             // Clear selection and close dialog after short delay
-            await Task.Delay(1000);
+            await Task.Delay(DIALOG_AUTO_CLOSE_DELAY_MS);
             selectedFiles.Clear();
             CloseBatchCopyDialog();
             await RefreshFiles();
@@ -2038,7 +2040,7 @@
             batchMoveSuccess = true;
             
             // Clear selection and close dialog after short delay
-            await Task.Delay(1000);
+            await Task.Delay(DIALOG_AUTO_CLOSE_DELAY_MS);
             selectedFiles.Clear();
             CloseBatchMoveDialog();
             await RefreshFiles();
@@ -2085,7 +2087,7 @@
             batchDeleteSuccess = true;
             
             // Clear selection and close dialog after short delay
-            await Task.Delay(1000);
+            await Task.Delay(DIALOG_AUTO_CLOSE_DELAY_MS);
             selectedFiles.Clear();
             CloseBatchDeleteDialog();
             await RefreshFiles();
@@ -2117,7 +2119,9 @@
             var fileCount = 0;
             foreach (var filePath in selectedFiles)
             {
-                if (File.Exists(filePath)) // Only download files, not directories
+                // Only download files, not directories - check using file info from current list
+                var fileInfo = files?.FirstOrDefault(f => f.Path == filePath);
+                if (fileInfo != null && !fileInfo.IsDirectory)
                 {
                     await DownloadFile(filePath);
                     fileCount++;
