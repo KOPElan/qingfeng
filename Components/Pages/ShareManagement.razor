@@ -1,0 +1,607 @@
+@page "/share-management"
+@using QingFeng.Services
+@using QingFeng.Models
+@inherits AuthorizedPageBase
+@inject IShareManagementService ShareManagementService
+@rendermode InteractiveServer
+
+<PageTitle>共享目录管理</PageTitle>
+
+<style>
+    .fluent-table {
+        border-collapse: collapse;
+    }
+
+    .fluent-table th {
+        text-align: left;
+        padding: calc(var(--design-unit) * 3px);
+        border-bottom: calc(var(--stroke-width, 1px) * 2) solid var(--neutral-stroke-divider-rest);
+        font-weight: 600;
+    }
+
+    .fluent-table td {
+        padding: calc(var(--design-unit) * 3px);
+        border-bottom: var(--stroke-width, 1px) solid var(--neutral-stroke-divider-rest);
+        vertical-align: middle;
+    }
+
+    .fluent-table tr:hover {
+        background-color: var(--neutral-fill-secondary-hover);
+    }
+</style>
+
+@if (!IsAuthorized)
+{
+    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="min-height: 200px;">
+        <FluentProgressRing />
+    </FluentStack>
+    return;
+}
+
+<FluentStack Orientation="Orientation.Vertical" Style="padding: 2rem;">
+<FluentLabel Typo="Typography.H3">📁 共享目录管理</FluentLabel>
+
+<FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; margin-bottom: 1rem;">
+    <FluentButton Appearance="Appearance.Accent" OnClick="RefreshData">
+        🔄 刷新
+    </FluentButton>
+    <FluentButton Appearance="Appearance.Outline" OnClick="ShowAddShareDialog">
+        ➕ 添加共享
+    </FluentButton>
+</FluentStack>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <FluentMessageBar Intent="@(isError ? MessageIntent.Error : MessageIntent.Success)" Style="margin-bottom: 1rem;">
+        @message
+        <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => message = string.Empty)" aria-label="Close" Style="margin-left: auto;">
+            ✕
+        </FluentButton>
+    </FluentMessageBar>
+}
+
+<!-- CIFS/Samba Shares -->
+<FluentCard Style="margin-bottom: 1.5rem;">
+    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <FluentLabel Typo="Typography.H5">
+            💼 Samba/CIFS 共享
+        </FluentLabel>
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
+            <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowAddShareDialog(ShareType.CIFS)" Style="font-size: 0.875rem;">
+                ➕ 添加 CIFS 共享
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Outline" OnClick="RestartSambaService" Style="font-size: 0.875rem;">
+                🔄 重启服务
+            </FluentButton>
+        </FluentStack>
+    </FluentStack>
+    @if (cifsShares != null && cifsShares.Any())
+    {
+        <div style="overflow-x: auto; margin-top: 1rem;">
+            <table class="fluent-table" style="width: 100%;" role="table" aria-label="CIFS共享">
+                <thead>
+                    <tr>
+                        <th scope="col">共享名</th>
+                        <th scope="col">路径</th>
+                        <th scope="col">说明</th>
+                        <th scope="col">可浏览</th>
+                        <th scope="col">只读</th>
+                        <th scope="col">允许访客</th>
+                        <th scope="col">有效用户</th>
+                        <th scope="col">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var share in cifsShares)
+                    {
+                        <tr>
+                            <td><strong>@share.Name</strong></td>
+                            <td>@share.Path</td>
+                            <td>@share.Comment</td>
+                            <td>
+                                @if (share.Browseable)
+                                {
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#107C10">是</FluentBadge>
+                                }
+                                else
+                                {
+                                    <FluentBadge Appearance="Appearance.Neutral">否</FluentBadge>
+                                }
+                            </td>
+                            <td>
+                                @if (share.ReadOnly)
+                                {
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#D13438">是</FluentBadge>
+                                }
+                                else
+                                {
+                                    <FluentBadge Appearance="Appearance.Neutral">否</FluentBadge>
+                                }
+                            </td>
+                            <td>
+                                @if (share.GuestOk)
+                                {
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#FFB900">是</FluentBadge>
+                                }
+                                else
+                                {
+                                    <FluentBadge Appearance="Appearance.Neutral">否</FluentBadge>
+                                }
+                            </td>
+                            <td>@(string.IsNullOrWhiteSpace(share.ValidUsers) ? "所有用户" : share.ValidUsers)</td>
+                            <td>
+                                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
+                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowEditShareDialog(share)" Title="编辑权限" Style="font-size: 0.875rem;">
+                                        ✏️ 编辑
+                                    </FluentButton>
+                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowRemoveConfirmation(share)" Title="删除共享" Style="font-size: 0.875rem;">
+                                        🗑️ 删除
+                                    </FluentButton>
+                                </FluentStack>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (isLoading)
+    {
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; align-items: center; margin-top: 1rem;">
+            <FluentProgressRing />
+            <p style="margin: 0;">加载中...</p>
+        </FluentStack>
+    }
+    else
+    {
+        <p style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有配置的 CIFS 共享</p>
+    }
+</FluentCard>
+
+<!-- NFS Exports -->
+<FluentCard Style="margin-bottom: 1.5rem;">
+    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <FluentLabel Typo="Typography.H5">
+            🌐 NFS 导出
+        </FluentLabel>
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
+            <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowAddShareDialog(ShareType.NFS)" Style="font-size: 0.875rem;">
+                ➕ 添加 NFS 导出
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Outline" OnClick="RestartNfsService" Style="font-size: 0.875rem;">
+                🔄 重启服务
+            </FluentButton>
+        </FluentStack>
+    </FluentStack>
+    @if (nfsShares != null && nfsShares.Any())
+    {
+        <div style="overflow-x: auto; margin-top: 1rem;">
+            <table class="fluent-table" style="width: 100%;" role="table" aria-label="NFS导出">
+                <thead>
+                    <tr>
+                        <th scope="col">导出路径</th>
+                        <th scope="col">允许主机</th>
+                        <th scope="col">选项</th>
+                        <th scope="col">只读</th>
+                        <th scope="col">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var share in nfsShares)
+                    {
+                        <tr>
+                            <td><strong>@share.Path</strong></td>
+                            <td>@share.AllowedHosts</td>
+                            <td><code style="font-size: 0.875rem;">@share.NfsOptions</code></td>
+                            <td>
+                                @if (share.ReadOnly)
+                                {
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#D13438">是</FluentBadge>
+                                }
+                                else
+                                {
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#107C10">读写</FluentBadge>
+                                }
+                            </td>
+                            <td>
+                                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
+                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowEditShareDialog(share)" Title="编辑导出" Style="font-size: 0.875rem;">
+                                        ✏️ 编辑
+                                    </FluentButton>
+                                    <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowRemoveConfirmation(share)" Title="删除导出" Style="font-size: 0.875rem;">
+                                        🗑️ 删除
+                                    </FluentButton>
+                                </FluentStack>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (isLoading)
+    {
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; align-items: center; margin-top: 1rem;">
+            <FluentProgressRing />
+            <p style="margin: 0;">加载中...</p>
+        </FluentStack>
+    }
+    else
+    {
+        <p style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有配置的 NFS 导出</p>
+    }
+</FluentCard>
+</FluentStack>
+
+<!-- Add/Edit Share Dialog -->
+<FluentDialog Hidden="@(!showShareDialog)" Modal="true" OnDismiss="HideShareDialog" Style="width: 90%; max-width: 700px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">@(isEditMode ? "✏️ 编辑共享" : "➕ 添加共享")</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (!string.IsNullOrEmpty(dialogMessage))
+        {
+            <FluentMessageBar Intent="@(dialogError ? MessageIntent.Error : MessageIntent.Success)" Style="margin-bottom: 1rem;">
+                @dialogMessage
+                <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => dialogMessage = string.Empty)" aria-label="Close" Style="margin-left: auto;">
+                    ✕
+                </FluentButton>
+            </FluentMessageBar>
+        }
+
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+            @if (!isEditMode)
+            {
+                <div>
+                    <FluentLabel>共享类型 *</FluentLabel>
+                    <FluentRadioGroup @bind-Value="shareRequest.Type">
+                        <FluentRadio Value="@ShareType.CIFS">CIFS/Samba (Windows 共享)</FluentRadio>
+                        <FluentRadio Value="@ShareType.NFS">NFS (Linux/Unix 共享)</FluentRadio>
+                    </FluentRadioGroup>
+                </div>
+            }
+
+            @if (shareRequest.Type == ShareType.CIFS)
+            {
+                <div>
+                    <FluentLabel>共享名 *</FluentLabel>
+                    <FluentTextField @bind-Value="shareRequest.Name" Placeholder="MyShare" Style="width: 100%;" Disabled="@isEditMode" />
+                    <small style="color: var(--neutral-foreground-hint);">网络上显示的共享名称</small>
+                </div>
+            }
+
+            <div>
+                <FluentLabel>本地路径 *</FluentLabel>
+                <FluentTextField @bind-Value="shareRequest.Path" Placeholder="/srv/shares/data" Style="width: 100%;" Disabled="@(isEditMode && shareRequest.Type == ShareType.NFS)" />
+                <small style="color: var(--neutral-foreground-hint);">要共享的本地目录路径</small>
+            </div>
+
+            @if (shareRequest.Type == ShareType.CIFS)
+            {
+                <div>
+                    <FluentLabel>说明（可选）</FluentLabel>
+                    <FluentTextField @bind-Value="shareRequest.Comment" Placeholder="共享文件夹说明" Style="width: 100%;" />
+                </div>
+
+                <div>
+                    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 1.5rem; flex-wrap: wrap;">
+                        <FluentCheckbox @bind-Value="shareRequest.Browseable">可浏览</FluentCheckbox>
+                        <FluentCheckbox @bind-Value="shareRequest.ReadOnly">只读</FluentCheckbox>
+                        <FluentCheckbox @bind-Value="shareRequest.GuestOk">允许访客访问</FluentCheckbox>
+                    </FluentStack>
+                </div>
+
+                <div>
+                    <FluentLabel>有效用户（可选）</FluentLabel>
+                    <FluentTextField @bind-Value="shareRequest.ValidUsers" Placeholder="user1, user2, @group" Style="width: 100%;" />
+                    <small style="color: var(--neutral-foreground-hint);">允许访问的用户列表，用逗号分隔。留空表示允许所有用户</small>
+                </div>
+
+                @if (shareRequest.ReadOnly)
+                {
+                    <div>
+                        <FluentLabel>写入列表（可选）</FluentLabel>
+                        <FluentTextField @bind-Value="shareRequest.WriteList" Placeholder="admin, @admins" Style="width: 100%;" />
+                        <small style="color: var(--neutral-foreground-hint);">在只读共享中允许写入的用户列表</small>
+                    </div>
+                }
+            }
+            else
+            {
+                <div>
+                    <FluentLabel>允许主机 *</FluentLabel>
+                    <FluentTextField @bind-Value="shareRequest.AllowedHosts" Placeholder="*" Style="width: 100%;" />
+                    <small style="color: var(--neutral-foreground-hint);">允许访问的主机，如: * (所有), 192.168.1.0/24, host.domain.com</small>
+                </div>
+
+                <div>
+                    <FluentLabel>NFS 选项</FluentLabel>
+                    <FluentTextField @bind-Value="shareRequest.NfsOptions" Placeholder="rw,sync,no_subtree_check" Style="width: 100%;" />
+                    <small style="color: var(--neutral-foreground-hint);">NFS 导出选项，如: rw, ro, sync, async, no_subtree_check</small>
+                </div>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="HideShareDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="SaveShare" Disabled="@(string.IsNullOrWhiteSpace(shareRequest.Path) || (shareRequest.Type == ShareType.CIFS && string.IsNullOrWhiteSpace(shareRequest.Name)) || isProcessing)">
+            @if (isProcessing)
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.5rem;" />
+            }
+            ✓ @(isEditMode ? "保存" : "添加")
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<!-- Remove Confirmation Dialog -->
+<FluentDialog Hidden="@(!showRemoveDialog)" Modal="true" OnDismiss="HideRemoveDialog" Style="width: 90%; max-width: 500px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">⚠️ 确认删除</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (shareToRemove != null)
+        {
+            <p>确定要删除@(shareToRemove.Type == ShareType.CIFS ? "共享" : "导出") <strong>@(shareToRemove.Type == ShareType.CIFS ? shareToRemove.Name : shareToRemove.Path)</strong> 吗？</p>
+            <p style="color: var(--neutral-foreground-hint);">此操作将从配置文件中删除该共享设置。</p>
+        }
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="HideRemoveDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="ConfirmRemove" Disabled="@isProcessing">
+            @if (isProcessing)
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.5rem;" />
+            }
+            确认删除
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+@code {
+    private List<ShareInfo> cifsShares = new();
+    private List<ShareInfo> nfsShares = new();
+    private bool isLoading = false;
+    private bool isProcessing = false;
+    private string message = string.Empty;
+    private bool isError = false;
+    
+    // Share dialog
+    private bool showShareDialog = false;
+    private bool isEditMode = false;
+    private string dialogMessage = string.Empty;
+    private bool dialogError = false;
+    private ShareRequest shareRequest = new();
+    private string? originalShareName = null;
+    
+    // Remove dialog
+    private bool showRemoveDialog = false;
+    private ShareInfo? shareToRemove = null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender && IsAuthorized)
+        {
+            await RefreshData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        isLoading = true;
+        message = string.Empty;
+        
+        try
+        {
+            cifsShares = await ShareManagementService.GetCifsSharesAsync();
+            nfsShares = await ShareManagementService.GetNfsSharesAsync();
+        }
+        catch (Exception ex)
+        {
+            message = $"加载失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowAddShareDialog(ShareType? type = null)
+    {
+        isEditMode = false;
+        shareRequest = new ShareRequest
+        {
+            Type = type ?? ShareType.CIFS,
+            Browseable = true,
+            AllowedHosts = "*",
+            NfsOptions = "rw,sync,no_subtree_check"
+        };
+        originalShareName = null;
+        dialogMessage = string.Empty;
+        dialogError = false;
+        showShareDialog = true;
+    }
+
+    private void ShowEditShareDialog(ShareInfo share)
+    {
+        isEditMode = true;
+        shareRequest = new ShareRequest
+        {
+            Name = share.Name,
+            Path = share.Path,
+            Type = share.Type,
+            Comment = share.Comment,
+            Browseable = share.Browseable,
+            ReadOnly = share.ReadOnly,
+            GuestOk = share.GuestOk,
+            ValidUsers = share.ValidUsers,
+            WriteList = share.WriteList,
+            AllowedHosts = share.AllowedHosts,
+            NfsOptions = share.NfsOptions
+        };
+        originalShareName = share.Type == ShareType.CIFS ? share.Name : share.Path;
+        dialogMessage = string.Empty;
+        dialogError = false;
+        showShareDialog = true;
+    }
+
+    private void HideShareDialog()
+    {
+        showShareDialog = false;
+    }
+
+    private async Task SaveShare()
+    {
+        isProcessing = true;
+        dialogMessage = string.Empty;
+        
+        try
+        {
+            string result;
+            
+            if (isEditMode)
+            {
+                // Update existing share
+                if (shareRequest.Type == ShareType.CIFS)
+                {
+                    result = await ShareManagementService.UpdateCifsShareAsync(originalShareName!, shareRequest);
+                }
+                else
+                {
+                    result = await ShareManagementService.UpdateNfsShareAsync(originalShareName!, shareRequest);
+                }
+            }
+            else
+            {
+                // Add new share
+                if (shareRequest.Type == ShareType.CIFS)
+                {
+                    result = await ShareManagementService.AddCifsShareAsync(shareRequest);
+                }
+                else
+                {
+                    result = await ShareManagementService.AddNfsShareAsync(shareRequest);
+                }
+            }
+            
+            dialogMessage = result;
+            dialogError = !result.Contains("Success", StringComparison.OrdinalIgnoreCase);
+            
+            if (!dialogError)
+            {
+                await Task.Delay(1500);
+                showShareDialog = false;
+                await RefreshData();
+            }
+        }
+        catch (Exception ex)
+        {
+            dialogMessage = $"操作失败: {ex.Message}";
+            dialogError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ShowRemoveConfirmation(ShareInfo share)
+    {
+        shareToRemove = share;
+        showRemoveDialog = true;
+    }
+
+    private void HideRemoveDialog()
+    {
+        showRemoveDialog = false;
+        shareToRemove = null;
+    }
+
+    private async Task ConfirmRemove()
+    {
+        if (shareToRemove == null)
+            return;
+
+        isProcessing = true;
+        message = string.Empty;
+        
+        try
+        {
+            string result;
+            
+            if (shareToRemove.Type == ShareType.CIFS)
+            {
+                result = await ShareManagementService.RemoveCifsShareAsync(shareToRemove.Name);
+            }
+            else
+            {
+                result = await ShareManagementService.RemoveNfsShareAsync(shareToRemove.Path);
+            }
+            
+            message = result;
+            isError = !result.Contains("Success", StringComparison.OrdinalIgnoreCase);
+            
+            if (!isError)
+            {
+                showRemoveDialog = false;
+                await RefreshData();
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"删除失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RestartSambaService()
+    {
+        isProcessing = true;
+        message = string.Empty;
+        
+        try
+        {
+            var result = await ShareManagementService.RestartSambaServiceAsync();
+            message = result;
+            isError = !result.Contains("Success", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            message = $"重启服务失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task RestartNfsService()
+    {
+        isProcessing = true;
+        message = string.Empty;
+        
+        try
+        {
+            var result = await ShareManagementService.RestartNfsServiceAsync();
+            message = result;
+            isError = !result.Contains("Success", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            message = $"重启服务失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+}

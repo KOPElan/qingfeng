@@ -33,6 +33,7 @@ builder.Services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
 builder.Services.AddSingleton<IDockerService, DockerService>();
 builder.Services.AddScoped<IFileManagerService, FileManagerService>();
 builder.Services.AddSingleton<IDiskManagementService, DiskManagementService>();
+builder.Services.AddSingleton<IShareManagementService, ShareManagementService>();
 builder.Services.AddScoped<IDockItemService, DockItemService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();

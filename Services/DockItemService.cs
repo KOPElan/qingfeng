@@ -212,13 +212,23 @@ public class DockItemService : IDockItemService
                     IsSystemItem = true
                 },
                 new() {
+                    ItemId = "share-management",
+                    Title = "共享管理",
+                    Icon = "folder_shared",
+                    Url = "/share-management",
+                    IconBackground = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    IconColor = "white",
+                    SortOrder = 4,
+                    IsSystemItem = true
+                },
+                new() {
                     ItemId = "settings",
                     Title = "设置",
                     Icon = "tune",
                     Url = "/settings",
                     IconBackground = "var(--dock-gradient-settings)",
                     IconColor = "rgb(55 65 81)",
-                    SortOrder = 4,
+                    SortOrder = 5,
                     IsSystemItem = true
                 }
             };
