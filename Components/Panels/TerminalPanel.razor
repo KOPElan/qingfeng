@@ -135,6 +135,9 @@
     [Parameter]
     public string TerminalId { get; set; } = "terminal";
 
+    private const int ReconnectDelayMs = 500;
+    private const int InitialSizeDelayMs = 100;
+
     private HubConnection? _hubConnection;
     private string? _sessionId;
     private bool _isConnected = false;
@@ -165,8 +168,9 @@
             _isConnecting = true;
             StateHasChanged();
 
-            // Create DotNetObjectReference once and reuse it
-            _dotNetRef ??= DotNetObjectReference.Create(this);
+            // Dispose previous reference if exists before creating a new one
+            _dotNetRef?.Dispose();
+            _dotNetRef = DotNetObjectReference.Create(this);
 
             // Build SignalR connection
             _hubConnection = new HubConnectionBuilder()
@@ -259,7 +263,7 @@
     {
         // Restart terminal - clears existing session and creates new one
         await DisconnectAsync();
-        await Task.Delay(500);
+        await Task.Delay(ReconnectDelayMs);
         await ConnectAsync();
     }
 

@@ -9,6 +9,10 @@ window.terminalInterop = (function () {
     
     // Support for multiple terminals
     const terminals = new Map();
+    
+    // Constants
+    const FIT_DELAY_MS = 100;
+    const RESIZE_CALLBACK_DELAY_MS = 100;
 
     function createTerminalConfig() {
         return {
@@ -69,7 +73,7 @@ window.terminalInterop = (function () {
                 if (fitAddon) {
                     setTimeout(() => {
                         fitAddon.fit();
-                    }, 100);
+                    }, FIT_DELAY_MS);
                 }
 
                 // Handle window resize - store reference for cleanup
@@ -113,7 +117,7 @@ window.terminalInterop = (function () {
                 if (fit) {
                     setTimeout(() => {
                         fit.fit();
-                    }, 100);
+                    }, FIT_DELAY_MS);
                 }
 
                 const handler = () => {
@@ -171,7 +175,7 @@ window.terminalInterop = (function () {
                             termData.resizeDotNetRef.invokeMethodAsync('ResizeTerminal', 
                                 termData.terminal.rows, termData.terminal.cols);
                         }
-                    }, 100);
+                    }, RESIZE_CALLBACK_DELAY_MS);
                 }
             }
         },
@@ -237,7 +241,7 @@ window.terminalInterop = (function () {
                         resizeDotNetRef.invokeMethodAsync('ResizeTerminal', 
                             terminal.rows, terminal.cols);
                     }
-                }, 100);
+                }, RESIZE_CALLBACK_DELAY_MS);
             }
         },
 
