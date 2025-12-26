@@ -247,7 +247,7 @@ public class FileManagerService : IFileManagerService
             var path = drive.RootDirectory.FullName;
             
             // Exclude virtual filesystems and system mount points
-            var excludedPaths = new[]
+            var excludedPaths = new HashSet<string>
             {
                 "/proc", "/sys", "/dev", "/run",
                 "/sys/kernel/security", "/dev/shm", "/dev/pts",
@@ -258,8 +258,14 @@ public class FileManagerService : IFileManagerService
                 "/sys/kernel/config"
             };
             
-            // Exclude exact matches and paths starting with excluded paths
-            if (excludedPaths.Any(excluded => path == excluded || path.StartsWith(excluded + "/")))
+            // Exclude exact matches
+            if (excludedPaths.Contains(path))
+            {
+                return false;
+            }
+            
+            // Exclude paths starting with excluded paths
+            if (excludedPaths.Any(excluded => path.StartsWith(excluded + "/")))
             {
                 return false;
             }
