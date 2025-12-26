@@ -14,6 +14,7 @@ public class ShareManagementService : IShareManagementService
     private static readonly Regex ShareNameRegex = new(@"^\[([^\]]+)\]$", RegexOptions.Compiled);
     private static readonly Regex ParameterRegex = new(@"^\s*([a-zA-Z0-9_\-\s]+?)\s*=\s*(.+?)\s*$", RegexOptions.Compiled);
     private static readonly Regex HostOptionRegex = new(@"([^\s(]+)\(([^)]+)\)", RegexOptions.Compiled);
+    private static readonly Regex SafeNameRegex = new(@"^[a-zA-Z0-9_\-\.]+$", RegexOptions.Compiled);
     
     public async Task<List<ShareInfo>> GetAllSharesAsync()
     {
@@ -955,7 +956,7 @@ public class ShareManagementService : IShareManagementService
         {
             // Validate service name to prevent command injection
             if (string.IsNullOrWhiteSpace(serviceUnitName) || 
-                !System.Text.RegularExpressions.Regex.IsMatch(serviceUnitName, @"^[a-zA-Z0-9_\-\.]+$"))
+                !SafeNameRegex.IsMatch(serviceUnitName))
             {
                 Debug.WriteLine($"Invalid service name: {serviceUnitName}");
                 return false;
@@ -1030,7 +1031,7 @@ public class ShareManagementService : IShareManagementService
         {
             // Validate command name to prevent command injection
             if (string.IsNullOrWhiteSpace(name) || 
-                !System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-zA-Z0-9_\-\.]+$"))
+                !SafeNameRegex.IsMatch(name))
             {
                 Debug.WriteLine($"Invalid command name: {name}");
                 return false;
