@@ -805,7 +805,8 @@ public class ShareManagementService : IShareManagementService
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
+            WorkingDirectory = "/tmp"
         };
         
         using var process = Process.Start(processInfo);
