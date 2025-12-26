@@ -133,13 +133,30 @@ else
         </FluentStack>
     </FluentStack>
 </FluentStack>
+
+<!-- Terminal Dialog -->
+<FluentDialog Hidden="@(!showTerminalDialog)" Modal="true" OnDismiss="CloseTerminalDialog" Style="width: 90%; max-width: 1200px; height: 80vh;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">终端</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody Style="padding: 0; height: calc(80vh - 120px);">
+        @if (showTerminalDialog)
+        {
+            <TerminalPanel TerminalId="home-terminal" />
+        }
+    </FluentDialogBody>
+</FluentDialog>
 }
 
 @code {
+    private const string TerminalAppId = "terminal";
+    private const string TerminalAppUrl = "/terminal";
+    
     private bool isCheckingAuth = true;
     private SystemResourceInfo? systemInfo;
     private List<Application> applications = new();
     private Timer? refreshTimer;
+    private bool showTerminalDialog = false;
     
     // Display properties
     private string CurrentTime => DateTime.Now.ToString("HH:mm");
@@ -244,10 +261,24 @@ else
 
     private void OpenApplication(Application app)
     {
+        // Special handling for terminal app
+        if (app.AppId == TerminalAppId || app.Url == TerminalAppUrl)
+        {
+            showTerminalDialog = true;
+            StateHasChanged();
+            return;
+        }
+        
         if (!string.IsNullOrEmpty(app.Url))
         {
             NavigationManager.NavigateTo(app.Url, true);
         }
+    }
+
+    private void CloseTerminalDialog()
+    {
+        showTerminalDialog = false;
+        StateHasChanged();
     }
 
     private void NavigateToSettings()
