@@ -49,7 +49,7 @@ window.terminalInterop = (function () {
 
             // Load fit addon if available
             if (typeof FitAddon !== 'undefined') {
-                fitAddon = new FitAddon.FitAddon();
+                fitAddon = new FitAddon();
                 terminal.loadAddon(fitAddon);
             }
 
