@@ -10,6 +10,10 @@ public class SystemMonitorService : ISystemMonitorService
     private DateTime _lastCpuCheck = DateTime.MinValue;
     private TimeSpan _lastTotalProcessorTime = TimeSpan.Zero;
     private double _lastCpuUsage = 0;
+    
+    // Fields for /proc/stat based CPU monitoring
+    private long _lastTotalCpuTime = 0;
+    private long _lastIdleCpuTime = 0;
 
     public async Task<SystemResourceInfo> GetSystemResourceInfoAsync()
     {
@@ -30,7 +34,85 @@ public class SystemMonitorService : ISystemMonitorService
             ProcessorName = RuntimeInformation.ProcessArchitecture.ToString()
         };
 
-        // Calculate CPU usage
+        // Use /proc/stat for CPU usage on Linux
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            try
+            {
+                var lines = File.ReadAllLines("/proc/stat");
+                foreach (var line in lines)
+                {
+                    if (line.StartsWith("cpu "))
+                    {
+                        var cpuUsage = ParseProcStatCpu(line);
+                        cpuInfo.UsagePercent = Math.Round(cpuUsage, 2);
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback to process-based calculation
+                CalculateCpuUsageFromProcess(cpuInfo);
+            }
+        }
+        else
+        {
+            // For non-Linux platforms, use process-based calculation
+            CalculateCpuUsageFromProcess(cpuInfo);
+        }
+
+        return Task.FromResult(cpuInfo);
+    }
+
+    private double ParseProcStatCpu(string cpuLine)
+    {
+        // CPU line format: cpu user nice system idle iowait irq softirq steal guest guest_nice
+        var parts = cpuLine.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        
+        if (parts.Length < 5)
+        {
+            return _lastCpuUsage;
+        }
+
+        // Parse CPU time values (all in USER_HZ units, typically 1/100th of a second)
+        long user = long.Parse(parts[1]);
+        long nice = long.Parse(parts[2]);
+        long system = long.Parse(parts[3]);
+        long idle = long.Parse(parts[4]);
+        long iowait = parts.Length > 5 ? long.Parse(parts[5]) : 0;
+        long irq = parts.Length > 6 ? long.Parse(parts[6]) : 0;
+        long softirq = parts.Length > 7 ? long.Parse(parts[7]) : 0;
+        long steal = parts.Length > 8 ? long.Parse(parts[8]) : 0;
+
+        // Calculate total and idle times
+        long totalTime = user + nice + system + idle + iowait + irq + softirq + steal;
+        long idleTime = idle + iowait;
+
+        // Calculate CPU usage percentage
+        double cpuUsage = 0;
+        if (_lastTotalCpuTime != 0)
+        {
+            long totalDiff = totalTime - _lastTotalCpuTime;
+            long idleDiff = idleTime - _lastIdleCpuTime;
+
+            if (totalDiff > 0)
+            {
+                cpuUsage = ((double)(totalDiff - idleDiff) / totalDiff) * 100;
+            }
+        }
+
+        // Store current values for next calculation
+        _lastTotalCpuTime = totalTime;
+        _lastIdleCpuTime = idleTime;
+        _lastCpuUsage = cpuUsage;
+
+        return cpuUsage;
+    }
+
+    private void CalculateCpuUsageFromProcess(CpuInfo cpuInfo)
+    {
+        // Calculate CPU usage based on current process
         var now = DateTime.UtcNow;
         var totalProcessorTime = Process.GetCurrentProcess().TotalProcessorTime;
 
@@ -49,8 +131,6 @@ public class SystemMonitorService : ISystemMonitorService
         _lastTotalProcessorTime = totalProcessorTime;
 
         cpuInfo.UsagePercent = Math.Round(_lastCpuUsage, 2);
-
-        return Task.FromResult(cpuInfo);
     }
 
     public Task<MemoryInfo> GetMemoryInfoAsync()
