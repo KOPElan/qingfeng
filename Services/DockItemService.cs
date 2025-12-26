@@ -202,13 +202,23 @@ public class DockItemService : IDockItemService
                     IsSystemItem = true
                 },
                 new() {
+                    ItemId = "web-terminal",
+                    Title = "Web终端",
+                    Icon = "terminal",
+                    Url = "/terminal",
+                    IconBackground = "linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)",
+                    IconColor = "#00ff00",
+                    SortOrder = 3,
+                    IsSystemItem = true
+                },
+                new() {
                     ItemId = "file-manager",
                     Title = "文件",
                     Icon = "folder_open",
                     Url = "/file-manager",
                     IconBackground = "var(--dock-gradient-files)",
                     IconColor = "white",
-                    SortOrder = 3,
+                    SortOrder = 4,
                     IsSystemItem = true
                 },
                 new() {
@@ -218,7 +228,7 @@ public class DockItemService : IDockItemService
                     Url = "/share-management",
                     IconBackground = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                     IconColor = "white",
-                    SortOrder = 4,
+                    SortOrder = 5,
                     IsSystemItem = true
                 },
                 new() {
@@ -228,7 +238,7 @@ public class DockItemService : IDockItemService
                     Url = "/settings",
                     IconBackground = "var(--dock-gradient-settings)",
                     IconColor = "rgb(55 65 81)",
-                    SortOrder = 5,
+                    SortOrder = 6,
                     IsSystemItem = true
                 }
             };

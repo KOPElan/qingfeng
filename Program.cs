@@ -1,6 +1,7 @@
 using QingFeng.Components;
 using QingFeng.Services;
 using QingFeng.Data;
+using QingFeng.Hubs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.FluentUI.AspNetCore.Components;
 
@@ -12,6 +13,9 @@ builder.Services.AddRazorComponents()
 
 // Add Fluent UI services
 builder.Services.AddFluentUIComponents();
+
+// Add SignalR for terminal
+builder.Services.AddSignalR();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -34,6 +38,7 @@ builder.Services.AddSingleton<IDockerService, DockerService>();
 builder.Services.AddScoped<IFileManagerService, FileManagerService>();
 builder.Services.AddSingleton<IDiskManagementService, DiskManagementService>();
 builder.Services.AddSingleton<IShareManagementService, ShareManagementService>();
+builder.Services.AddSingleton<ITerminalService, TerminalService>();
 builder.Services.AddScoped<IDockItemService, DockItemService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
@@ -120,6 +125,9 @@ app.MapGet("/api/files/download", async (string path, IFileManagerService fileMa
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Map SignalR hub for terminal
+app.MapHub<TerminalHub>("/terminalhub");
 
 // Helper function for content type detection
 static string GetContentType(string fileName)
