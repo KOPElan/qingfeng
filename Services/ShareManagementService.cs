@@ -878,7 +878,7 @@ public class ShareManagementService : IShareManagementService
             var (name, desc, required, installUbuntu, installRhel) = req;
             var status = await CheckCommandOrServiceAvailabilityAsync(name);
             var installCmd = $"Ubuntu/Debian: {installUbuntu}\nCentOS/RHEL/Fedora: {installRhel}";
-            var checkCmd = name.EndsWith("d") ? $"systemctl list-unit-files {name}.service" : $"which {name}";
+            var checkCmd = GetCheckCommandForTool(name);
             
             return new FeatureRequirement
             {
@@ -933,6 +933,13 @@ public class ShareManagementService : IShareManagementService
         detection.Summary = string.Join(" ", summaryParts);
         
         return detection;
+    }
+    
+    private static string GetCheckCommandForTool(string name)
+    {
+        return name.EndsWith("d") 
+            ? $"systemctl list-unit-files {name}.service" 
+            : $"which {name}";
     }
     
     private static async Task<bool> CheckCommandOrServiceAvailabilityAsync(string name)

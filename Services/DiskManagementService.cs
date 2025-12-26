@@ -1683,7 +1683,7 @@ public class DiskManagementService : IDiskManagementService
                 Description = desc,
                 Status = status ? FeatureStatus.Available : FeatureStatus.Missing,
                 IsRequired = required,
-                CheckCommand = $"which {name} || type {name}",
+                CheckCommand = $"which {name}",
                 InstallCommand = installCmd,
                 Notes = required 
                     ? "此工具是必需的，没有它将无法使用基本磁盘管理功能" 
