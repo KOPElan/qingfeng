@@ -206,7 +206,7 @@ public class FileManagerService : IFileManagerService
             {
                 try
                 {
-                    if (drive.IsReady)
+                    if (drive.IsReady && IsUserAccessibleDrive(drive))
                     {
                         drives.Add(new DriveItemInfo
                         {
@@ -237,6 +237,43 @@ public class FileManagerService : IFileManagerService
         }
 
         return Task.FromResult(drives);
+    }
+    
+    private bool IsUserAccessibleDrive(DriveInfo drive)
+    {
+        // On Linux, filter out virtual and system filesystems that users don't need to access
+        if (!OperatingSystem.IsWindows())
+        {
+            var path = drive.RootDirectory.FullName;
+            
+            // Exclude virtual filesystems and system mount points
+            var excludedPaths = new[]
+            {
+                "/proc", "/sys", "/dev", "/run",
+                "/sys/kernel/security", "/dev/shm", "/dev/pts",
+                "/run/lock", "/sys/fs/cgroup", "/sys/fs/pstore",
+                "/sys/fs/bpf", "/proc/sys/fs/binfmt_misc",
+                "/dev/hugepages", "/dev/mqueue", "/sys/kernel/debug",
+                "/sys/kernel/tracing", "/sys/fs/fuse/connections",
+                "/sys/kernel/config"
+            };
+            
+            // Exclude exact matches and paths starting with excluded paths
+            if (excludedPaths.Any(excluded => path == excluded || path.StartsWith(excluded + "/")))
+            {
+                return false;
+            }
+            
+            // Only include Fixed, Removable, and Network drives
+            if (drive.DriveType != System.IO.DriveType.Fixed && 
+                drive.DriveType != System.IO.DriveType.Removable && 
+                drive.DriveType != System.IO.DriveType.Network)
+            {
+                return false;
+            }
+        }
+        
+        return true;
     }    
 
     public Task<(long total, long available)> GetStorageInfoAsync(string path)
