@@ -71,4 +71,9 @@ public interface IShareManagementService
     /// Test Samba configuration for syntax errors
     /// </summary>
     Task<string> TestSambaConfigAsync();
+    
+    /// <summary>
+    /// Detect available features and required packages
+    /// </summary>
+    Task<ShareManagementFeatureDetection> DetectFeaturesAsync();
 }

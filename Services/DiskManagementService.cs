@@ -12,6 +12,7 @@ public class DiskManagementService : IDiskManagementService
     private static readonly char[] InvalidCredentialChars = ['\n', '\r', '='];
     private static readonly HashSet<char> InvalidCredentialCharsSet = new(InvalidCredentialChars);
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+    private static readonly Regex SafeNameRegex = new(@"^[a-zA-Z0-9_.\-]+$", RegexOptions.Compiled);
     
     // Known valid hdparm flags (without assignment)
     private static readonly HashSet<string> ValidHdparmFlags = new(StringComparer.OrdinalIgnoreCase)
@@ -1610,6 +1611,173 @@ public class DiskManagementService : IDiskManagementService
         }
         
         return true;
+    }
+    
+    // Feature detection implementation
+    public async Task<DiskManagementFeatureDetection> DetectFeaturesAsync()
+    {
+        var detection = new DiskManagementFeatureDetection
+        {
+            Requirements = new List<FeatureRequirement>()
+        };
+        
+        // Detect OS
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            detection.DetectedOS = "Linux";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            detection.DetectedOS = "Windows";
+            detection.Summary = "磁盘管理功能主要设计用于 Linux 系统。Windows 系统功能有限。";
+            detection.AllRequiredFeaturesAvailable = false;
+            return detection;
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            detection.DetectedOS = "macOS";
+            detection.Summary = "磁盘管理功能主要设计用于 Linux 系统。macOS 系统功能有限。";
+            detection.AllRequiredFeaturesAvailable = false;
+            return detection;
+        }
+        else
+        {
+            detection.DetectedOS = "Unknown";
+            detection.Summary = "无法识别操作系统类型。磁盘管理功能仅支持 Linux。";
+            detection.AllRequiredFeaturesAvailable = false;
+            return detection;
+        }
+        
+        // Check for required tools on Linux
+        var requirements = new List<(string name, string desc, bool required, string installUbuntu, string installRhel)>
+        {
+            ("lsblk", "列出块设备信息 - 查看所有磁盘和分区", true, 
+             "sudo apt-get install util-linux", 
+             "sudo yum install util-linux"),
+            ("mount", "挂载文件系统 - 挂载磁盘到指定位置", true, 
+             "内置命令，通常已安装", 
+             "内置命令，通常已安装"),
+            ("umount", "卸载文件系统 - 卸载已挂载的磁盘", true, 
+             "内置命令，通常已安装", 
+             "内置命令，通常已安装"),
+            ("hdparm", "磁盘电源管理工具 - 设置磁盘休眠和电源管理", false, 
+             "sudo apt-get install hdparm", 
+             "sudo yum install hdparm"),
+            ("mount.cifs", "CIFS/SMB 挂载工具 - 挂载 Windows 网络共享", false, 
+             "sudo apt-get install cifs-utils", 
+             "sudo yum install cifs-utils"),
+            ("mount.nfs", "NFS 挂载工具 - 挂载 NFS 网络共享", false, 
+             "sudo apt-get install nfs-common", 
+             "sudo yum install nfs-utils")
+        };
+        
+        // Check all tools in parallel for better performance
+        var checkTasks = requirements.Select(async req =>
+        {
+            var (name, desc, required, installUbuntu, installRhel) = req;
+            var status = await CheckCommandAvailabilityAsync(name);
+            var installCmd = $"Ubuntu/Debian: {installUbuntu}\nCentOS/RHEL/Fedora: {installRhel}";
+            
+            return new FeatureRequirement
+            {
+                Name = name,
+                Description = desc,
+                Status = status ? FeatureStatus.Available : FeatureStatus.Missing,
+                IsRequired = required,
+                CheckCommand = $"which {name}",
+                InstallCommand = installCmd,
+                Notes = required 
+                    ? "此工具是必需的，没有它将无法使用基本磁盘管理功能" 
+                    : "此工具是可选的，用于增强功能"
+            };
+        }).ToList();
+        
+        detection.Requirements = (await Task.WhenAll(checkTasks)).ToList();
+        
+        // Check if all required features are available
+        detection.AllRequiredFeaturesAvailable = detection.Requirements
+            .Where(r => r.IsRequired)
+            .All(r => r.Status == FeatureStatus.Available);
+        
+        // Generate summary
+        var missingRequired = detection.Requirements
+            .Where(r => r.IsRequired && r.Status == FeatureStatus.Missing)
+            .ToList();
+        var missingOptional = detection.Requirements
+            .Where(r => !r.IsRequired && r.Status == FeatureStatus.Missing)
+            .ToList();
+        
+        if (missingRequired.Any())
+        {
+            detection.Summary = $"缺少 {missingRequired.Count} 个必需工具：{string.Join(", ", missingRequired.Select(r => r.Name))}。请安装这些工具以使用磁盘管理功能。";
+        }
+        else if (missingOptional.Any())
+        {
+            detection.Summary = $"所有必需工具已安装。缺少 {missingOptional.Count} 个可选工具：{string.Join(", ", missingOptional.Select(r => r.Name))}。";
+        }
+        else
+        {
+            detection.Summary = "所有工具已安装，磁盘管理功能完全可用。";
+        }
+        
+        return detection;
+    }
+    
+    private static async Task<bool> CheckCommandAvailabilityAsync(string command)
+    {
+        try
+        {
+            // Validate command name to prevent command injection
+            if (string.IsNullOrWhiteSpace(command) || 
+                !SafeNameRegex.IsMatch(command))
+            {
+                Debug.WriteLine($"Invalid command name: {command}");
+                return false;
+            }
+            
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "which",
+                Arguments = command,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            
+            using var process = Process.Start(processInfo);
+            if (process == null)
+            {
+                Debug.WriteLine($"Failed to start which process for command: {command}");
+                return false;
+            }
+            
+            // Add timeout to prevent indefinite blocking
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+            var processTask = process.WaitForExitAsync();
+            var completedTask = await Task.WhenAny(processTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                Debug.WriteLine($"Timeout waiting for which to check command: {command}");
+                try 
+                { 
+                    process.Kill(); 
+                } 
+                catch (Exception ex) 
+                { 
+                    Debug.WriteLine($"Failed to kill which process for command '{command}': {ex.Message}");
+                }
+                return false;
+            }
+            
+            return process.ExitCode == 0;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to check availability of command '{command}': {ex}");
+            return false;
+        }
     }
 }
 

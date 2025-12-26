@@ -14,6 +14,7 @@ public class ShareManagementService : IShareManagementService
     private static readonly Regex ShareNameRegex = new(@"^\[([^\]]+)\]$", RegexOptions.Compiled);
     private static readonly Regex ParameterRegex = new(@"^\s*([a-zA-Z0-9_\-\s]+?)\s*=\s*(.+?)\s*$", RegexOptions.Compiled);
     private static readonly Regex HostOptionRegex = new(@"([^\s(]+)\(([^)]+)\)", RegexOptions.Compiled);
+    private static readonly Regex SafeNameRegex = new(@"^[a-zA-Z0-9_.\-]+$", RegexOptions.Compiled);
     
     public async Task<List<ShareInfo>> GetAllSharesAsync()
     {
@@ -818,5 +819,273 @@ public class ShareManagementService : IShareManagementService
         return value.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
                value.Equals("true", StringComparison.OrdinalIgnoreCase) ||
                value.Equals("1", StringComparison.OrdinalIgnoreCase);
+    }
+    
+    // Feature detection implementation
+    public async Task<ShareManagementFeatureDetection> DetectFeaturesAsync()
+    {
+        var detection = new ShareManagementFeatureDetection
+        {
+            Requirements = new List<FeatureRequirement>()
+        };
+        
+        // Detect OS
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            detection.DetectedOS = "Linux";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            detection.DetectedOS = "Windows";
+            detection.Summary = "共享目录管理功能主要设计用于 Linux 系统。Windows 系统功能有限。";
+            detection.AllRequiredFeaturesAvailable = false;
+            return detection;
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            detection.DetectedOS = "macOS";
+            detection.Summary = "共享目录管理功能主要设计用于 Linux 系统。macOS 系统功能有限。";
+            detection.AllRequiredFeaturesAvailable = false;
+            return detection;
+        }
+        else
+        {
+            detection.DetectedOS = "Unknown";
+            detection.Summary = "无法识别操作系统类型。共享目录管理功能仅支持 Linux。";
+            detection.AllRequiredFeaturesAvailable = false;
+            return detection;
+        }
+        
+        // Check for required tools on Linux
+        var requirements = new List<(string name, string desc, bool required, string installUbuntu, string installRhel)>
+        {
+            ("smbd", "Samba 服务器守护进程 - 提供 CIFS/SMB 共享服务", false, 
+             "sudo apt-get install samba", 
+             "sudo yum install samba"),
+            ("testparm", "Samba 配置测试工具 - 验证 smb.conf 配置文件语法", false, 
+             "sudo apt-get install samba-common-bin", 
+             "sudo yum install samba-common"),
+            ("nfsd", "NFS 服务器守护进程 - 提供 NFS 共享服务", false, 
+             "sudo apt-get install nfs-kernel-server", 
+             "sudo yum install nfs-utils"),
+            ("exportfs", "NFS 导出管理工具 - 管理 NFS 导出列表", false, 
+             "sudo apt-get install nfs-kernel-server", 
+             "sudo yum install nfs-utils")
+        };
+        
+        // Check all tools in parallel for better performance
+        var checkTasks = requirements.Select(async req =>
+        {
+            var (name, desc, required, installUbuntu, installRhel) = req;
+            var status = await CheckCommandOrServiceAvailabilityAsync(name);
+            var installCmd = $"Ubuntu/Debian: {installUbuntu}\nCentOS/RHEL/Fedora: {installRhel}";
+            var checkCmd = GetCheckCommandForTool(name);
+            
+            return new FeatureRequirement
+            {
+                Name = name,
+                Description = desc,
+                Status = status ? FeatureStatus.Available : FeatureStatus.Missing,
+                IsRequired = required,
+                CheckCommand = checkCmd,
+                InstallCommand = installCmd,
+                Notes = required 
+                    ? "此工具是必需的，没有它将无法使用基本共享管理功能" 
+                    : "此工具是可选的，用于增强功能"
+            };
+        }).ToList();
+        
+        detection.Requirements = (await Task.WhenAll(checkTasks)).ToList();
+        
+        // All tools are optional, so this is always true unless OS is not Linux
+        detection.AllRequiredFeaturesAvailable = true;
+        
+        // Generate summary
+        var missingCifs = detection.Requirements
+            .Where(r => (r.Name == "smbd" || r.Name == "testparm") && r.Status == FeatureStatus.Missing)
+            .ToList();
+        var missingNfs = detection.Requirements
+            .Where(r => (r.Name == "nfsd" || r.Name == "exportfs") && r.Status == FeatureStatus.Missing)
+            .ToList();
+        
+        var summaryParts = new List<string>();
+        
+        if (missingCifs.Any() && missingNfs.Any())
+        {
+            summaryParts.Add("未检测到 CIFS/Samba 和 NFS 服务。");
+            summaryParts.Add($"CIFS 缺少：{string.Join(", ", missingCifs.Select(r => r.Name))}");
+            summaryParts.Add($"NFS 缺少：{string.Join(", ", missingNfs.Select(r => r.Name))}");
+        }
+        else if (missingCifs.Any())
+        {
+            summaryParts.Add("NFS 服务可用。");
+            summaryParts.Add($"CIFS/Samba 缺少：{string.Join(", ", missingCifs.Select(r => r.Name))}");
+        }
+        else if (missingNfs.Any())
+        {
+            summaryParts.Add("CIFS/Samba 服务可用。");
+            summaryParts.Add($"NFS 缺少：{string.Join(", ", missingNfs.Select(r => r.Name))}");
+        }
+        else
+        {
+            summaryParts.Add("CIFS/Samba 和 NFS 服务均已安装并可用。");
+        }
+        
+        detection.Summary = string.Join(" ", summaryParts);
+        
+        return detection;
+    }
+    
+    private static string GetCheckCommandForTool(string name)
+    {
+        // Special handling for NFS: the kernel server is typically exposed as
+        // nfs-server.service or nfs-kernel-server.service, not nfsd.service
+        if (name.Equals("nfsd", StringComparison.OrdinalIgnoreCase))
+        {
+            return "systemctl list-unit-files nfs-server.service nfs-kernel-server.service";
+        }
+        
+        return name.EndsWith("d") 
+            ? $"systemctl list-unit-files {name}.service" 
+            : $"which {name}";
+    }
+    
+    private static async Task<bool> CheckSystemdServiceAvailabilityAsync(string serviceUnitName)
+    {
+        try
+        {
+            // Validate service name to prevent command injection
+            if (string.IsNullOrWhiteSpace(serviceUnitName) || 
+                !SafeNameRegex.IsMatch(serviceUnitName))
+            {
+                Debug.WriteLine($"Invalid service name: {serviceUnitName}");
+                return false;
+            }
+            
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "systemctl",
+                Arguments = $"list-unit-files {serviceUnitName}.service",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(processInfo);
+            if (process == null)
+            {
+                Debug.WriteLine($"Failed to start systemctl process for service: {serviceUnitName}");
+                return false;
+            }
+
+            // Add timeout to prevent indefinite blocking
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+            var processTask = process.WaitForExitAsync();
+            var completedTask = await Task.WhenAny(processTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                Debug.WriteLine($"Timeout waiting for systemctl to check service: {serviceUnitName}");
+                try 
+                { 
+                    process.Kill(); 
+                } 
+                catch (Exception ex) 
+                { 
+                    Debug.WriteLine($"Failed to kill systemctl process for service '{serviceUnitName}': {ex.Message}");
+                }
+                return false;
+            }
+            
+            var output = await process.StandardOutput.ReadToEndAsync();
+
+            // Check if the service unit file exists
+            return output.Contains($"{serviceUnitName}.service", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to check availability of service '{serviceUnitName}': {ex}");
+            return false;
+        }
+    }
+    
+    private static async Task<bool> CheckCommandOrServiceAvailabilityAsync(string name)
+    {
+        // Special handling for NFS: check common NFS server unit names first
+        if (name.Equals("nfsd", StringComparison.OrdinalIgnoreCase))
+        {
+            var nfsServiceNames = new[] { "nfs-server", "nfs-kernel-server" };
+            foreach (var serviceName in nfsServiceNames)
+            {
+                if (await CheckSystemdServiceAvailabilityAsync(serviceName))
+                {
+                    return true;
+                }
+            }
+            // If neither typical NFS server unit exists, return false
+            return false;
+        }
+        
+        // For services (ending with 'd'), check if they exist via systemctl
+        if (name.EndsWith("d"))
+        {
+            return await CheckSystemdServiceAvailabilityAsync(name);
+        }
+        
+        // For commands, use 'which'
+        try
+        {
+            // Validate command name to prevent command injection
+            if (string.IsNullOrWhiteSpace(name) || 
+                !SafeNameRegex.IsMatch(name))
+            {
+                Debug.WriteLine($"Invalid command name: {name}");
+                return false;
+            }
+            
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "which",
+                Arguments = name,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            
+            using var process = Process.Start(processInfo);
+            if (process == null)
+            {
+                Debug.WriteLine($"Failed to start which process for command: {name}");
+                return false;
+            }
+            
+            // Add timeout to prevent indefinite blocking
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+            var processTask = process.WaitForExitAsync();
+            var completedTask = await Task.WhenAny(processTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                Debug.WriteLine($"Timeout waiting for which to check command: {name}");
+                try 
+                { 
+                    process.Kill(); 
+                } 
+                catch (Exception ex) 
+                { 
+                    Debug.WriteLine($"Failed to kill which process for command '{name}': {ex.Message}");
+                }
+                return false;
+            }
+            
+            return process.ExitCode == 0;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to check availability of command '{name}': {ex}");
+            return false;
+        }
     }
 }
