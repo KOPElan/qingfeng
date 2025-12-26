@@ -206,7 +206,7 @@ public class FileManagerService : IFileManagerService
             {
                 try
                 {
-                    if (drive.IsReady)
+                    if (drive.IsReady && IsUserAccessibleDrive(drive))
                     {
                         drives.Add(new DriveItemInfo
                         {
@@ -237,6 +237,55 @@ public class FileManagerService : IFileManagerService
         }
 
         return Task.FromResult(drives);
+    }
+    
+    private bool IsUserAccessibleDrive(DriveInfo drive)
+    {
+        // On Linux, use explicit whitelist approach to show only:
+        // 1. Root directory (/)
+        // 2. Mounted hard drives under /mnt or /media
+        // 3. Network storage (Network drives)
+        if (!OperatingSystem.IsWindows())
+        {
+            var path = drive.RootDirectory.FullName;
+            
+            // Explicitly exclude virtual/system filesystems under /proc, /sys, /dev, /run
+            // These are system mount points that users don't need to access
+            if (path.StartsWith("/proc") || path.StartsWith("/sys") || 
+                path.StartsWith("/dev") || path.StartsWith("/run"))
+            {
+                return false;
+            }
+            
+            // 1. Always include root directory
+            if (path == "/")
+            {
+                return true;
+            }
+            
+            // 2. Include Network drives (mounted network storage like NFS, SMB, etc.)
+            if (drive.DriveType == System.IO.DriveType.Network)
+            {
+                return true;
+            }
+            
+            // 3. Include Fixed and Removable drives mounted under common user mount points
+            if (drive.DriveType == System.IO.DriveType.Fixed || 
+                drive.DriveType == System.IO.DriveType.Removable)
+            {
+                // Only include drives mounted under /mnt or /media (standard user mount points)
+                if (path.StartsWith("/mnt") || path.StartsWith("/media"))
+                {
+                    return true;
+                }
+            }
+            
+            // Exclude everything else
+            return false;
+        }
+        
+        // On Windows, include all ready drives
+        return true;
     }    
 
     public Task<(long total, long available)> GetStorageInfoAsync(string path)
