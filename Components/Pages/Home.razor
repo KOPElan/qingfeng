@@ -149,6 +149,9 @@ else
 }
 
 @code {
+    private const string TerminalAppId = "terminal";
+    private const string TerminalAppUrl = "/terminal";
+    
     private bool isCheckingAuth = true;
     private SystemResourceInfo? systemInfo;
     private List<Application> applications = new();
@@ -259,7 +262,7 @@ else
     private void OpenApplication(Application app)
     {
         // Special handling for terminal app
-        if (app.AppId == "terminal" || app.Url == "/terminal")
+        if (app.AppId == TerminalAppId || app.Url == TerminalAppUrl)
         {
             showTerminalDialog = true;
             StateHasChanged();
