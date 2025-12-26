@@ -727,6 +727,13 @@ public class ShareManagementService : IShareManagementService
         
         try
         {
+            // Ensure the parent directory exists
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            
             // Write new configuration to a temporary file
             await File.WriteAllLinesAsync(tempPath, lines);
             
