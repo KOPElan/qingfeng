@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using QingFeng.Services;
+using System.Collections.Concurrent;
 
 namespace QingFeng.Hubs;
 
@@ -7,8 +8,7 @@ public class TerminalHub : Hub
 {
     private readonly ITerminalService _terminalService;
     private readonly ILogger<TerminalHub> _logger;
-    private static readonly Dictionary<string, string> _connectionSessions = new();
-    private static readonly object _sessionsLock = new();
+    private static readonly ConcurrentDictionary<string, string> _connectionSessions = new();
 
     public TerminalHub(ITerminalService terminalService, ILogger<TerminalHub> logger)
     {
@@ -22,10 +22,7 @@ public class TerminalHub : Hub
         {
             var sessionId = await _terminalService.CreateSessionAsync();
             
-            lock (_sessionsLock)
-            {
-                _connectionSessions[Context.ConnectionId] = sessionId;
-            }
+            _connectionSessions[Context.ConnectionId] = sessionId;
             
             _logger.LogInformation("Created terminal session {SessionId} for connection {ConnectionId}", 
                 sessionId, Context.ConnectionId);
@@ -72,15 +69,7 @@ public class TerminalHub : Hub
     {
         string? sessionId = null;
         
-        lock (_sessionsLock)
-        {
-            if (_connectionSessions.TryGetValue(Context.ConnectionId, out sessionId))
-            {
-                _connectionSessions.Remove(Context.ConnectionId);
-            }
-        }
-
-        if (sessionId != null)
+        if (_connectionSessions.TryRemove(Context.ConnectionId, out sessionId))
         {
             try
             {

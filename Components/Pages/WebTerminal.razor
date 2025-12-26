@@ -3,6 +3,7 @@
 @using Microsoft.FluentUI.AspNetCore.Components
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject ILogger<WebTerminal> Logger
 @implements IAsyncDisposable
 @rendermode InteractiveServer
 
@@ -184,7 +185,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error connecting to terminal: {ex.Message}");
+            Logger.LogError(ex, "Error connecting to terminal");
             _isConnecting = false;
             _isConnected = false;
             StateHasChanged();
@@ -224,7 +225,7 @@
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error sending input: {ex.Message}");
+                Logger.LogError(ex, "Error sending input to terminal");
             }
         }
     }
@@ -240,7 +241,7 @@
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error resizing terminal: {ex.Message}");
+                Logger.LogError(ex, "Error resizing terminal");
             }
         }
     }
