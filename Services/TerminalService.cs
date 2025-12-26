@@ -106,7 +106,6 @@ public class TerminalService : ITerminalService, IDisposable
         {
             var startInfo = new ProcessStartInfo
             {
-                FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/bash",
                 UseShellExecute = false,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
@@ -115,10 +114,17 @@ public class TerminalService : ITerminalService, IDisposable
                 WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
             };
 
-            if (!OperatingSystem.IsWindows())
+            if (OperatingSystem.IsWindows())
             {
+                startInfo.FileName = "cmd.exe";
+            }
+            else
+            {
+                // Start bash in interactive mode
+                startInfo.FileName = "/bin/bash";
+                startInfo.Arguments = "-i";
                 startInfo.EnvironmentVariables["TERM"] = "xterm-256color";
-                startInfo.EnvironmentVariables["PS1"] = "$ ";
+                startInfo.EnvironmentVariables["PS1"] = "\\u@\\h:\\w\\$ ";
             }
 
             _process = Process.Start(startInfo);
@@ -127,6 +133,9 @@ public class TerminalService : ITerminalService, IDisposable
             {
                 throw new InvalidOperationException("Failed to start terminal process");
             }
+
+            // Enable auto-flush for input
+            _process.StandardInput.AutoFlush = true;
 
             // Read output asynchronously
             Task.Run(async () =>
