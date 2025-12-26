@@ -11,18 +11,6 @@ public class FileManagerService : IFileManagerService
     private readonly string _rootPath;
     private readonly ILogger<FileManagerService> _logger;
     private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
-    
-    // Static HashSet to avoid recreating on every drive check
-    private static readonly HashSet<string> ExcludedLinuxPaths = new()
-    {
-        "/proc", "/sys", "/dev", "/run",
-        "/sys/kernel/security", "/dev/shm", "/dev/pts",
-        "/run/lock", "/sys/fs/cgroup", "/sys/fs/pstore",
-        "/sys/fs/bpf", "/proc/sys/fs/binfmt_misc",
-        "/dev/hugepages", "/dev/mqueue", "/sys/kernel/debug",
-        "/sys/kernel/tracing", "/sys/fs/fuse/connections",
-        "/sys/kernel/config"
-    };
 
     public FileManagerService(ILogger<FileManagerService> logger, IDbContextFactory<QingFengDbContext> dbContextFactory)
     {
@@ -253,35 +241,50 @@ public class FileManagerService : IFileManagerService
     
     private bool IsUserAccessibleDrive(DriveInfo drive)
     {
-        // On Linux, filter out virtual and system filesystems that users don't need to access
+        // On Linux, use explicit whitelist approach to show only:
+        // 1. Root directory (/)
+        // 2. Mounted hard drives under /mnt or /media
+        // 3. Network storage (Network drives)
         if (!OperatingSystem.IsWindows())
         {
             var path = drive.RootDirectory.FullName;
             
-            // Exclude exact matches
-            if (ExcludedLinuxPaths.Contains(path))
+            // Explicitly exclude virtual/system filesystems under /proc, /sys, /dev, /run
+            // These are system mount points that users don't need to access
+            if (path.StartsWith("/proc") || path.StartsWith("/sys") || 
+                path.StartsWith("/dev") || path.StartsWith("/run"))
             {
                 return false;
             }
             
-            // Exclude paths that are subdirectories of excluded paths
-            foreach (var excluded in ExcludedLinuxPaths)
+            // 1. Always include root directory
+            if (path == "/")
             {
-                if (path.StartsWith(excluded + "/"))
+                return true;
+            }
+            
+            // 2. Include Network drives (mounted network storage like NFS, SMB, etc.)
+            if (drive.DriveType == System.IO.DriveType.Network)
+            {
+                return true;
+            }
+            
+            // 3. Include Fixed and Removable drives mounted under common user mount points
+            if (drive.DriveType == System.IO.DriveType.Fixed || 
+                drive.DriveType == System.IO.DriveType.Removable)
+            {
+                // Only include drives mounted under /mnt or /media (standard user mount points)
+                if (path.StartsWith("/mnt") || path.StartsWith("/media"))
                 {
-                    return false;
+                    return true;
                 }
             }
             
-            // Only include Fixed, Removable, and Network drives
-            if (drive.DriveType != System.IO.DriveType.Fixed && 
-                drive.DriveType != System.IO.DriveType.Removable && 
-                drive.DriveType != System.IO.DriveType.Network)
-            {
-                return false;
-            }
+            // Exclude everything else
+            return false;
         }
         
+        // On Windows, include all ready drives
         return true;
     }    
 
