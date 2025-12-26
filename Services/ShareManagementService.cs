@@ -872,24 +872,29 @@ public class ShareManagementService : IShareManagementService
              "sudo yum install nfs-utils")
         };
         
-        foreach (var (name, desc, required, installUbuntu, installRhel) in requirements)
+        // Check all tools in parallel for better performance
+        var checkTasks = requirements.Select(async req =>
         {
+            var (name, desc, required, installUbuntu, installRhel) = req;
             var status = await CheckCommandOrServiceAvailabilityAsync(name);
             var installCmd = $"Ubuntu/Debian: {installUbuntu}\nCentOS/RHEL/Fedora: {installRhel}";
+            var checkCmd = name.EndsWith("d") ? $"systemctl list-unit-files {name}.service" : $"which {name}";
             
-            detection.Requirements.Add(new FeatureRequirement
+            return new FeatureRequirement
             {
                 Name = name,
                 Description = desc,
                 Status = status ? FeatureStatus.Available : FeatureStatus.Missing,
                 IsRequired = required,
-                CheckCommand = name.EndsWith("d") ? $"systemctl status {name}" : $"which {name}",
+                CheckCommand = checkCmd,
                 InstallCommand = installCmd,
                 Notes = required 
                     ? "此工具是必需的，没有它将无法使用基本共享管理功能" 
                     : "此工具是可选的，用于增强功能"
-            });
-        }
+            };
+        }).ToList();
+        
+        detection.Requirements = (await Task.WhenAll(checkTasks)).ToList();
         
         // All tools are optional, so this is always true unless OS is not Linux
         detection.AllRequiredFeaturesAvailable = true;

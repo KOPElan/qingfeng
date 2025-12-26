@@ -1670,24 +1670,28 @@ public class DiskManagementService : IDiskManagementService
              "sudo yum install nfs-utils")
         };
         
-        foreach (var (name, desc, required, installUbuntu, installRhel) in requirements)
+        // Check all tools in parallel for better performance
+        var checkTasks = requirements.Select(async req =>
         {
+            var (name, desc, required, installUbuntu, installRhel) = req;
             var status = await CheckCommandAvailabilityAsync(name);
             var installCmd = $"Ubuntu/Debian: {installUbuntu}\nCentOS/RHEL/Fedora: {installRhel}";
             
-            detection.Requirements.Add(new FeatureRequirement
+            return new FeatureRequirement
             {
                 Name = name,
                 Description = desc,
                 Status = status ? FeatureStatus.Available : FeatureStatus.Missing,
                 IsRequired = required,
-                CheckCommand = $"which {name}",
+                CheckCommand = $"which {name} || type {name}",
                 InstallCommand = installCmd,
                 Notes = required 
                     ? "此工具是必需的，没有它将无法使用基本磁盘管理功能" 
                     : "此工具是可选的，用于增强功能"
-            });
-        }
+            };
+        }).ToList();
+        
+        detection.Requirements = (await Task.WhenAll(checkTasks)).ToList();
         
         // Check if all required features are available
         detection.AllRequiredFeaturesAvailable = detection.Requirements
