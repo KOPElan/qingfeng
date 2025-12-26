@@ -1726,6 +1726,14 @@ public class DiskManagementService : IDiskManagementService
     {
         try
         {
+            // Validate command name to prevent command injection
+            if (string.IsNullOrWhiteSpace(command) || 
+                !System.Text.RegularExpressions.Regex.IsMatch(command, @"^[a-zA-Z0-9_\-\.]+$"))
+            {
+                Debug.WriteLine($"Invalid command name: {command}");
+                return false;
+            }
+            
             var processInfo = new ProcessStartInfo
             {
                 FileName = "which",
@@ -1739,14 +1747,27 @@ public class DiskManagementService : IDiskManagementService
             using var process = Process.Start(processInfo);
             if (process == null)
             {
+                Debug.WriteLine($"Failed to start which process for command: {command}");
                 return false;
             }
             
-            await process.WaitForExitAsync();
+            // Add timeout to prevent indefinite blocking
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+            var processTask = process.WaitForExitAsync();
+            var completedTask = await Task.WhenAny(processTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                Debug.WriteLine($"Timeout waiting for which to check command: {command}");
+                try { process.Kill(); } catch { }
+                return false;
+            }
+            
             return process.ExitCode == 0;
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"Failed to check availability of command '{command}': {ex}");
             return false;
         }
     }

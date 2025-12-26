@@ -937,73 +937,140 @@ public class ShareManagementService : IShareManagementService
     
     private static string GetCheckCommandForTool(string name)
     {
+        // Special handling for NFS: the kernel server is typically exposed as
+        // nfs-server.service or nfs-kernel-server.service, not nfsd.service
+        if (name.Equals("nfsd", StringComparison.OrdinalIgnoreCase))
+        {
+            return "systemctl list-unit-files nfs-server.service nfs-kernel-server.service";
+        }
+        
         return name.EndsWith("d") 
             ? $"systemctl list-unit-files {name}.service" 
             : $"which {name}";
     }
     
+    private static async Task<bool> CheckSystemdServiceAvailabilityAsync(string serviceUnitName)
+    {
+        try
+        {
+            // Validate service name to prevent command injection
+            if (string.IsNullOrWhiteSpace(serviceUnitName) || 
+                !System.Text.RegularExpressions.Regex.IsMatch(serviceUnitName, @"^[a-zA-Z0-9_\-\.]+$"))
+            {
+                Debug.WriteLine($"Invalid service name: {serviceUnitName}");
+                return false;
+            }
+            
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "systemctl",
+                Arguments = $"list-unit-files {serviceUnitName}.service",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(processInfo);
+            if (process == null)
+            {
+                Debug.WriteLine($"Failed to start systemctl process for service: {serviceUnitName}");
+                return false;
+            }
+
+            // Add timeout to prevent indefinite blocking
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+            var processTask = process.WaitForExitAsync();
+            var completedTask = await Task.WhenAny(processTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                Debug.WriteLine($"Timeout waiting for systemctl to check service: {serviceUnitName}");
+                try { process.Kill(); } catch { }
+                return false;
+            }
+            
+            var output = await process.StandardOutput.ReadToEndAsync();
+
+            // Check if the service unit file exists
+            return output.Contains($"{serviceUnitName}.service", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to check availability of service '{serviceUnitName}': {ex}");
+            return false;
+        }
+    }
+    
     private static async Task<bool> CheckCommandOrServiceAvailabilityAsync(string name)
     {
+        // Special handling for NFS: check common NFS server unit names first
+        if (name.Equals("nfsd", StringComparison.OrdinalIgnoreCase))
+        {
+            var nfsServiceNames = new[] { "nfs-server", "nfs-kernel-server" };
+            foreach (var serviceName in nfsServiceNames)
+            {
+                if (await CheckSystemdServiceAvailabilityAsync(serviceName))
+                {
+                    return true;
+                }
+            }
+            // If neither typical NFS server unit exists, return false
+            return false;
+        }
+        
         // For services (ending with 'd'), check if they exist via systemctl
         if (name.EndsWith("d"))
         {
-            try
-            {
-                var processInfo = new ProcessStartInfo
-                {
-                    FileName = "systemctl",
-                    Arguments = $"list-unit-files {name}.service",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                
-                using var process = Process.Start(processInfo);
-                if (process == null)
-                {
-                    return false;
-                }
-                
-                await process.WaitForExitAsync();
-                var output = await process.StandardOutput.ReadToEndAsync();
-                
-                // Check if the service unit file exists
-                return output.Contains($"{name}.service", StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
+            return await CheckSystemdServiceAvailabilityAsync(name);
         }
-        else
+        
+        // For commands, use 'which'
+        try
         {
-            // For commands, use 'which'
-            try
+            // Validate command name to prevent command injection
+            if (string.IsNullOrWhiteSpace(name) || 
+                !System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-zA-Z0-9_\-\.]+$"))
             {
-                var processInfo = new ProcessStartInfo
-                {
-                    FileName = "which",
-                    Arguments = name,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                
-                using var process = Process.Start(processInfo);
-                if (process == null)
-                {
-                    return false;
-                }
-                
-                await process.WaitForExitAsync();
-                return process.ExitCode == 0;
-            }
-            catch
-            {
+                Debug.WriteLine($"Invalid command name: {name}");
                 return false;
             }
+            
+            var processInfo = new ProcessStartInfo
+            {
+                FileName = "which",
+                Arguments = name,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            
+            using var process = Process.Start(processInfo);
+            if (process == null)
+            {
+                Debug.WriteLine($"Failed to start which process for command: {name}");
+                return false;
+            }
+            
+            // Add timeout to prevent indefinite blocking
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+            var processTask = process.WaitForExitAsync();
+            var completedTask = await Task.WhenAny(processTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                Debug.WriteLine($"Timeout waiting for which to check command: {name}");
+                try { process.Kill(); } catch { }
+                return false;
+            }
+            
+            return process.ExitCode == 0;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to check availability of command '{name}': {ex}");
+            return false;
         }
     }
 }
