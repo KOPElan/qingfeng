@@ -21,4 +21,7 @@ public interface IDiskManagementService
     Task<List<NetworkDiskInfo>> GetNetworkDisksAsync();
     Task<string> MountNetworkDiskAsync(string server, string sharePath, string mountPoint, NetworkDiskType diskType, string? username = null, string? password = null, string? domain = null, string? options = null);
     Task<string> MountNetworkDiskPermanentAsync(string server, string sharePath, string mountPoint, NetworkDiskType diskType, string? username = null, string? password = null, string? domain = null, string? options = null);
+    
+    // Feature detection
+    Task<DiskManagementFeatureDetection> DetectFeaturesAsync();
 }

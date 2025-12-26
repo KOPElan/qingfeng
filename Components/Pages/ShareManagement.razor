@@ -48,6 +48,9 @@
     <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowAddShareDialog()">
         ➕ 添加共享
     </FluentButton>
+    <FluentButton Appearance="Appearance.Outline" OnClick="ShowFeatureDetection">
+        🔍 功能检测
+    </FluentButton>
 </FluentStack>
 
 @if (!string.IsNullOrEmpty(message))
@@ -374,6 +377,114 @@
     </FluentDialogFooter>
 </FluentDialog>
 
+<!-- Feature Detection Dialog -->
+<FluentDialog Hidden="@(!showFeatureDetection)" Modal="true" OnDismiss="HideFeatureDetection" Style="width: 90%; max-width: 900px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">🔍 共享管理功能检测</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (featureDetectionResult == null)
+        {
+            <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; align-items: center;">
+                <FluentProgressRing />
+                <p style="margin: 0;">正在检测系统功能...</p>
+            </FluentStack>
+        }
+        else
+        {
+            <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+                <div>
+                    <FluentLabel Typo="Typography.H6">检测到的操作系统</FluentLabel>
+                    <p style="margin: 0.5rem 0;">@featureDetectionResult.DetectedOS</p>
+                </div>
+                
+                <div>
+                    <FluentLabel Typo="Typography.H6">总结</FluentLabel>
+                    <FluentMessageBar Intent="@(featureDetectionResult.AllRequiredFeaturesAvailable ? MessageIntent.Success : MessageIntent.Warning)" Style="margin-top: 0.5rem;">
+                        @featureDetectionResult.Summary
+                    </FluentMessageBar>
+                </div>
+                
+                <div>
+                    <FluentLabel Typo="Typography.H6">功能需求详情</FluentLabel>
+                    <div style="overflow-x: auto; margin-top: 1rem;">
+                        <table class="fluent-table" style="width: 100%;" role="table" aria-label="功能需求">
+                            <thead>
+                                <tr>
+                                    <th scope="col">状态</th>
+                                    <th scope="col">服务/工具</th>
+                                    <th scope="col">类型</th>
+                                    <th scope="col">说明</th>
+                                    <th scope="col">安装命令</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var req in featureDetectionResult.Requirements)
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (req.Status == FeatureStatus.Available)
+                                            {
+                                                <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#107C10">✓ 可用</FluentBadge>
+                                            }
+                                            else if (req.Status == FeatureStatus.Missing)
+                                            {
+                                                <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#D13438">✗ 缺失</FluentBadge>
+                                            }
+                                            else
+                                            {
+                                                <FluentBadge Appearance="Appearance.Neutral">N/A</FluentBadge>
+                                            }
+                                        </td>
+                                        <td><code>@req.Name</code></td>
+                                        <td>
+                                            @if (req.IsRequired)
+                                            {
+                                                <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#D13438">必需</FluentBadge>
+                                            }
+                                            else
+                                            {
+                                                <FluentBadge Appearance="Appearance.Neutral">可选</FluentBadge>
+                                            }
+                                        </td>
+                                        <td>@req.Description</td>
+                                        <td>
+                                            @if (req.Status == FeatureStatus.Missing && !string.IsNullOrEmpty(req.InstallCommand))
+                                            {
+                                                <details>
+                                                    <summary style="cursor: pointer; color: var(--accent-fill-rest);">查看安装命令</summary>
+                                                    <pre style="background-color: var(--neutral-layer-2); padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; overflow-x: auto; font-size: 0.875rem;"><code>@req.InstallCommand</code></pre>
+                                                </details>
+                                            }
+                                            else if (req.Status == FeatureStatus.Available)
+                                            {
+                                                <span style="color: var(--neutral-foreground-hint);">-</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <FluentMessageBar Intent="MessageIntent.Info">
+                    <strong>提示：</strong>所有工具都是可选的。CIFS/Samba 工具用于 Windows 共享，NFS 工具用于 Linux/Unix 共享。根据需要安装相应工具即可。
+                </FluentMessageBar>
+            </FluentStack>
+        }
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="HideFeatureDetection">关闭</FluentButton>
+        @if (featureDetectionResult != null)
+        {
+            <FluentButton Appearance="Appearance.Accent" OnClick="RunFeatureDetection">
+                🔄 重新检测
+            </FluentButton>
+        }
+    </FluentDialogFooter>
+</FluentDialog>
+
 @code {
     private List<ShareInfo> cifsShares = new();
     private List<ShareInfo> nfsShares = new();
@@ -393,6 +504,10 @@
     // Remove dialog
     private bool showRemoveDialog = false;
     private ShareInfo? shareToRemove = null;
+    
+    // Feature Detection
+    private bool showFeatureDetection = false;
+    private ShareManagementFeatureDetection? featureDetectionResult = null;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -593,5 +708,35 @@
         {
             isProcessing = false;
         }
+    }
+    
+    private async Task ShowFeatureDetection()
+    {
+        showFeatureDetection = true;
+        featureDetectionResult = null;
+        await RunFeatureDetection();
+    }
+    
+    private async Task RunFeatureDetection()
+    {
+        try
+        {
+            featureDetectionResult = await ShareManagementService.DetectFeaturesAsync();
+        }
+        catch (Exception ex)
+        {
+            featureDetectionResult = new ShareManagementFeatureDetection
+            {
+                DetectedOS = "Unknown",
+                Summary = $"检测失败: {ex.Message}",
+                AllRequiredFeaturesAvailable = false,
+                Requirements = new List<FeatureRequirement>()
+            };
+        }
+    }
+    
+    private void HideFeatureDetection()
+    {
+        showFeatureDetection = false;
     }
 }
