@@ -12,7 +12,7 @@ public class DiskManagementService : IDiskManagementService
     private static readonly char[] InvalidCredentialChars = ['\n', '\r', '='];
     private static readonly HashSet<char> InvalidCredentialCharsSet = new(InvalidCredentialChars);
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
-    private static readonly Regex SafeNameRegex = new(@"^[a-zA-Z0-9_\-\.]+$", RegexOptions.Compiled);
+    private static readonly Regex SafeNameRegex = new(@"^[a-zA-Z0-9_\.\-]+$", RegexOptions.Compiled);
     
     // Known valid hdparm flags (without assignment)
     private static readonly HashSet<string> ValidHdparmFlags = new(StringComparer.OrdinalIgnoreCase)

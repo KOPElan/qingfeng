@@ -14,7 +14,7 @@ public class ShareManagementService : IShareManagementService
     private static readonly Regex ShareNameRegex = new(@"^\[([^\]]+)\]$", RegexOptions.Compiled);
     private static readonly Regex ParameterRegex = new(@"^\s*([a-zA-Z0-9_\-\s]+?)\s*=\s*(.+?)\s*$", RegexOptions.Compiled);
     private static readonly Regex HostOptionRegex = new(@"([^\s(]+)\(([^)]+)\)", RegexOptions.Compiled);
-    private static readonly Regex SafeNameRegex = new(@"^[a-zA-Z0-9_\-\.]+$", RegexOptions.Compiled);
+    private static readonly Regex SafeNameRegex = new(@"^[a-zA-Z0-9_\.\-]+$", RegexOptions.Compiled);
     
     public async Task<List<ShareInfo>> GetAllSharesAsync()
     {
