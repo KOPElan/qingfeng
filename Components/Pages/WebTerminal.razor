@@ -1,0 +1,257 @@
+@page "/terminal"
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.FluentUI.AspNetCore.Components
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+@rendermode InteractiveServer
+
+<PageTitle>Web终端</PageTitle>
+
+<style>
+    .terminal-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 120px);
+        background-color: #000;
+        padding: 0;
+    }
+    
+    .terminal-toolbar {
+        background-color: #1e1e1e;
+        padding: 8px 16px;
+        border-bottom: 1px solid #333;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .terminal-wrapper {
+        flex: 1;
+        padding: 8px;
+        overflow: hidden;
+        background-color: #000;
+    }
+    
+    #terminal {
+        height: 100%;
+        width: 100%;
+    }
+    
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .status-connected {
+        background-color: #107c10;
+        color: white;
+    }
+    
+    .status-disconnected {
+        background-color: #d13438;
+        color: white;
+    }
+    
+    .status-connecting {
+        background-color: #faa61a;
+        color: white;
+    }
+    
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: currentColor;
+        animation: pulse 2s infinite;
+    }
+    
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+</style>
+
+<FluentStack Orientation="Orientation.Vertical" Style="height: 100%;">
+    <div class="terminal-toolbar">
+        <FluentLabel Style="color: #fff; font-weight: 600;">Web终端</FluentLabel>
+        
+        @if (_isConnected)
+        {
+            <div class="status-badge status-connected">
+                <span class="status-dot"></span>
+                已连接
+            </div>
+        }
+        else if (_isConnecting)
+        {
+            <div class="status-badge status-connecting">
+                <span class="status-dot"></span>
+                连接中
+            </div>
+        }
+        else
+        {
+            <div class="status-badge status-disconnected">
+                <span class="status-dot"></span>
+                已断开
+            </div>
+        }
+        
+        <div style="flex: 1;"></div>
+        
+        @if (_isConnected)
+        {
+            <FluentButton Appearance="Appearance.Lightweight" 
+                          OnClick="ReconnectAsync"
+                          Style="color: #fff;">
+                🔄 重新连接
+            </FluentButton>
+        }
+        else
+        {
+            <FluentButton Appearance="Appearance.Accent" 
+                          OnClick="ConnectAsync">
+                ▶ 启动终端
+            </FluentButton>
+        }
+        
+        <FluentButton Appearance="Appearance.Lightweight" 
+                      OnClick="ClearTerminal"
+                      Disabled="@(!_isConnected)"
+                      Style="color: #fff;">
+            ✖ 清屏
+        </FluentButton>
+    </div>
+    
+    <div class="terminal-wrapper">
+        <div id="terminal"></div>
+    </div>
+</FluentStack>
+
+@code {
+    private HubConnection? _hubConnection;
+    private string? _sessionId;
+    private bool _isConnected = false;
+    private bool _isConnecting = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("terminalInterop.initialize");
+        }
+    }
+
+    private async Task ConnectAsync()
+    {
+        try
+        {
+            _isConnecting = true;
+            StateHasChanged();
+
+            // Build SignalR connection
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/terminalhub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            // Handle receiving output from server
+            _hubConnection.On<string>("ReceiveOutput", async (output) =>
+            {
+                await JSRuntime.InvokeVoidAsync("terminalInterop.writeOutput", output);
+            });
+
+            // Handle input from terminal
+            await JSRuntime.InvokeVoidAsync("terminalInterop.onData", DotNetObjectReference.Create(this));
+
+            // Handle resize events
+            await JSRuntime.InvokeVoidAsync("terminalInterop.onResize", DotNetObjectReference.Create(this));
+
+            await _hubConnection.StartAsync();
+            _sessionId = await _hubConnection.InvokeAsync<string>("CreateSession");
+            
+            _isConnected = true;
+            _isConnecting = false;
+            StateHasChanged();
+
+            await JSRuntime.InvokeVoidAsync("terminalInterop.focus");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error connecting to terminal: {ex.Message}");
+            _isConnecting = false;
+            _isConnected = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReconnectAsync()
+    {
+        await DisconnectAsync();
+        await Task.Delay(500);
+        await ConnectAsync();
+    }
+
+    private async Task DisconnectAsync()
+    {
+        if (_hubConnection != null)
+        {
+            await _hubConnection.StopAsync();
+            await _hubConnection.DisposeAsync();
+            _hubConnection = null;
+        }
+        
+        _sessionId = null;
+        _isConnected = false;
+        await JSRuntime.InvokeVoidAsync("terminalInterop.clear");
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task SendInput(string data)
+    {
+        if (_hubConnection != null && _sessionId != null && _isConnected)
+        {
+            try
+            {
+                await _hubConnection.InvokeAsync("SendInput", _sessionId, data);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending input: {ex.Message}");
+            }
+        }
+    }
+
+    [JSInvokable]
+    public async Task ResizeTerminal(int rows, int cols)
+    {
+        if (_hubConnection != null && _sessionId != null && _isConnected)
+        {
+            try
+            {
+                await _hubConnection.InvokeAsync("ResizeTerminal", _sessionId, rows, cols);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error resizing terminal: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ClearTerminal()
+    {
+        await JSRuntime.InvokeVoidAsync("terminalInterop.clear");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisconnectAsync();
+    }
+}
