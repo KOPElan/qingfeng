@@ -87,6 +87,13 @@
             <FluentProgressRing />
         </div>
     }
+    else
+    {
+        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; gap: 16px;">
+            <FluentLabel Typo="Typography.H3">🔒 访问被拒绝</FluentLabel>
+            <FluentLabel>您没有权限访问Web终端。只有管理员可以使用此功能。</FluentLabel>
+        </div>
+    }
     return;
 }
 

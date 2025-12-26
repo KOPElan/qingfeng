@@ -93,9 +93,10 @@ public class TerminalService : ITerminalService, IDisposable
         private readonly ILogger _logger;
         private Process? _process;
         private const int MaxOutputBufferSize = 1024 * 1024; // 1 MB cap to prevent unbounded growth
-        private readonly StringBuilder _outputBuffer = new StringBuilder(0, MaxOutputBufferSize);
+        private readonly StringBuilder _outputBuffer = new StringBuilder();
         private readonly object _outputLock = new();
         private bool _disposed = false;
+        private int _currentBufferSize = 0;
 
         public TerminalSession(string sessionId, ILogger logger)
         {
@@ -151,7 +152,20 @@ public class TerminalService : ITerminalService, IDisposable
                         {
                             lock (_outputLock)
                             {
+                                // Check if adding this data would exceed the buffer limit
+                                if (_currentBufferSize + count > MaxOutputBufferSize)
+                                {
+                                    // Remove old data from the beginning to make room
+                                    var excessSize = (_currentBufferSize + count) - MaxOutputBufferSize;
+                                    var currentContent = _outputBuffer.ToString();
+                                    _outputBuffer.Clear();
+                                    _outputBuffer.Append(currentContent.Substring(excessSize));
+                                    _currentBufferSize = _outputBuffer.Length;
+                                    _logger.LogWarning("Terminal output buffer reached maximum size for session {SessionId}, discarding old data", _sessionId);
+                                }
+                                
                                 _outputBuffer.Append(buffer, 0, count);
+                                _currentBufferSize += count;
                             }
                         }
                     }
@@ -175,7 +189,19 @@ public class TerminalService : ITerminalService, IDisposable
                         {
                             lock (_outputLock)
                             {
+                                // Check if adding this data would exceed the buffer limit
+                                if (_currentBufferSize + count > MaxOutputBufferSize)
+                                {
+                                    // Remove old data from the beginning to make room
+                                    var excessSize = (_currentBufferSize + count) - MaxOutputBufferSize;
+                                    var currentContent = _outputBuffer.ToString();
+                                    _outputBuffer.Clear();
+                                    _outputBuffer.Append(currentContent.Substring(excessSize));
+                                    _currentBufferSize = _outputBuffer.Length;
+                                }
+                                
                                 _outputBuffer.Append(buffer, 0, count);
+                                _currentBufferSize += count;
                             }
                         }
                     }
@@ -202,6 +228,7 @@ public class TerminalService : ITerminalService, IDisposable
             {
                 var output = _outputBuffer.ToString();
                 _outputBuffer.Clear();
+                _currentBufferSize = 0;
                 return output;
             }
         }

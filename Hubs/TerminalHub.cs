@@ -12,6 +12,8 @@ public class TerminalHub : Hub
     private readonly ILogger<TerminalHub> _logger;
     private static readonly ConcurrentDictionary<string, string> _connectionSessions = new();
     private static readonly ConcurrentDictionary<string, CancellationTokenSource> _outputTasks = new();
+    private static readonly ConcurrentDictionary<string, HashSet<string>> _userSessions = new();
+    private static readonly object _userSessionsLock = new();
     private const int MaxSessionsPerUser = 3;
 
     public TerminalHub(ITerminalService terminalService, ILogger<TerminalHub> logger)
@@ -23,21 +25,36 @@ public class TerminalHub : Hub
     public async Task<string> CreateSession()
     {
         string? sessionId = null;
+        var username = Context.User?.Identity?.Name ?? "anonymous";
+        
         try
         {
             // Check session limit per user
-            var userSessions = _connectionSessions.Values.Distinct().Count();
-            if (userSessions >= MaxSessionsPerUser)
+            lock (_userSessionsLock)
             {
-                throw new InvalidOperationException($"Maximum number of terminal sessions ({MaxSessionsPerUser}) reached.");
+                if (_userSessions.TryGetValue(username, out var sessions) && sessions.Count >= MaxSessionsPerUser)
+                {
+                    throw new InvalidOperationException($"Maximum number of terminal sessions ({MaxSessionsPerUser}) reached for user {username}.");
+                }
             }
 
             sessionId = await _terminalService.CreateSessionAsync();
             
             _connectionSessions[Context.ConnectionId] = sessionId;
             
-            _logger.LogInformation("Created terminal session {SessionId} for connection {ConnectionId}", 
-                sessionId, Context.ConnectionId);
+            // Track session per user
+            lock (_userSessionsLock)
+            {
+                if (!_userSessions.TryGetValue(username, out var sessions))
+                {
+                    sessions = new HashSet<string>();
+                    _userSessions[username] = sessions;
+                }
+                sessions.Add(sessionId);
+            }
+            
+            _logger.LogInformation("Created terminal session {SessionId} for user {Username} connection {ConnectionId}", 
+                sessionId, username, Context.ConnectionId);
             
             // Start sending output to client with cancellation token
             var cts = new CancellationTokenSource();
@@ -56,20 +73,37 @@ public class TerminalHub : Hub
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating terminal session");
+            _logger.LogError(ex, "Error creating terminal session for user {Username}", username);
 
             // Clean up if session was created but connection setup failed
-            if (sessionId != null && _connectionSessions.TryRemove(Context.ConnectionId, out var removedSessionId))
+            if (sessionId != null)
             {
-                try
+                if (_connectionSessions.TryRemove(Context.ConnectionId, out var removedSessionId))
                 {
-                    await _terminalService.CloseSessionAsync(removedSessionId);
-                    _logger.LogInformation("Closed terminal session {SessionId} after failure for connection {ConnectionId}",
-                        removedSessionId, Context.ConnectionId);
-                }
-                catch (Exception closeEx)
-                {
-                    _logger.LogError(closeEx, "Error closing terminal session {SessionId} after failure", removedSessionId);
+                    try
+                    {
+                        await _terminalService.CloseSessionAsync(removedSessionId);
+                        
+                        // Remove from user sessions tracking
+                        lock (_userSessionsLock)
+                        {
+                            if (_userSessions.TryGetValue(username, out var sessions))
+                            {
+                                sessions.Remove(removedSessionId);
+                                if (sessions.Count == 0)
+                                {
+                                    _userSessions.TryRemove(username, out _);
+                                }
+                            }
+                        }
+                        
+                        _logger.LogInformation("Closed terminal session {SessionId} after failure for user {Username}",
+                            removedSessionId, username);
+                    }
+                    catch (Exception closeEx)
+                    {
+                        _logger.LogError(closeEx, "Error closing terminal session {SessionId} after failure", removedSessionId);
+                    }
                 }
             }
 
@@ -106,6 +140,7 @@ public class TerminalHub : Hub
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         string? sessionId = null;
+        var username = Context.User?.Identity?.Name ?? "anonymous";
         
         if (_connectionSessions.TryRemove(Context.ConnectionId, out sessionId))
         {
@@ -116,11 +151,24 @@ public class TerminalHub : Hub
                 cts.Dispose();
             }
 
+            // Remove from user sessions tracking
+            lock (_userSessionsLock)
+            {
+                if (_userSessions.TryGetValue(username, out var sessions))
+                {
+                    sessions.Remove(sessionId);
+                    if (sessions.Count == 0)
+                    {
+                        _userSessions.TryRemove(username, out _);
+                    }
+                }
+            }
+
             try
             {
                 await _terminalService.CloseSessionAsync(sessionId);
-                _logger.LogInformation("Closed terminal session {SessionId} for disconnected connection {ConnectionId}", 
-                    sessionId, Context.ConnectionId);
+                _logger.LogInformation("Closed terminal session {SessionId} for user {Username} disconnected connection {ConnectionId}", 
+                    sessionId, username, Context.ConnectionId);
             }
             catch (Exception ex)
             {
