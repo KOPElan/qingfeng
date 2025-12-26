@@ -39,8 +39,8 @@ public class SystemMonitorService : ISystemMonitorService
         {
             try
             {
-                var lines = File.ReadAllLines("/proc/stat");
-                foreach (var line in lines)
+                // Use ReadLines for memory efficiency - only read until we find the cpu line
+                foreach (var line in File.ReadLines("/proc/stat"))
                 {
                     if (line.StartsWith("cpu "))
                     {
@@ -50,9 +50,19 @@ public class SystemMonitorService : ISystemMonitorService
                     }
                 }
             }
-            catch
+            catch (FileNotFoundException)
             {
-                // Fallback to process-based calculation
+                // /proc/stat not available, fallback to process-based calculation
+                CalculateCpuUsageFromProcess(cpuInfo);
+            }
+            catch (IOException)
+            {
+                // Error reading /proc/stat, fallback to process-based calculation
+                CalculateCpuUsageFromProcess(cpuInfo);
+            }
+            catch (FormatException)
+            {
+                // Invalid data format in /proc/stat, fallback to process-based calculation
                 CalculateCpuUsageFromProcess(cpuInfo);
             }
         }
@@ -76,14 +86,19 @@ public class SystemMonitorService : ISystemMonitorService
         }
 
         // Parse CPU time values (all in USER_HZ units, typically 1/100th of a second)
-        long user = long.Parse(parts[1]);
-        long nice = long.Parse(parts[2]);
-        long system = long.Parse(parts[3]);
-        long idle = long.Parse(parts[4]);
-        long iowait = parts.Length > 5 ? long.Parse(parts[5]) : 0;
-        long irq = parts.Length > 6 ? long.Parse(parts[6]) : 0;
-        long softirq = parts.Length > 7 ? long.Parse(parts[7]) : 0;
-        long steal = parts.Length > 8 ? long.Parse(parts[8]) : 0;
+        // Use TryParse for safer parsing
+        if (!long.TryParse(parts[1], out long user) ||
+            !long.TryParse(parts[2], out long nice) ||
+            !long.TryParse(parts[3], out long system) ||
+            !long.TryParse(parts[4], out long idle))
+        {
+            return _lastCpuUsage;
+        }
+
+        long iowait = parts.Length > 5 && long.TryParse(parts[5], out var iow) ? iow : 0;
+        long irq = parts.Length > 6 && long.TryParse(parts[6], out var irqVal) ? irqVal : 0;
+        long softirq = parts.Length > 7 && long.TryParse(parts[7], out var sirq) ? sirq : 0;
+        long steal = parts.Length > 8 && long.TryParse(parts[8], out var stl) ? stl : 0;
 
         // Calculate total and idle times
         long totalTime = user + nice + system + idle + iowait + irq + softirq + steal;
