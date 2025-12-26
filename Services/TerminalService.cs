@@ -92,7 +92,8 @@ public class TerminalService : ITerminalService, IDisposable
         private readonly string _sessionId;
         private readonly ILogger _logger;
         private Process? _process;
-        private readonly StringBuilder _outputBuffer = new();
+        private const int MaxOutputBufferSize = 1024 * 1024; // 1 MB cap to prevent unbounded growth
+        private readonly StringBuilder _outputBuffer = new StringBuilder(0, MaxOutputBufferSize);
         private readonly object _outputLock = new();
         private bool _disposed = false;
 
@@ -223,8 +224,34 @@ public class TerminalService : ITerminalService, IDisposable
             {
                 if (_process != null && !_process.HasExited)
                 {
-                    _process.Kill(true);
-                    _process.WaitForExit(1000);
+                    // Attempt graceful shutdown first by sending an exit command to the shell
+                    try
+                    {
+                        if (_process.StandardInput.BaseStream.CanWrite)
+                        {
+                            _process.StandardInput.WriteLine("exit");
+                            _process.StandardInput.Flush();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log at debug level because we'll still fall back to a forced kill if needed
+                        _logger.LogDebug(ex, "Failed to send graceful shutdown command to terminal process for session {SessionId}", _sessionId);
+                    }
+
+                    // Give the process a brief chance to exit cleanly
+                    var exited = _process.WaitForExit(1000);
+                    
+                    // If the process is still running, forcefully terminate it and its child processes
+                    if (!exited && !_process.HasExited)
+                    {
+                        _process.Kill(true);
+                        exited = _process.WaitForExit(5000);
+                        if (!exited && !_process.HasExited)
+                        {
+                            _logger.LogWarning("Process for terminal session {SessionId} did not exit within the timeout and may still be running.", _sessionId);
+                        }
+                    }
                 }
                 _process?.Dispose();
             }

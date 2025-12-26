@@ -4,6 +4,8 @@ window.terminalInterop = (function () {
     let fitAddon = null;
     let dotNetRef = null;
     let resizeDotNetRef = null;
+    let resizeHandler = null;
+    let dataDisposable = null;
 
     return {
         initialize: function () {
@@ -63,16 +65,17 @@ window.terminalInterop = (function () {
                     }, 100);
                 }
 
-                // Handle window resize
-                window.addEventListener('resize', () => {
-                    if (fitAddon) {
+                // Handle window resize - store reference for cleanup
+                resizeHandler = () => {
+                    if (fitAddon && terminal) {
                         fitAddon.fit();
                         if (resizeDotNetRef) {
                             resizeDotNetRef.invokeMethodAsync('ResizeTerminal', 
                                 terminal.rows, terminal.cols);
                         }
                     }
-                });
+                };
+                window.addEventListener('resize', resizeHandler);
             }
         },
 
@@ -85,7 +88,12 @@ window.terminalInterop = (function () {
         onData: function (dotNetReference) {
             dotNetRef = dotNetReference;
             if (terminal) {
-                terminal.onData(data => {
+                // Dispose previous handler if exists
+                if (dataDisposable) {
+                    dataDisposable.dispose();
+                }
+                // Store disposable for cleanup
+                dataDisposable = terminal.onData(data => {
                     if (dotNetRef) {
                         dotNetRef.invokeMethodAsync('SendInput', data);
                     }
@@ -119,10 +127,24 @@ window.terminalInterop = (function () {
         },
 
         dispose: function () {
+            // Remove window resize listener
+            if (resizeHandler) {
+                window.removeEventListener('resize', resizeHandler);
+                resizeHandler = null;
+            }
+            
+            // Dispose data event handler
+            if (dataDisposable) {
+                dataDisposable.dispose();
+                dataDisposable = null;
+            }
+            
+            // Dispose terminal
             if (terminal) {
                 terminal.dispose();
                 terminal = null;
             }
+            
             fitAddon = null;
             dotNetRef = null;
             resizeDotNetRef = null;
