@@ -11,6 +11,18 @@ public class FileManagerService : IFileManagerService
     private readonly string _rootPath;
     private readonly ILogger<FileManagerService> _logger;
     private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
+    
+    // Static HashSet to avoid recreating on every drive check
+    private static readonly HashSet<string> ExcludedLinuxPaths = new()
+    {
+        "/proc", "/sys", "/dev", "/run",
+        "/sys/kernel/security", "/dev/shm", "/dev/pts",
+        "/run/lock", "/sys/fs/cgroup", "/sys/fs/pstore",
+        "/sys/fs/bpf", "/proc/sys/fs/binfmt_misc",
+        "/dev/hugepages", "/dev/mqueue", "/sys/kernel/debug",
+        "/sys/kernel/tracing", "/sys/fs/fuse/connections",
+        "/sys/kernel/config"
+    };
 
     public FileManagerService(ILogger<FileManagerService> logger, IDbContextFactory<QingFengDbContext> dbContextFactory)
     {
@@ -246,28 +258,19 @@ public class FileManagerService : IFileManagerService
         {
             var path = drive.RootDirectory.FullName;
             
-            // Exclude virtual filesystems and system mount points
-            var excludedPaths = new HashSet<string>
-            {
-                "/proc", "/sys", "/dev", "/run",
-                "/sys/kernel/security", "/dev/shm", "/dev/pts",
-                "/run/lock", "/sys/fs/cgroup", "/sys/fs/pstore",
-                "/sys/fs/bpf", "/proc/sys/fs/binfmt_misc",
-                "/dev/hugepages", "/dev/mqueue", "/sys/kernel/debug",
-                "/sys/kernel/tracing", "/sys/fs/fuse/connections",
-                "/sys/kernel/config"
-            };
-            
             // Exclude exact matches
-            if (excludedPaths.Contains(path))
+            if (ExcludedLinuxPaths.Contains(path))
             {
                 return false;
             }
             
-            // Exclude paths starting with excluded paths
-            if (excludedPaths.Any(excluded => path.StartsWith(excluded + "/")))
+            // Exclude paths that are subdirectories of excluded paths
+            foreach (var excluded in ExcludedLinuxPaths)
             {
-                return false;
+                if (path.StartsWith(excluded + "/"))
+                {
+                    return false;
+                }
             }
             
             // Only include Fixed, Removable, and Network drives
