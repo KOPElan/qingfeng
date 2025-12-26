@@ -1760,7 +1760,14 @@ public class DiskManagementService : IDiskManagementService
             if (completedTask == timeoutTask)
             {
                 Debug.WriteLine($"Timeout waiting for which to check command: {command}");
-                try { process.Kill(); } catch { }
+                try 
+                { 
+                    process.Kill(); 
+                } 
+                catch (Exception ex) 
+                { 
+                    Debug.WriteLine($"Failed to kill which process for command '{command}': {ex.Message}");
+                }
                 return false;
             }
             

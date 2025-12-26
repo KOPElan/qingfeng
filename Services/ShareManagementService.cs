@@ -987,7 +987,14 @@ public class ShareManagementService : IShareManagementService
             if (completedTask == timeoutTask)
             {
                 Debug.WriteLine($"Timeout waiting for systemctl to check service: {serviceUnitName}");
-                try { process.Kill(); } catch { }
+                try 
+                { 
+                    process.Kill(); 
+                } 
+                catch (Exception ex) 
+                { 
+                    Debug.WriteLine($"Failed to kill systemctl process for service '{serviceUnitName}': {ex.Message}");
+                }
                 return false;
             }
             
@@ -1062,7 +1069,14 @@ public class ShareManagementService : IShareManagementService
             if (completedTask == timeoutTask)
             {
                 Debug.WriteLine($"Timeout waiting for which to check command: {name}");
-                try { process.Kill(); } catch { }
+                try 
+                { 
+                    process.Kill(); 
+                } 
+                catch (Exception ex) 
+                { 
+                    Debug.WriteLine($"Failed to kill which process for command '{name}': {ex.Message}");
+                }
                 return false;
             }
             
