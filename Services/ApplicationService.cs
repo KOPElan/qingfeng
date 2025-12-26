@@ -168,6 +168,17 @@ public class ApplicationService : IApplicationService
             var defaultApps = new List<Application>
             {
                 new() { 
+                    AppId = "terminal", 
+                    Title = "终端", 
+                    Url = "/terminal", 
+                    Icon = "bi-terminal", 
+                    IconColor = "#00ff00",
+                    Description = "Web终端",
+                    Category = "SYSTEM",
+                    SortOrder = 0,
+                    IsOnline = true
+                },
+                new() { 
                     AppId = "jellyfin", 
                     Title = "Jellyfin", 
                     Url = "http://localhost:8096", 
