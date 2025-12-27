@@ -11,6 +11,10 @@ public class FileManagerService : IFileManagerService
     private readonly string _rootPath;
     private readonly ILogger<FileManagerService> _logger;
     private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
+    
+    // Buffer size for streaming file operations (80KB)
+    // This is optimal for most scenarios as it balances memory usage and I/O performance
+    private const int StreamBufferSize = 81920;
 
     public FileManagerService(ILogger<FileManagerService> logger, IDbContextFactory<QingFengDbContext> dbContextFactory)
     {
@@ -424,6 +428,16 @@ public class FileManagerService : IFileManagerService
         return Task.FromResult(results);
     }
 
+    /// <summary>
+    /// Recursively searches for files and directories matching the search pattern.
+    /// Uses EnumerateFiles/EnumerateDirectories for memory-efficient lazy evaluation.
+    /// </summary>
+    /// <param name="directory">The directory to search in</param>
+    /// <param name="searchPattern">The search pattern to match (e.g., "*.txt", "test*")</param>
+    /// <param name="results">The list to store matching file/directory information</param>
+    /// <param name="maxResults">Maximum number of results to return (early termination)</param>
+    /// <param name="maxDepth">Maximum depth to recurse (0 = current directory only)</param>
+    /// <param name="currentDepth">Current recursion depth (starts at 0)</param>
     private void SearchFilesRecursive(DirectoryInfo directory, string searchPattern, List<FileItemInfo> results, int maxResults, int maxDepth, int currentDepth)
     {
         // Stop if we've reached max results or max depth
@@ -457,7 +471,7 @@ public class FileManagerService : IFileManagerService
                 }
             }
 
-            // Search directories with the same pattern
+            // Search directories with the same pattern and add matching ones to results
             foreach (var dir in directory.EnumerateDirectories(searchPattern))
             {
                 if (results.Count >= maxResults)
@@ -480,7 +494,8 @@ public class FileManagerService : IFileManagerService
                 }
             }
 
-            // Recursively search subdirectories
+            // Recursively search ALL subdirectories (not just matching ones)
+            // This allows finding files that match the pattern even in non-matching directories
             if (currentDepth < maxDepth)
             {
                 foreach (var subDir in directory.EnumerateDirectories())
@@ -550,7 +565,7 @@ public class FileManagerService : IFileManagerService
 
         // Use streaming to avoid loading entire file into memory
         // This is more efficient for large files
-        using (var fileStreamOut = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true))
+        using (var fileStreamOut = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: StreamBufferSize, useAsync: true))
         {
             await fileStream.CopyToAsync(fileStreamOut);
         }

@@ -124,6 +124,9 @@ app.MapGet("/api/files/download", async (string path, IFileManagerService fileMa
 
 // Add file upload endpoint with streaming support
 // This accepts IFormFile directly and uses streaming to avoid loading entire file into memory
+// TODO: Add authentication/authorization when implementing user management
+// Note: Currently relies on FileManagerService.IsPathAllowed() for security
+// Antiforgery is disabled to support external API clients - consider enabling with proper auth
 app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService fileManager) =>
 {
     try
@@ -187,7 +190,7 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
         return Results.Problem($"An error occurred while uploading files: {ex.Message}");
     }
 })
-.DisableAntiforgery(); // Disable antiforgery for file upload API
+.DisableAntiforgery(); // NOTE: Disabled for API access - should implement authentication/authorization before production use
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
