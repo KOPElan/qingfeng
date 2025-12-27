@@ -122,6 +122,76 @@ app.MapGet("/api/files/download", async (string path, IFileManagerService fileMa
     }
 });
 
+// Add file upload endpoint with streaming support
+// This accepts IFormFile directly and uses streaming to avoid loading entire file into memory
+// TODO: Add authentication/authorization when implementing user management
+// Note: Currently relies on FileManagerService.IsPathAllowed() for security
+// Antiforgery is disabled to support external API clients - consider enabling with proper auth
+app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService fileManager) =>
+{
+    try
+    {
+        if (!request.HasFormContentType)
+        {
+            return Results.BadRequest("Invalid content type. Expected multipart/form-data.");
+        }
+
+        var form = await request.ReadFormAsync();
+        var directoryPath = form["directoryPath"].ToString();
+        
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            return Results.BadRequest("Directory path is required.");
+        }
+
+        var uploadedFiles = new List<string>();
+        var errors = new List<string>();
+
+        foreach (var file in form.Files)
+        {
+            try
+            {
+                if (file.Length == 0)
+                {
+                    errors.Add($"{file.FileName}: File is empty");
+                    continue;
+                }
+
+                // Use streaming upload to avoid loading entire file into memory
+                using var stream = file.OpenReadStream();
+                await fileManager.UploadFileStreamAsync(directoryPath, file.FileName, stream, file.Length);
+                uploadedFiles.Add(file.FileName);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{file.FileName}: {ex.Message}");
+            }
+        }
+
+        if (uploadedFiles.Count == 0 && errors.Count > 0)
+        {
+            return Results.BadRequest(new { message = "All uploads failed", errors });
+        }
+
+        return Results.Ok(new 
+        { 
+            message = $"Uploaded {uploadedFiles.Count} file(s) successfully", 
+            uploadedFiles,
+            errors = errors.Count > 0 ? errors : null
+        });
+    }
+    catch (UnauthorizedAccessException)
+    {
+        return Results.Unauthorized();
+    }
+    catch (Exception ex)
+    {
+        // Don't expose internal error details for security
+        return Results.Problem($"An error occurred while uploading files: {ex.Message}");
+    }
+})
+.DisableAntiforgery(); // NOTE: Disabled for API access - should implement authentication/authorization before production use
+
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

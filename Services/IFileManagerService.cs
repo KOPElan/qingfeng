@@ -19,8 +19,9 @@ public interface IFileManagerService
     Task RenameAsync(string oldPath, string newPath);
     Task CopyAsync(string sourcePath, string destinationPath);
     Task MoveAsync(string sourcePath, string destinationPath);
-    Task<List<FileItemInfo>> SearchFilesAsync(string path, string searchPattern);
+    Task<List<FileItemInfo>> SearchFilesAsync(string path, string searchPattern, int maxResults = 1000, int maxDepth = 10);
     Task UploadFileAsync(string directoryPath, string fileName, byte[] content);
+    Task UploadFileStreamAsync(string directoryPath, string fileName, Stream fileStream, long fileSize);
     Task<byte[]> DownloadFileAsync(string filePath);
     
     // Favorites management

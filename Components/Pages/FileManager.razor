@@ -1297,12 +1297,10 @@
             {
                 try
                 {
-                    using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 100); // 100MB max
-                    using var memoryStream = new MemoryStream();
-                    await stream.CopyToAsync(memoryStream);
-                    var buffer = memoryStream.ToArray();
-                    
-                    await FileManagerService.UploadFileAsync(currentPath, file.Name, buffer);
+                    // Use streaming upload to avoid loading entire file into memory
+                    // More efficient for large files
+                    using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 500); // 500MB max
+                    await FileManagerService.UploadFileStreamAsync(currentPath, file.Name, stream, file.Size);
                     uploadResults.AppendLine($"成功上传: {file.Name}");
                     successCount++;
                 }
