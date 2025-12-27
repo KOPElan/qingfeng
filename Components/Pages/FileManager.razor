@@ -1015,6 +1015,7 @@
 
 @code {
     private const int DIALOG_AUTO_CLOSE_DELAY_MS = 1000;
+    private const int DIALOG_RENDER_DELAY_MS = 100;
     
     private List<FileItemInfo>? files;
     private List<DriveItemInfo>? drives;
@@ -1358,7 +1359,7 @@
         uploadFailedFileCount = 0;
         
         // Wait for dialog to render
-        await Task.Delay(100);
+        await Task.Delay(DIALOG_RENDER_DELAY_MS);
         
         // Initialize Dropzone
         await InitializeDropzone();

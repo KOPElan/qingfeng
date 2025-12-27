@@ -2,6 +2,9 @@
 window.dropzoneInterop = {
     instances: {},
     
+    // Configuration constants
+    AUTO_REMOVE_DELAY_MS: 2000,
+    
     init: function(elementId, uploadUrl, currentPath, dotNetHelper) {
         // Clean up any existing instance
         if (this.instances[elementId]) {
@@ -57,10 +60,10 @@ window.dropzoneInterop = {
                 });
                 
                 this.on("complete", function(file) {
-                    // Auto-remove file from dropzone after 2 seconds
+                    // Auto-remove file from dropzone after delay
                     setTimeout(() => {
                         this.removeFile(file);
-                    }, 2000);
+                    }, window.dropzoneInterop.AUTO_REMOVE_DELAY_MS);
                 });
                 
                 this.on("queuecomplete", function() {
