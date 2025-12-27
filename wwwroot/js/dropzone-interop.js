@@ -1,6 +1,7 @@
 // Dropzone.js interop for Blazor
 window.dropzoneInterop = {
     instances: {},
+    pendingTimeouts: {},
     
     // Configuration constants
     AUTO_REMOVE_DELAY_MS: 2000,
@@ -8,14 +9,17 @@ window.dropzoneInterop = {
     init: function(elementId, uploadUrl, currentPath, dotNetHelper) {
         // Clean up any existing instance
         if (this.instances[elementId]) {
-            this.instances[elementId].destroy();
+            this.destroy(elementId);
         }
         
         const element = document.getElementById(elementId);
         if (!element) {
-            console.error('Element not found:', elementId);
-            return false;
+            console.error('Dropzone initialization failed: element not found:', elementId);
+            throw new Error('Dropzone initialization failed: element not found: ' + elementId);
         }
+        
+        // Store timeouts for this instance
+        this.pendingTimeouts[elementId] = [];
         
         // Initialize Dropzone
         const dropzone = new Dropzone(element, {
@@ -44,32 +48,58 @@ window.dropzoneInterop = {
                 
                 this.on("success", function(file, response) {
                     console.log('File uploaded successfully:', file.name);
-                    // Notify Blazor of success
+                    // Notify Blazor of success with null check
                     if (dotNetHelper) {
-                        dotNetHelper.invokeMethodAsync('OnFileUploaded', file.name, true, null);
+                        try {
+                            dotNetHelper.invokeMethodAsync('OnFileUploaded', file.name, true, null);
+                        } catch (e) {
+                            console.warn('Failed to invoke OnFileUploaded:', e);
+                        }
                     }
                 });
                 
                 this.on("error", function(file, errorMessage) {
                     console.error('Upload error:', errorMessage);
-                    // Notify Blazor of error
+                    // Notify Blazor of error with null check
                     if (dotNetHelper) {
-                        const message = typeof errorMessage === 'string' ? errorMessage : errorMessage.message || 'Upload failed';
-                        dotNetHelper.invokeMethodAsync('OnFileUploaded', file.name, false, message);
+                        try {
+                            const message = typeof errorMessage === 'string' ? errorMessage : errorMessage.message || 'Upload failed';
+                            dotNetHelper.invokeMethodAsync('OnFileUploaded', file.name, false, message);
+                        } catch (e) {
+                            console.warn('Failed to invoke OnFileUploaded:', e);
+                        }
                     }
                 });
                 
                 this.on("complete", function(file) {
                     // Auto-remove file from dropzone after delay
-                    setTimeout(() => {
-                        this.removeFile(file);
+                    const timeoutId = setTimeout(() => {
+                        // Check if the instance still exists before removing
+                        if (window.dropzoneInterop &&
+                            window.dropzoneInterop.instances &&
+                            window.dropzoneInterop.instances[elementId] === this) {
+                            try {
+                                this.removeFile(file);
+                            } catch (e) {
+                                console.warn('Failed to remove file:', e);
+                            }
+                        }
                     }, window.dropzoneInterop.AUTO_REMOVE_DELAY_MS);
+                    
+                    // Track the timeout so we can clear it on destroy
+                    if (window.dropzoneInterop.pendingTimeouts[elementId]) {
+                        window.dropzoneInterop.pendingTimeouts[elementId].push(timeoutId);
+                    }
                 });
                 
                 this.on("queuecomplete", function() {
-                    // Notify Blazor that all uploads are complete
+                    // Notify Blazor that all uploads are complete with null check
                     if (dotNetHelper) {
-                        dotNetHelper.invokeMethodAsync('OnAllUploadsComplete');
+                        try {
+                            dotNetHelper.invokeMethodAsync('OnAllUploadsComplete');
+                        } catch (e) {
+                            console.warn('Failed to invoke OnAllUploadsComplete:', e);
+                        }
                     }
                 });
             }
@@ -80,15 +110,30 @@ window.dropzoneInterop = {
     },
     
     destroy: function(elementId) {
+        // Clear all pending timeouts for this instance
+        if (this.pendingTimeouts[elementId]) {
+            this.pendingTimeouts[elementId].forEach(timeoutId => clearTimeout(timeoutId));
+            delete this.pendingTimeouts[elementId];
+        }
+        
+        // Destroy the Dropzone instance
         if (this.instances[elementId]) {
-            this.instances[elementId].destroy();
+            try {
+                this.instances[elementId].destroy();
+            } catch (e) {
+                console.warn('Error destroying Dropzone instance:', e);
+            }
             delete this.instances[elementId];
         }
     },
     
     removeAllFiles: function(elementId) {
         if (this.instances[elementId]) {
-            this.instances[elementId].removeAllFiles();
+            try {
+                this.instances[elementId].removeAllFiles();
+            } catch (e) {
+                console.warn('Error removing files:', e);
+            }
         }
     }
 };
