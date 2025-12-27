@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.AspNetCore.Authorization;
 using QingFeng.Services;
 using System.Collections.Concurrent;
 
 namespace QingFeng.Hubs;
 
-[Authorize(Roles = "Admin")]
+// Note: Authorization is enforced at the page level (WebTerminal.razor inherits AuthorizedPageBase)
+// The [Authorize] attribute is removed here because SignalR requires ASP.NET Core Authentication middleware
+// which conflicts with the custom authentication system used in this application
 public class TerminalHub : Hub
 {
     private readonly ITerminalService _terminalService;

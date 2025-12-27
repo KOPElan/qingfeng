@@ -160,13 +160,24 @@
     private bool _isConnected = false;
     private bool _isConnecting = false;
     private DotNetObjectReference<WebTerminal>? _dotNetRef;
+    private bool _terminalInitialized = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
-        if (firstRender && IsAuthorized)
+        
+        // Initialize terminal after authorization completes and terminal div is rendered
+        if (!_terminalInitialized && IsAuthorized)
         {
-            await JSRuntime.InvokeVoidAsync("terminalInterop.initialize");
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("terminalInterop.initialize");
+                _terminalInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error initializing terminal");
+            }
         }
     }
 

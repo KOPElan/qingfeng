@@ -59,8 +59,13 @@ window.terminalInterop = (function () {
             terminal = new Terminal(createTerminalConfig());
 
             // Load fit addon if available
-            if (typeof FitAddon !== 'undefined') {
-                fitAddon = new FitAddon();
+            // Handle both direct export and nested export patterns
+            const FitAddonConstructor = typeof FitAddon !== 'undefined' 
+                ? (FitAddon.FitAddon || FitAddon) 
+                : undefined;
+            
+            if (FitAddonConstructor) {
+                fitAddon = new FitAddonConstructor();
                 terminal.loadAddon(fitAddon);
             }
 
@@ -104,7 +109,10 @@ window.terminalInterop = (function () {
             }
 
             const termInstance = new Terminal(createTerminalConfig());
-            const fit = typeof FitAddon !== 'undefined' ? new FitAddon() : null;
+            const FitAddonConstructor = typeof FitAddon !== 'undefined' 
+                ? (FitAddon.FitAddon || FitAddon) 
+                : undefined;
+            const fit = FitAddonConstructor ? new FitAddonConstructor() : null;
             
             if (fit) {
                 termInstance.loadAddon(fit);
