@@ -398,7 +398,7 @@ public class FileManagerService : IFileManagerService
         return Task.CompletedTask;
     }
 
-    public Task<List<FileItemInfo>> SearchFilesAsync(string path, string searchPattern)
+    public Task<List<FileItemInfo>> SearchFilesAsync(string path, string searchPattern, int maxResults = 1000, int maxDepth = 10)
     {
         var results = new List<FileItemInfo>();
 
@@ -411,10 +411,33 @@ public class FileManagerService : IFileManagerService
             if (!directory.Exists)
                 return Task.FromResult(results);
 
-            // Search for files matching pattern
-            var files = directory.GetFiles(searchPattern, SearchOption.AllDirectories);
-            foreach (var file in files)
+            // Use EnumerateFiles for better memory efficiency - processes items one at a time
+            // instead of loading all into memory
+            SearchFilesRecursive(directory, searchPattern, results, maxResults, maxDepth, 0);
+        }
+        catch (Exception ex)
+        {
+            // Return empty list on error, but log for diagnostics
+            _logger.LogWarning(ex, "Error while searching files in '{Path}' with pattern '{SearchPattern}'", path, searchPattern);
+        }
+
+        return Task.FromResult(results);
+    }
+
+    private void SearchFilesRecursive(DirectoryInfo directory, string searchPattern, List<FileItemInfo> results, int maxResults, int maxDepth, int currentDepth)
+    {
+        // Stop if we've reached max results or max depth
+        if (results.Count >= maxResults || currentDepth > maxDepth)
+            return;
+
+        try
+        {
+            // Use EnumerateFiles for lazy evaluation - more memory efficient
+            foreach (var file in directory.EnumerateFiles(searchPattern))
             {
+                if (results.Count >= maxResults)
+                    return;
+
                 try
                 {
                     results.Add(new FileItemInfo
@@ -434,10 +457,12 @@ public class FileManagerService : IFileManagerService
                 }
             }
 
-            // Search for directories matching pattern
-            var directories = directory.GetDirectories(searchPattern, SearchOption.AllDirectories);
-            foreach (var dir in directories)
+            // Search directories with the same pattern
+            foreach (var dir in directory.EnumerateDirectories(searchPattern))
             {
+                if (results.Count >= maxResults)
+                    return;
+
                 try
                 {
                     results.Add(new FileItemInfo
@@ -454,14 +479,32 @@ public class FileManagerService : IFileManagerService
                     _logger.LogDebug(ex, "Failed to access directory '{DirectoryPath}' during search", dir.FullName);
                 }
             }
+
+            // Recursively search subdirectories
+            if (currentDepth < maxDepth)
+            {
+                foreach (var subDir in directory.EnumerateDirectories())
+                {
+                    if (results.Count >= maxResults)
+                        return;
+
+                    try
+                    {
+                        SearchFilesRecursive(subDir, searchPattern, results, maxResults, maxDepth, currentDepth + 1);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Skip directories we can't access, but log for diagnostics
+                        _logger.LogDebug(ex, "Failed to search directory '{DirectoryPath}'", subDir.FullName);
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
-            // Return empty list on error, but log for diagnostics
-            _logger.LogWarning(ex, "Error while searching files in '{Path}' with pattern '{SearchPattern}'", path, searchPattern);
+            // Log and continue with other directories
+            _logger.LogDebug(ex, "Failed to enumerate directory '{DirectoryPath}'", directory.FullName);
         }
-
-        return Task.FromResult(results);
     }
 
     public async Task UploadFileAsync(string directoryPath, string fileName, byte[] content)
@@ -484,6 +527,33 @@ public class FileManagerService : IFileManagerService
             throw new UnauthorizedAccessException("Access to this path is not allowed");
 
         await File.WriteAllBytesAsync(fullPath, content);
+    }
+
+    public async Task UploadFileStreamAsync(string directoryPath, string fileName, Stream fileStream, long fileSize)
+    {
+        if (!IsPathAllowed(directoryPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        // Sanitize filename to prevent path traversal attacks
+        var sanitizedFileName = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(sanitizedFileName) || 
+            sanitizedFileName.Contains("..") || 
+            sanitizedFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            throw new ArgumentException("Invalid file name", nameof(fileName));
+        }
+
+        var fullPath = Path.Combine(directoryPath, sanitizedFileName);
+        
+        if (!IsPathAllowed(fullPath))
+            throw new UnauthorizedAccessException("Access to this path is not allowed");
+
+        // Use streaming to avoid loading entire file into memory
+        // This is more efficient for large files
+        using (var fileStreamOut = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true))
+        {
+            await fileStream.CopyToAsync(fileStreamOut);
+        }
     }
 
     public async Task<byte[]> DownloadFileAsync(string filePath)
