@@ -11,6 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 // File upload configuration constants
 const long MAX_FILE_SIZE = 2147483648; // 2GB
 const string CHUNKS_TEMP_DIR = "qingfeng_chunks";
+const int CHUNK_MERGE_DELAY_MS = 100; // Delay before merging to ensure all chunks are written
 
 // Configure Kestrel for large file uploads
 builder.WebHost.ConfigureKestrel(options =>
@@ -175,6 +176,13 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             var totalFileSizeStr = form["dztotalfilesize"].ToString();
             var fileUuid = form["dzuuid"].ToString();
             
+            // Validate UUID to prevent path traversal attacks
+            if (string.IsNullOrWhiteSpace(fileUuid) || 
+                !System.Text.RegularExpressions.Regex.IsMatch(fileUuid, @"^[a-zA-Z0-9\-]+$"))
+            {
+                return Results.BadRequest("Invalid file UUID.");
+            }
+            
             if (!int.TryParse(chunkIndexStr, out int chunkIndex) ||
                 !int.TryParse(totalChunksStr, out int totalChunks) ||
                 !int.TryParse(chunkSizeStr, out int chunkSize) ||
@@ -207,7 +215,7 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             if (chunkIndex == totalChunks - 1)
             {
                 // Wait a moment to ensure all chunks are written to disk
-                await Task.Delay(100);
+                await Task.Delay(CHUNK_MERGE_DELAY_MS);
                 
                 // Verify all chunks are present before merging
                 for (int i = 0; i < totalChunks; i++)
@@ -258,7 +266,7 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                         chunked = true
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
                     // Clean up on error
                     try
@@ -272,9 +280,12 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                             File.Delete(tempMergePath);
                         }
                     }
-                    catch
+                    catch (Exception cleanupEx) when (cleanupEx is IOException || 
+                                                       cleanupEx is UnauthorizedAccessException ||
+                                                       cleanupEx is DirectoryNotFoundException)
                     {
-                        // Ignore cleanup errors
+                        // Log cleanup failures but don't mask the original error
+                        Console.WriteLine($"Warning: Failed to cleanup chunks: {cleanupEx.Message}");
                     }
                     
                     // Preserve original exception for better debugging
