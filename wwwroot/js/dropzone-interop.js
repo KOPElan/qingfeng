@@ -5,6 +5,7 @@ window.dropzoneInterop = {
     
     // Configuration constants
     AUTO_REMOVE_DELAY_MS: 2000,
+    CHUNK_SIZE: 5 * 1024 * 1024, // 5MB chunks
     
     init: function(elementId, uploadUrl, currentPath, dotNetHelper) {
         // Clean up any existing instance
@@ -21,15 +22,25 @@ window.dropzoneInterop = {
         // Store timeouts for this instance
         this.pendingTimeouts[elementId] = [];
         
-        // Initialize Dropzone
+        // Initialize Dropzone with chunking support
         const dropzone = new Dropzone(element, {
             url: uploadUrl,
             paramName: "file",
-            maxFilesize: 500, // MB
+            maxFilesize: 2048, // MB - increased to 2GB with chunking
             parallelUploads: 5,
             uploadMultiple: false,
             autoProcessQueue: true,
             addRemoveLinks: true,
+            
+            // Chunking configuration
+            chunking: true,
+            forceChunking: false, // Only use chunking for files > chunkSize
+            chunkSize: window.dropzoneInterop.CHUNK_SIZE,
+            parallelChunkUploads: false, // Upload chunks sequentially for reliability
+            retryChunks: true,
+            retryChunksLimit: 3,
+            
+            // Localized messages
             dictDefaultMessage: "拖拽文件到此处或点击上传",
             dictFallbackMessage: "您的浏览器不支持拖拽文件上传",
             dictFileTooBig: "文件太大 ({{filesize}}MB). 最大文件大小: {{maxFilesize}}MB.",
@@ -44,6 +55,16 @@ window.dropzoneInterop = {
                 this.on("sending", function(file, xhr, formData) {
                     // Add directory path to the request
                     formData.append("directoryPath", currentPath);
+                    
+                    // Add chunk information if this is a chunked upload
+                    if (file.upload.chunked) {
+                        const chunk = file.upload.chunks[file.upload.chunks.length - 1];
+                        formData.append("dzchunkindex", chunk.index);
+                        formData.append("dztotalchunkcount", file.upload.totalChunkCount);
+                        formData.append("dzchunksize", window.dropzoneInterop.CHUNK_SIZE);
+                        formData.append("dztotalfilesize", file.size);
+                        formData.append("dzuuid", file.upload.uuid);
+                    }
                 });
                 
                 this.on("success", function(file, response) {

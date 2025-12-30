@@ -4,8 +4,23 @@ using QingFeng.Data;
 using QingFeng.Hubs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.FluentUI.AspNetCore.Components;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Kestrel for large file uploads (up to 2GB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 2147483648; // 2GB
+});
+
+// Configure FormOptions for large multipart uploads
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 2147483648; // 2GB
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = int.MaxValue;
+});
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -123,7 +138,7 @@ app.MapGet("/api/files/download", async (string path, IFileManagerService fileMa
 });
 
 // Add file upload endpoint with streaming support
-// This accepts IFormFile directly and uses streaming to avoid loading entire file into memory
+// Supports both regular uploads and chunked uploads for large files
 // TODO: Add authentication/authorization when implementing user management
 // Note: Currently relies on FileManagerService.IsPathAllowed() for security
 // Antiforgery is disabled to support external API clients - consider enabling with proper auth
@@ -144,41 +159,156 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             return Results.BadRequest("Directory path is required.");
         }
 
-        var uploadedFiles = new List<string>();
-        var errors = new List<string>();
-
-        foreach (var file in form.Files)
+        // Check if this is a chunked upload
+        var isChunked = form.ContainsKey("dzuuid");
+        
+        if (isChunked)
         {
-            try
+            // Handle chunked upload
+            var chunkIndexStr = form["dzchunkindex"].ToString();
+            var totalChunksStr = form["dztotalchunkcount"].ToString();
+            var chunkSizeStr = form["dzchunksize"].ToString();
+            var totalFileSizeStr = form["dztotalfilesize"].ToString();
+            var fileUuid = form["dzuuid"].ToString();
+            
+            if (!int.TryParse(chunkIndexStr, out int chunkIndex) ||
+                !int.TryParse(totalChunksStr, out int totalChunks) ||
+                !int.TryParse(chunkSizeStr, out int chunkSize) ||
+                !long.TryParse(totalFileSizeStr, out long totalFileSize))
             {
-                if (file.Length == 0)
+                return Results.BadRequest("Invalid chunk parameters.");
+            }
+            
+            if (form.Files.Count == 0)
+            {
+                return Results.BadRequest("No file chunk uploaded.");
+            }
+            
+            var file = form.Files[0];
+            var fileName = file.FileName;
+            
+            // Create chunks directory if it doesn't exist
+            var chunksDir = Path.Combine(Path.GetTempPath(), "qingfeng_chunks", fileUuid);
+            Directory.CreateDirectory(chunksDir);
+            
+            // Save the chunk
+            var chunkPath = Path.Combine(chunksDir, $"chunk_{chunkIndex}");
+            using (var chunkStream = file.OpenReadStream())
+            using (var fileStream = new FileStream(chunkPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await chunkStream.CopyToAsync(fileStream);
+            }
+            
+            // Check if this is the last chunk
+            if (chunkIndex == totalChunks - 1)
+            {
+                // All chunks received, merge them
+                var finalPath = Path.Combine(directoryPath, fileName);
+                
+                // Create a temporary file for merging
+                var tempMergePath = Path.Combine(Path.GetTempPath(), $"{fileUuid}_merged");
+                
+                try
                 {
-                    errors.Add($"{file.FileName}: File is empty");
-                    continue;
+                    // Merge all chunks
+                    using (var finalStream = new FileStream(tempMergePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        for (int i = 0; i < totalChunks; i++)
+                        {
+                            var chunkFilePath = Path.Combine(chunksDir, $"chunk_{i}");
+                            if (!File.Exists(chunkFilePath))
+                            {
+                                throw new Exception($"Chunk {i} is missing.");
+                            }
+                            
+                            using (var chunkFileStream = new FileStream(chunkFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                            {
+                                await chunkFileStream.CopyToAsync(finalStream);
+                            }
+                        }
+                    }
+                    
+                    // Upload the merged file
+                    using (var mergedStream = new FileStream(tempMergePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    {
+                        await fileManager.UploadFileStreamAsync(directoryPath, fileName, mergedStream, totalFileSize);
+                    }
+                    
+                    // Clean up chunks and temp file
+                    Directory.Delete(chunksDir, true);
+                    File.Delete(tempMergePath);
+                    
+                    return Results.Ok(new 
+                    { 
+                        message = "File uploaded successfully",
+                        fileName,
+                        chunked = true
+                    });
                 }
-
-                // Use streaming upload to avoid loading entire file into memory
-                using var stream = file.OpenReadStream();
-                await fileManager.UploadFileStreamAsync(directoryPath, file.FileName, stream, file.Length);
-                uploadedFiles.Add(file.FileName);
+                catch (Exception ex)
+                {
+                    // Clean up on error
+                    if (Directory.Exists(chunksDir))
+                    {
+                        Directory.Delete(chunksDir, true);
+                    }
+                    if (File.Exists(tempMergePath))
+                    {
+                        File.Delete(tempMergePath);
+                    }
+                    throw new Exception($"Error merging chunks: {ex.Message}");
+                }
             }
-            catch (Exception ex)
+            else
             {
-                errors.Add($"{file.FileName}: {ex.Message}");
+                // Not the last chunk, return success
+                return Results.Ok(new 
+                { 
+                    message = $"Chunk {chunkIndex + 1}/{totalChunks} uploaded",
+                    chunkIndex,
+                    totalChunks
+                });
             }
         }
-
-        if (uploadedFiles.Count == 0 && errors.Count > 0)
+        else
         {
-            return Results.BadRequest(new { message = "All uploads failed", errors });
-        }
+            // Handle regular non-chunked upload
+            var uploadedFiles = new List<string>();
+            var errors = new List<string>();
 
-        return Results.Ok(new 
-        { 
-            message = $"Uploaded {uploadedFiles.Count} file(s) successfully", 
-            uploadedFiles,
-            errors = errors.Count > 0 ? errors : null
-        });
+            foreach (var file in form.Files)
+            {
+                try
+                {
+                    if (file.Length == 0)
+                    {
+                        errors.Add($"{file.FileName}: File is empty");
+                        continue;
+                    }
+
+                    // Use streaming upload to avoid loading entire file into memory
+                    using var stream = file.OpenReadStream();
+                    await fileManager.UploadFileStreamAsync(directoryPath, file.FileName, stream, file.Length);
+                    uploadedFiles.Add(file.FileName);
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"{file.FileName}: {ex.Message}");
+                }
+            }
+
+            if (uploadedFiles.Count == 0 && errors.Count > 0)
+            {
+                return Results.BadRequest(new { message = "All uploads failed", errors });
+            }
+
+            return Results.Ok(new 
+            { 
+                message = $"Uploaded {uploadedFiles.Count} file(s) successfully", 
+                uploadedFiles,
+                errors = errors.Count > 0 ? errors : null
+            });
+        }
     }
     catch (UnauthorizedAccessException)
     {
