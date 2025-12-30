@@ -15,10 +15,10 @@ const string CHUNKS_TEMP_DIR = "qingfeng_chunks";
 const int CHUNK_VALIDATION_RETRIES = 3; // Number of retries for chunk validation
 const int CHUNK_VALIDATION_RETRY_DELAY_MS = 50; // Delay between retries
 
-// Compiled regex for UUID v4 validation (xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx format)
-// Matches Dropzone's UUID format for security
-// y = [89ab] per UUID v4 spec
-var uuidValidationRegex = new Regex(@"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", 
+// Compiled regex for UUID validation
+// Accepts UUID v4 format and similar patterns from Dropzone.js
+// Pattern: 8-4-4-4-12 hex digits with hyphens
+var uuidValidationRegex = new Regex(@"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", 
     RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
 // Helper method to check if an exception is a cleanup-related exception
@@ -189,8 +189,10 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             var fileUuid = form["dzuuid"].ToString();
             
             // Validate UUID to prevent path traversal attacks
+            // Dropzone generates UUID v4: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx where y is [89ab]
             if (string.IsNullOrWhiteSpace(fileUuid) || !uuidValidationRegex.IsMatch(fileUuid))
             {
+                logger.LogError("Invalid UUID received: '{FileUuid}'. Expected UUID v4 format.", fileUuid);
                 return Results.BadRequest("Invalid file UUID.");
             }
             
