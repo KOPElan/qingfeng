@@ -5,6 +5,7 @@ using QingFeng.Hubs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.AspNetCore.Http.Features;
+using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,13 @@ var builder = WebApplication.CreateBuilder(args);
 const long MAX_FILE_SIZE = 2147483648; // 2GB
 const string CHUNKS_TEMP_DIR = "qingfeng_chunks";
 const int CHUNK_MERGE_DELAY_MS = 100; // Delay before merging to ensure all chunks are written
+
+// Compiled regex for UUID validation (better performance)
+var uuidValidationRegex = new Regex(@"^[a-zA-Z0-9\-]+$", RegexOptions.Compiled);
+
+// Helper method to check if an exception is a cleanup-related exception
+static bool IsCleanupException(Exception ex) => 
+    ex is IOException || ex is UnauthorizedAccessException || ex is DirectoryNotFoundException;
 
 // Configure Kestrel for large file uploads
 builder.WebHost.ConfigureKestrel(options =>
@@ -147,7 +155,7 @@ app.MapGet("/api/files/download", async (string path, IFileManagerService fileMa
 // TODO: Add authentication/authorization when implementing user management
 // Note: Currently relies on FileManagerService.IsPathAllowed() for security
 // Antiforgery is disabled to support external API clients - consider enabling with proper auth
-app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService fileManager) =>
+app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService fileManager, ILogger<Program> logger) =>
 {
     try
     {
@@ -177,8 +185,7 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             var fileUuid = form["dzuuid"].ToString();
             
             // Validate UUID to prevent path traversal attacks
-            if (string.IsNullOrWhiteSpace(fileUuid) || 
-                !System.Text.RegularExpressions.Regex.IsMatch(fileUuid, @"^[a-zA-Z0-9\-]+$"))
+            if (string.IsNullOrWhiteSpace(fileUuid) || !uuidValidationRegex.IsMatch(fileUuid))
             {
                 return Results.BadRequest("Invalid file UUID.");
             }
@@ -280,12 +287,10 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                             File.Delete(tempMergePath);
                         }
                     }
-                    catch (Exception cleanupEx) when (cleanupEx is IOException || 
-                                                       cleanupEx is UnauthorizedAccessException ||
-                                                       cleanupEx is DirectoryNotFoundException)
+                    catch (Exception cleanupEx) when (IsCleanupException(cleanupEx))
                     {
                         // Log cleanup failures but don't mask the original error
-                        Console.WriteLine($"Warning: Failed to cleanup chunks: {cleanupEx.Message}");
+                        logger.LogWarning(cleanupEx, "Failed to cleanup chunks for file {FileUuid}", fileUuid);
                     }
                     
                     // Preserve original exception for better debugging
