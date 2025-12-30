@@ -222,13 +222,23 @@ public class DockItemService : IDockItemService
                     IsSystemItem = true
                 },
                 new() {
+                    ItemId = "anydrop",
+                    Title = "云笈",
+                    Icon = "cloud",
+                    Url = "/anydrop",
+                    IconBackground = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    IconColor = "white",
+                    SortOrder = 5,
+                    IsSystemItem = true
+                },
+                new() {
                     ItemId = "share-management",
                     Title = "共享管理",
                     Icon = "folder_shared",
                     Url = "/share-management",
                     IconBackground = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                     IconColor = "white",
-                    SortOrder = 5,
+                    SortOrder = 6,
                     IsSystemItem = true
                 },
                 new() {
@@ -238,7 +248,7 @@ public class DockItemService : IDockItemService
                     Url = "/settings",
                     IconBackground = "var(--dock-gradient-settings)",
                     IconColor = "rgb(55 65 81)",
-                    SortOrder = 6,
+                    SortOrder = 7,
                     IsSystemItem = true
                 }
             };
