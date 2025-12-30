@@ -376,6 +376,7 @@
 
             <div class="text-input">
                 <FluentTextArea @bind-Value="@messageContent" 
+                              @bind-Value:event="oninput"
                               Placeholder="输入消息..." 
                               Rows="1"
                               Resize="TextAreaResize.Vertical"
