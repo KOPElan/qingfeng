@@ -182,11 +182,11 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
         if (isChunked)
         {
             // Handle chunked upload
-            var chunkIndexStr = form["dzchunkindex"].ToString();
-            var totalChunksStr = form["dztotalchunkcount"].ToString();
-            var chunkSizeStr = form["dzchunksize"].ToString();
-            var totalFileSizeStr = form["dztotalfilesize"].ToString();
-            // Get first UUID value (form may contain duplicates)
+            // Get first value from form (Dropzone may send duplicates in some cases)
+            var chunkIndexStr = form["dzchunkindex"].FirstOrDefault()?.ToString() ?? string.Empty;
+            var totalChunksStr = form["dztotalchunkcount"].FirstOrDefault()?.ToString() ?? string.Empty;
+            var chunkSizeStr = form["dzchunksize"].FirstOrDefault()?.ToString() ?? string.Empty;
+            var totalFileSizeStr = form["dztotalfilesize"].FirstOrDefault()?.ToString() ?? string.Empty;
             var fileUuid = form["dzuuid"].FirstOrDefault()?.ToString() ?? string.Empty;
             
             // Validate UUID to prevent path traversal attacks
@@ -197,11 +197,17 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                 return Results.BadRequest("Invalid file UUID.");
             }
             
+            // Log chunk parameters for debugging
+            logger.LogDebug("Chunk upload - UUID: {Uuid}, Index: {Index}, Total: {Total}, Size: {Size}, FileSize: {FileSize}",
+                fileUuid, chunkIndexStr, totalChunksStr, chunkSizeStr, totalFileSizeStr);
+            
             if (!int.TryParse(chunkIndexStr, out int chunkIndex) ||
                 !int.TryParse(totalChunksStr, out int totalChunks) ||
                 !int.TryParse(chunkSizeStr, out int chunkSize) ||
                 !long.TryParse(totalFileSizeStr, out long totalFileSize))
             {
+                logger.LogError("Failed to parse chunk parameters - Index: '{Index}', Total: '{Total}', Size: '{Size}', FileSize: '{FileSize}'",
+                    chunkIndexStr, totalChunksStr, chunkSizeStr, totalFileSizeStr);
                 return Results.BadRequest("Invalid chunk parameters.");
             }
             
