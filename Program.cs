@@ -8,16 +8,20 @@ using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Kestrel for large file uploads (up to 2GB)
+// File upload configuration constants
+const long MAX_FILE_SIZE = 2147483648; // 2GB
+const string CHUNKS_TEMP_DIR = "qingfeng_chunks";
+
+// Configure Kestrel for large file uploads
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 2147483648; // 2GB
+    options.Limits.MaxRequestBodySize = MAX_FILE_SIZE;
 });
 
 // Configure FormOptions for large multipart uploads
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 2147483648; // 2GB
+    options.MultipartBodyLengthLimit = MAX_FILE_SIZE;
     options.ValueLengthLimit = int.MaxValue;
     options.MultipartHeadersLengthLimit = int.MaxValue;
 });
@@ -188,7 +192,7 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             var fileName = file.FileName;
             
             // Create chunks directory if it doesn't exist
-            var chunksDir = Path.Combine(Path.GetTempPath(), "qingfeng_chunks", fileUuid);
+            var chunksDir = Path.Combine(Path.GetTempPath(), CHUNKS_TEMP_DIR, fileUuid);
             Directory.CreateDirectory(chunksDir);
             
             // Save the chunk
@@ -202,6 +206,19 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             // Check if this is the last chunk
             if (chunkIndex == totalChunks - 1)
             {
+                // Wait a moment to ensure all chunks are written to disk
+                await Task.Delay(100);
+                
+                // Verify all chunks are present before merging
+                for (int i = 0; i < totalChunks; i++)
+                {
+                    var chunkFilePath = Path.Combine(chunksDir, $"chunk_{i}");
+                    if (!File.Exists(chunkFilePath))
+                    {
+                        return Results.BadRequest($"Chunk {i} is missing. Please retry the upload.");
+                    }
+                }
+                
                 // All chunks received, merge them
                 var finalPath = Path.Combine(directoryPath, fileName);
                 
@@ -216,10 +233,6 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                         for (int i = 0; i < totalChunks; i++)
                         {
                             var chunkFilePath = Path.Combine(chunksDir, $"chunk_{i}");
-                            if (!File.Exists(chunkFilePath))
-                            {
-                                throw new Exception($"Chunk {i} is missing.");
-                            }
                             
                             using (var chunkFileStream = new FileStream(chunkFilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                             {
@@ -245,18 +258,27 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                         chunked = true
                     });
                 }
-                catch (Exception ex)
+                catch
                 {
                     // Clean up on error
-                    if (Directory.Exists(chunksDir))
+                    try
                     {
-                        Directory.Delete(chunksDir, true);
+                        if (Directory.Exists(chunksDir))
+                        {
+                            Directory.Delete(chunksDir, true);
+                        }
+                        if (File.Exists(tempMergePath))
+                        {
+                            File.Delete(tempMergePath);
+                        }
                     }
-                    if (File.Exists(tempMergePath))
+                    catch
                     {
-                        File.Delete(tempMergePath);
+                        // Ignore cleanup errors
                     }
-                    throw new Exception($"Error merging chunks: {ex.Message}");
+                    
+                    // Preserve original exception for better debugging
+                    throw;
                 }
             }
             else
