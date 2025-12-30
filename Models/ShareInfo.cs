@@ -92,3 +92,40 @@ public class ShareRequest
     public string AllowedHosts { get; set; } = "*";
     public string NfsOptions { get; set; } = "rw,sync,no_subtree_check";
 }
+
+/// <summary>
+/// Represents a Samba user
+/// </summary>
+public class SambaUser
+{
+    /// <summary>
+    /// Unix username
+    /// </summary>
+    public string Username { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Unix user ID
+    /// </summary>
+    public int Uid { get; set; }
+    
+    /// <summary>
+    /// Whether the user has a Samba password set
+    /// </summary>
+    public bool HasSambaPassword { get; set; }
+}
+
+/// <summary>
+/// Request model for creating/updating a Samba user
+/// </summary>
+public class SambaUserRequest
+{
+    /// <summary>
+    /// Unix username (must exist on the system)
+    /// </summary>
+    public string Username { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Samba password for the user
+    /// </summary>
+    public string Password { get; set; } = string.Empty;
+}

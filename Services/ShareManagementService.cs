@@ -1098,4 +1098,297 @@ public class ShareManagementService : IShareManagementService
             return false;
         }
     }
+    
+    // Samba User Management Methods
+    public async Task<List<SambaUser>> GetSambaUsersAsync()
+    {
+        var users = new List<SambaUser>();
+        
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return users;
+        }
+        
+        try
+        {
+            // Use pdbedit to list Samba users
+            var result = await ExecuteCommandAsync("pdbedit", "-L -v");
+            
+            if (result.exitCode != 0)
+            {
+                Debug.WriteLine($"Failed to list Samba users: {result.error}");
+                return users;
+            }
+            
+            // Parse pdbedit output
+            // Format: Unix username:UID:...
+            var lines = result.output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            SambaUser? currentUser = null;
+            
+            foreach (var line in lines)
+            {
+                var trimmedLine = line.Trim();
+                
+                if (trimmedLine.StartsWith("Unix username:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Save previous user if exists
+                    if (currentUser != null)
+                    {
+                        users.Add(currentUser);
+                    }
+                    
+                    // Extract username
+                    var username = trimmedLine.Substring("Unix username:".Length).Trim();
+                    currentUser = new SambaUser 
+                    { 
+                        Username = username,
+                        HasSambaPassword = true // If listed by pdbedit, they have a Samba password
+                    };
+                }
+                else if (currentUser != null && trimmedLine.StartsWith("User SID:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // We have enough info, could extract more if needed
+                }
+                else if (currentUser != null && trimmedLine.StartsWith("Primary Group SID:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Additional info, skip for now
+                }
+            }
+            
+            // Add the last user
+            if (currentUser != null)
+            {
+                users.Add(currentUser);
+            }
+            
+            // Get UIDs from /etc/passwd
+            if (File.Exists("/etc/passwd"))
+            {
+                var passwdLines = await File.ReadAllLinesAsync("/etc/passwd");
+                foreach (var user in users)
+                {
+                    var passwdEntry = passwdLines.FirstOrDefault(l => 
+                        l.StartsWith(user.Username + ":", StringComparison.Ordinal));
+                    
+                    if (passwdEntry != null)
+                    {
+                        var parts = passwdEntry.Split(':');
+                        if (parts.Length >= 3 && int.TryParse(parts[2], out int uid))
+                        {
+                            user.Uid = uid;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error getting Samba users: {ex.Message}");
+        }
+        
+        return users;
+    }
+    
+    public async Task<string> AddSambaUserAsync(SambaUserRequest request)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Samba user management is only supported on Linux";
+        }
+        
+        // Validate input
+        if (string.IsNullOrWhiteSpace(request.Username))
+        {
+            return "Username is required";
+        }
+        
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            return "Password is required";
+        }
+        
+        // Validate username format
+        if (!SafeNameRegex.IsMatch(request.Username))
+        {
+            return "Invalid username format. Use only letters, numbers, underscore, dot, and dash.";
+        }
+        
+        try
+        {
+            // Check if Unix user exists
+            var passwdCheck = await ExecuteCommandAsync("id", request.Username);
+            if (passwdCheck.exitCode != 0)
+            {
+                return $"Unix user '{request.Username}' does not exist. Please create the Unix user first.";
+            }
+            
+            // Check if user already has a Samba password
+            var existingUsers = await GetSambaUsersAsync();
+            if (existingUsers.Any(u => u.Username.Equals(request.Username, StringComparison.OrdinalIgnoreCase)))
+            {
+                return $"Samba user '{request.Username}' already exists. Use update to change the password.";
+            }
+            
+            // Add Samba user with password using smbpasswd
+            // Use -a to add user and -s for non-interactive mode
+            var result = await ExecuteCommandWithInputAsync("smbpasswd", $"-a -s {request.Username}", 
+                $"{request.Password}\n{request.Password}\n");
+            
+            if (result.exitCode == 0)
+            {
+                return $"Successfully added Samba user '{request.Username}'";
+            }
+            else
+            {
+                return $"Failed to add Samba user: {result.error}";
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return "Permission denied. The application needs root privileges to manage Samba users.";
+        }
+        catch (Exception ex)
+        {
+            return $"Error adding Samba user: {ex.Message}";
+        }
+    }
+    
+    public async Task<string> UpdateSambaUserPasswordAsync(string username, string password)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Samba user management is only supported on Linux";
+        }
+        
+        // Validate input
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return "Username is required";
+        }
+        
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            return "Password is required";
+        }
+        
+        // Validate username format
+        if (!SafeNameRegex.IsMatch(username))
+        {
+            return "Invalid username format";
+        }
+        
+        try
+        {
+            // Check if Samba user exists
+            var existingUsers = await GetSambaUsersAsync();
+            if (!existingUsers.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+            {
+                return $"Samba user '{username}' does not exist";
+            }
+            
+            // Update password using smbpasswd -s (non-interactive)
+            var result = await ExecuteCommandWithInputAsync("smbpasswd", $"-s {username}", 
+                $"{password}\n{password}\n");
+            
+            if (result.exitCode == 0)
+            {
+                return $"Successfully updated password for Samba user '{username}'";
+            }
+            else
+            {
+                return $"Failed to update password: {result.error}";
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return "Permission denied. The application needs root privileges to manage Samba users.";
+        }
+        catch (Exception ex)
+        {
+            return $"Error updating Samba user password: {ex.Message}";
+        }
+    }
+    
+    public async Task<string> RemoveSambaUserAsync(string username)
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return "Samba user management is only supported on Linux";
+        }
+        
+        // Validate input
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return "Username is required";
+        }
+        
+        // Validate username format
+        if (!SafeNameRegex.IsMatch(username))
+        {
+            return "Invalid username format";
+        }
+        
+        try
+        {
+            // Check if Samba user exists
+            var existingUsers = await GetSambaUsersAsync();
+            if (!existingUsers.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+            {
+                return $"Samba user '{username}' does not exist";
+            }
+            
+            // Remove Samba user using smbpasswd -x
+            var result = await ExecuteCommandAsync("smbpasswd", $"-x {username}");
+            
+            if (result.exitCode == 0)
+            {
+                return $"Successfully removed Samba user '{username}'";
+            }
+            else
+            {
+                return $"Failed to remove Samba user: {result.error}";
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return "Permission denied. The application needs root privileges to manage Samba users.";
+        }
+        catch (Exception ex)
+        {
+            return $"Error removing Samba user: {ex.Message}";
+        }
+    }
+    
+    private static async Task<(int exitCode, string output, string error)> ExecuteCommandWithInputAsync(
+        string command, string arguments, string input)
+    {
+        var processInfo = new ProcessStartInfo
+        {
+            FileName = command,
+            Arguments = arguments,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = "/tmp"
+        };
+        
+        using var process = Process.Start(processInfo);
+        if (process == null)
+        {
+            return (-1, string.Empty, "Failed to start process");
+        }
+        
+        // Write input to stdin
+        await process.StandardInput.WriteAsync(input);
+        await process.StandardInput.FlushAsync();
+        process.StandardInput.Close();
+        
+        await process.WaitForExitAsync();
+        var output = await process.StandardOutput.ReadToEndAsync();
+        var error = await process.StandardError.ReadToEndAsync();
+        
+        return (process.ExitCode, output, error);
+    }
 }
