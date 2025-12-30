@@ -985,10 +985,10 @@
         try
         {
             var result = await ShareManagementService.AddSambaUserAsync(sambaUserRequest);
-            sambaUserDialogMessage = result;
-            sambaUserDialogError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
+            sambaUserDialogMessage = result.Message;
+            sambaUserDialogError = !result.Success;
             
-            if (!sambaUserDialogError)
+            if (result.Success)
             {
                 await Task.Delay(1500);
                 showAddSambaUserDialog = false;
@@ -1028,10 +1028,10 @@
         try
         {
             var result = await ShareManagementService.UpdateSambaUserPasswordAsync(selectedSambaUsername, newSambaPassword);
-            sambaPasswordDialogMessage = result;
-            sambaPasswordDialogError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
+            sambaPasswordDialogMessage = result.Message;
+            sambaPasswordDialogError = !result.Success;
             
-            if (!sambaPasswordDialogError)
+            if (result.Success)
             {
                 await Task.Delay(1500);
                 showChangeSambaPasswordDialog = false;
@@ -1071,10 +1071,10 @@
         try
         {
             var result = await ShareManagementService.RemoveSambaUserAsync(sambaUserToRemove);
-            message = result;
-            isError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
+            message = result.Message;
+            isError = !result.Success;
             
-            if (!isError)
+            if (result.Success)
             {
                 showRemoveSambaUserDialog = false;
                 await RefreshSambaUsers();

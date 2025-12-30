@@ -129,3 +129,19 @@ public class SambaUserRequest
     /// </summary>
     public string Password { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Result of an operation
+/// </summary>
+public class OperationResult
+{
+    /// <summary>
+    /// Whether the operation was successful
+    /// </summary>
+    public bool Success { get; set; }
+    
+    /// <summary>
+    /// Message describing the result
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
+}

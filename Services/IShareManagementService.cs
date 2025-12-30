@@ -85,15 +85,15 @@ public interface IShareManagementService
     /// <summary>
     /// Add a Samba user with password
     /// </summary>
-    Task<string> AddSambaUserAsync(SambaUserRequest request);
+    Task<OperationResult> AddSambaUserAsync(SambaUserRequest request);
     
     /// <summary>
     /// Update a Samba user's password
     /// </summary>
-    Task<string> UpdateSambaUserPasswordAsync(string username, string password);
+    Task<OperationResult> UpdateSambaUserPasswordAsync(string username, string password);
     
     /// <summary>
     /// Remove a Samba user
     /// </summary>
-    Task<string> RemoveSambaUserAsync(string username);
+    Task<OperationResult> RemoveSambaUserAsync(string username);
 }

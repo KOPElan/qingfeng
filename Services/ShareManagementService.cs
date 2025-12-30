@@ -1121,7 +1121,7 @@ public class ShareManagementService : IShareManagementService
             }
             
             // Parse pdbedit output
-            // Format: Unix username:UID:...
+            // Format: Multi-line records with "Unix username: <name>" prefix
             var lines = result.output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             SambaUser? currentUser = null;
             
@@ -1144,14 +1144,6 @@ public class ShareManagementService : IShareManagementService
                         Username = username,
                         HasSambaPassword = true // If listed by pdbedit, they have a Samba password
                     };
-                }
-                else if (currentUser != null && trimmedLine.StartsWith("User SID:", StringComparison.OrdinalIgnoreCase))
-                {
-                    // We have enough info, could extract more if needed
-                }
-                else if (currentUser != null && trimmedLine.StartsWith("Primary Group SID:", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Additional info, skip for now
                 }
             }
             
@@ -1189,28 +1181,28 @@ public class ShareManagementService : IShareManagementService
         return users;
     }
     
-    public async Task<string> AddSambaUserAsync(SambaUserRequest request)
+    public async Task<OperationResult> AddSambaUserAsync(SambaUserRequest request)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Samba user management is only supported on Linux";
+            return new OperationResult { Success = false, Message = "Samba user management is only supported on Linux" };
         }
         
         // Validate input
         if (string.IsNullOrWhiteSpace(request.Username))
         {
-            return "Username is required";
+            return new OperationResult { Success = false, Message = "Username is required" };
         }
         
         if (string.IsNullOrWhiteSpace(request.Password))
         {
-            return "Password is required";
+            return new OperationResult { Success = false, Message = "Password is required" };
         }
         
         // Validate username format
         if (!SafeNameRegex.IsMatch(request.Username))
         {
-            return "Invalid username format. Use only letters, numbers, underscore, dot, and dash.";
+            return new OperationResult { Success = false, Message = "Invalid username format. Use only letters, numbers, underscore, dot, and dash." };
         }
         
         try
@@ -1219,14 +1211,14 @@ public class ShareManagementService : IShareManagementService
             var passwdCheck = await ExecuteCommandAsync("id", request.Username);
             if (passwdCheck.exitCode != 0)
             {
-                return $"Unix user '{request.Username}' does not exist. Please create the Unix user first.";
+                return new OperationResult { Success = false, Message = $"Unix user '{request.Username}' does not exist. Please create the Unix user first." };
             }
             
             // Check if user already has a Samba password
             var existingUsers = await GetSambaUsersAsync();
             if (existingUsers.Any(u => u.Username.Equals(request.Username, StringComparison.OrdinalIgnoreCase)))
             {
-                return $"Samba user '{request.Username}' already exists. Use update to change the password.";
+                return new OperationResult { Success = false, Message = $"Samba user '{request.Username}' already exists. Use update to change the password." };
             }
             
             // Add Samba user with password using smbpasswd
@@ -1236,45 +1228,45 @@ public class ShareManagementService : IShareManagementService
             
             if (result.exitCode == 0)
             {
-                return $"Successfully added Samba user '{request.Username}'";
+                return new OperationResult { Success = true, Message = $"Successfully added Samba user '{request.Username}'" };
             }
             else
             {
-                return $"Failed to add Samba user: {result.error}";
+                return new OperationResult { Success = false, Message = $"Failed to add Samba user: {result.error}" };
             }
         }
         catch (UnauthorizedAccessException)
         {
-            return "Permission denied. The application needs root privileges to manage Samba users.";
+            return new OperationResult { Success = false, Message = "Permission denied. The application needs root privileges to manage Samba users." };
         }
         catch (Exception ex)
         {
-            return $"Error adding Samba user: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error adding Samba user: {ex.Message}" };
         }
     }
     
-    public async Task<string> UpdateSambaUserPasswordAsync(string username, string password)
+    public async Task<OperationResult> UpdateSambaUserPasswordAsync(string username, string password)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Samba user management is only supported on Linux";
+            return new OperationResult { Success = false, Message = "Samba user management is only supported on Linux" };
         }
         
         // Validate input
         if (string.IsNullOrWhiteSpace(username))
         {
-            return "Username is required";
+            return new OperationResult { Success = false, Message = "Username is required" };
         }
         
         if (string.IsNullOrWhiteSpace(password))
         {
-            return "Password is required";
+            return new OperationResult { Success = false, Message = "Password is required" };
         }
         
         // Validate username format
         if (!SafeNameRegex.IsMatch(username))
         {
-            return "Invalid username format";
+            return new OperationResult { Success = false, Message = "Invalid username format" };
         }
         
         try
@@ -1283,7 +1275,7 @@ public class ShareManagementService : IShareManagementService
             var existingUsers = await GetSambaUsersAsync();
             if (!existingUsers.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
             {
-                return $"Samba user '{username}' does not exist";
+                return new OperationResult { Success = false, Message = $"Samba user '{username}' does not exist" };
             }
             
             // Update password using smbpasswd -s (non-interactive)
@@ -1292,40 +1284,40 @@ public class ShareManagementService : IShareManagementService
             
             if (result.exitCode == 0)
             {
-                return $"Successfully updated password for Samba user '{username}'";
+                return new OperationResult { Success = true, Message = $"Successfully updated password for Samba user '{username}'" };
             }
             else
             {
-                return $"Failed to update password: {result.error}";
+                return new OperationResult { Success = false, Message = $"Failed to update password: {result.error}" };
             }
         }
         catch (UnauthorizedAccessException)
         {
-            return "Permission denied. The application needs root privileges to manage Samba users.";
+            return new OperationResult { Success = false, Message = "Permission denied. The application needs root privileges to manage Samba users." };
         }
         catch (Exception ex)
         {
-            return $"Error updating Samba user password: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error updating Samba user password: {ex.Message}" };
         }
     }
     
-    public async Task<string> RemoveSambaUserAsync(string username)
+    public async Task<OperationResult> RemoveSambaUserAsync(string username)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Samba user management is only supported on Linux";
+            return new OperationResult { Success = false, Message = "Samba user management is only supported on Linux" };
         }
         
         // Validate input
         if (string.IsNullOrWhiteSpace(username))
         {
-            return "Username is required";
+            return new OperationResult { Success = false, Message = "Username is required" };
         }
         
         // Validate username format
         if (!SafeNameRegex.IsMatch(username))
         {
-            return "Invalid username format";
+            return new OperationResult { Success = false, Message = "Invalid username format" };
         }
         
         try
@@ -1334,7 +1326,7 @@ public class ShareManagementService : IShareManagementService
             var existingUsers = await GetSambaUsersAsync();
             if (!existingUsers.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
             {
-                return $"Samba user '{username}' does not exist";
+                return new OperationResult { Success = false, Message = $"Samba user '{username}' does not exist" };
             }
             
             // Remove Samba user using smbpasswd -x
@@ -1342,20 +1334,20 @@ public class ShareManagementService : IShareManagementService
             
             if (result.exitCode == 0)
             {
-                return $"Successfully removed Samba user '{username}'";
+                return new OperationResult { Success = true, Message = $"Successfully removed Samba user '{username}'" };
             }
             else
             {
-                return $"Failed to remove Samba user: {result.error}";
+                return new OperationResult { Success = false, Message = $"Failed to remove Samba user: {result.error}" };
             }
         }
         catch (UnauthorizedAccessException)
         {
-            return "Permission denied. The application needs root privileges to manage Samba users.";
+            return new OperationResult { Success = false, Message = "Permission denied. The application needs root privileges to manage Samba users." };
         }
         catch (Exception ex)
         {
-            return $"Error removing Samba user: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error removing Samba user: {ex.Message}" };
         }
     }
     
