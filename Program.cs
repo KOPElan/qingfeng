@@ -14,8 +14,10 @@ const long MAX_FILE_SIZE = 2147483648; // 2GB
 const string CHUNKS_TEMP_DIR = "qingfeng_chunks";
 const int CHUNK_MERGE_DELAY_MS = 100; // Delay before merging to ensure all chunks are written
 
-// Compiled regex for UUID validation (better performance)
-var uuidValidationRegex = new Regex(@"^[a-zA-Z0-9\-]+$", RegexOptions.Compiled);
+// Compiled regex for proper UUID validation (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx format)
+// Matches Dropzone's UUID format for security
+var uuidValidationRegex = new Regex(@"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", 
+    RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
 // Helper method to check if an exception is a cleanup-related exception
 static bool IsCleanupException(Exception ex) => 
@@ -204,7 +206,13 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             }
             
             var file = form.Files[0];
-            var fileName = file.FileName;
+            // Sanitize fileName to prevent path traversal
+            var fileName = Path.GetFileName(file.FileName);
+            
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return Results.BadRequest("Invalid file name.");
+            }
             
             // Create chunks directory if it doesn't exist
             var chunksDir = Path.Combine(Path.GetTempPath(), CHUNKS_TEMP_DIR, fileUuid);
@@ -213,25 +221,45 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             // Save the chunk
             var chunkPath = Path.Combine(chunksDir, $"chunk_{chunkIndex}");
             using (var chunkStream = file.OpenReadStream())
-            using (var fileStream = new FileStream(chunkPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var fileStream = new FileStream(chunkPath, FileMode.Create, FileAccess.Write, FileShare.None, 
+                bufferSize: 81920, useAsync: true))
             {
                 await chunkStream.CopyToAsync(fileStream);
+                await fileStream.FlushAsync(); // Ensure data is written to disk
             }
             
             // Check if this is the last chunk
             if (chunkIndex == totalChunks - 1)
             {
-                // Wait a moment to ensure all chunks are written to disk
-                await Task.Delay(CHUNK_MERGE_DELAY_MS);
-                
-                // Verify all chunks are present before merging
+                // Verify all chunks are present and validate their sizes
+                long totalChunkSize = 0;
                 for (int i = 0; i < totalChunks; i++)
                 {
                     var chunkFilePath = Path.Combine(chunksDir, $"chunk_{i}");
+                    
+                    // Retry a few times if chunk file is not immediately available
+                    int retries = 3;
+                    while (retries > 0 && !File.Exists(chunkFilePath))
+                    {
+                        await Task.Delay(50);
+                        retries--;
+                    }
+                    
                     if (!File.Exists(chunkFilePath))
                     {
+                        logger.LogError("Chunk {ChunkIndex} is missing for file {FileUuid}", i, fileUuid);
                         return Results.BadRequest($"Chunk {i} is missing. Please retry the upload.");
                     }
+                    
+                    totalChunkSize += new FileInfo(chunkFilePath).Length;
+                }
+                
+                // Validate total size matches expected
+                if (totalChunkSize != totalFileSize)
+                {
+                    logger.LogError("Total chunk size {TotalChunkSize} doesn't match expected {TotalFileSize} for file {FileUuid}", 
+                        totalChunkSize, totalFileSize, fileUuid);
+                    return Results.BadRequest("Chunk size mismatch. Please retry the upload.");
                 }
                 
                 // All chunks received, merge them
@@ -287,10 +315,19 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                             File.Delete(tempMergePath);
                         }
                     }
-                    catch (Exception cleanupEx) when (IsCleanupException(cleanupEx))
+                    catch (Exception cleanupEx)
                     {
-                        // Log cleanup failures but don't mask the original error
-                        logger.LogWarning(cleanupEx, "Failed to cleanup chunks for file {FileUuid}", fileUuid);
+                        // Log cleanup failures with appropriate level based on exception type
+                        if (IsCleanupException(cleanupEx))
+                        {
+                            // Expected cleanup exceptions - log as warning
+                            logger.LogWarning(cleanupEx, "Failed to cleanup chunks for file {FileUuid}", fileUuid);
+                        }
+                        else
+                        {
+                            // Unexpected exceptions - log as error for better debugging
+                            logger.LogError(cleanupEx, "Unexpected error during cleanup for file {FileUuid}", fileUuid);
+                        }
                     }
                     
                     // Preserve original exception for better debugging
