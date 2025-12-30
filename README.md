@@ -65,7 +65,7 @@
 
 - **Web终端**：基于浏览器的终端功能
   - 通过浏览器直接操作宿主机命令行
-  - 使用 XtermBlazor 提供完整的终端体验
+  - 使用 xterm.js 提供完整的终端体验
   - 实时双向通信（基于 SignalR）
   - 支持 Linux 和 Windows 系统
   - 终端会话管理
@@ -81,7 +81,7 @@
 - Docker.DotNet
 - System.Diagnostics.PerformanceCounter
 - SignalR (实时通信)
-- XtermBlazor (Web终端)
+- xterm.js (Web终端)
 
 ## 快速开始
 

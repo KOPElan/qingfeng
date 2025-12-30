@@ -18,7 +18,6 @@
     <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.13.2" />
     <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.13.2" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.1" />
-    <PackageReference Include="XtermBlazor" Version="2.3.0" />
   </ItemGroup>
 
 </Project>

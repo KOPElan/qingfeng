@@ -30,6 +30,11 @@
         background-color: #000;
     }
     
+    .terminal-content {
+        height: 100%;
+        width: 100%;
+    }
+    
     .status-badge {
         display: inline-flex;
         align-items: center;
@@ -122,7 +127,7 @@
     </div>
     
     <div class="terminal-wrapper">
-        <Xterm @ref="_terminal" Options="_terminalOptions" Addons="_addons" OnFirstRender="@OnTerminalFirstRender" OnData="@OnTerminalData" OnResize="@OnTerminalResize" />
+        <div id="@TerminalId" class="terminal-content"></div>
     </div>
 </FluentStack>
 
@@ -136,85 +141,21 @@
     private string? _sessionId;
     private bool _isConnected = false;
     private bool _isConnecting = false;
-    private Xterm? _terminal;
-    private HashSet<string> _addons = new HashSet<string> { "addon-fit" };
-    
-    private TerminalOptions _terminalOptions = new TerminalOptions
-    {
-        CursorBlink = true,
-        FontSize = 14,
-        FontFamily = "Menlo, Monaco, 'Courier New', monospace",
-        Theme = new Theme
-        {
-            Background = "#000000",
-            Foreground = "#ffffff",
-            Cursor = "#ffffff",
-            CursorAccent = "#000000",
-            SelectionBackground = "rgba(255, 255, 255, 0.3)",
-            Black = "#000000",
-            Red = "#e06c75",
-            Green = "#98c379",
-            Yellow = "#d19a66",
-            Blue = "#61afef",
-            Magenta = "#c678dd",
-            Cyan = "#56b6c2",
-            White = "#abb2bf",
-            BrightBlack = "#5c6370",
-            BrightRed = "#e06c75",
-            BrightGreen = "#98c379",
-            BrightYellow = "#d19a66",
-            BrightBlue = "#61afef",
-            BrightMagenta = "#c678dd",
-            BrightCyan = "#56b6c2",
-            BrightWhite = "#ffffff"
-        },
-        ConvertEOL = true,
-        Scrollback = 1000,
-        TabStopWidth = 4
-    };
+    private DotNetObjectReference<TerminalPanel>? _dotNetRef;
+    private bool _isInitialized = false;
 
-    private async Task OnTerminalFirstRender()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_terminal != null)
+        if (firstRender && !_isInitialized)
         {
+            _isInitialized = true;
             try
             {
-                // Fit the terminal to the container
-                await _terminal.Addon("addon-fit").InvokeVoidAsync("fit");
+                await JSRuntime.InvokeVoidAsync("terminalInterop.initializeWithId", TerminalId);
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "Error fitting terminal on first render");
-            }
-        }
-    }
-
-    private async Task OnTerminalData(string data)
-    {
-        if (_hubConnection != null && _sessionId != null && _isConnected)
-        {
-            try
-            {
-                await _hubConnection.InvokeAsync("SendInput", _sessionId, data);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error sending input to terminal");
-            }
-        }
-    }
-
-    private async Task OnTerminalResize(ResizeEventArgs args)
-    {
-        if (_hubConnection != null && _sessionId != null && _isConnected)
-        {
-            try
-            {
-                await _hubConnection.InvokeAsync("ResizeTerminal", _sessionId, args.Rows, args.Columns);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error resizing terminal");
+                Logger.LogError(ex, "Error initializing terminal");
             }
         }
     }
@@ -226,6 +167,10 @@
             _isConnecting = true;
             StateHasChanged();
 
+            // Dispose previous reference if exists before creating a new one
+            _dotNetRef?.Dispose();
+            _dotNetRef = DotNetObjectReference.Create(this);
+
             // Build SignalR connection
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl(NavigationManager.ToAbsoluteUri("/terminalhub"))
@@ -235,10 +180,7 @@
             // Handle receiving output from server
             _hubConnection.On<string>("ReceiveOutput", async (output) =>
             {
-                if (_terminal != null)
-                {
-                    await _terminal.Write(output);
-                }
+                await JSRuntime.InvokeVoidAsync("terminalInterop.writeOutputToId", TerminalId, output);
             });
 
             // Handle connection lifecycle events for automatic reconnect
@@ -281,20 +223,22 @@
                 _isConnected = false;
                 _isConnecting = false;
                 _sessionId = null;
-                
-                if (_terminal != null)
+                try
                 {
-                    try
-                    {
-                        await _terminal.Reset();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogDebug(ex, "Error clearing terminal on connection close");
-                    }
+                    await JSRuntime.InvokeVoidAsync("terminalInterop.clearId", TerminalId);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug(ex, "Error clearing terminal on connection close");
                 }
                 StateHasChanged();
             };
+
+            // Handle input from terminal (register once with shared reference)
+            await JSRuntime.InvokeVoidAsync("terminalInterop.onDataWithId", TerminalId, _dotNetRef);
+
+            // Handle resize events (register once with shared reference)
+            await JSRuntime.InvokeVoidAsync("terminalInterop.onResizeWithId", TerminalId, _dotNetRef);
 
             await _hubConnection.StartAsync();
             _sessionId = await _hubConnection.InvokeAsync<string>("CreateSession");
@@ -303,10 +247,7 @@
             _isConnecting = false;
             StateHasChanged();
 
-            if (_terminal != null)
-            {
-                await _terminal.Focus();
-            }
+            await JSRuntime.InvokeVoidAsync("terminalInterop.focusId", TerminalId);
         }
         catch (Exception ex)
         {
@@ -338,38 +279,78 @@
         _isConnected = false;
         _isConnecting = false;
         
-        if (_terminal != null)
+        try
         {
-            try
-            {
-                await _terminal.Reset();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogDebug(ex, "Error clearing terminal on disconnect");
-            }
+            await JSRuntime.InvokeVoidAsync("terminalInterop.clearId", TerminalId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Error clearing terminal on disconnect");
         }
         
         StateHasChanged();
     }
 
-    private async Task ClearTerminal()
+    [JSInvokable]
+    public async Task SendInput(string data)
     {
-        if (_terminal != null)
+        if (_hubConnection != null && _sessionId != null && _isConnected)
         {
             try
             {
-                await _terminal.Clear();
+                await _hubConnection.InvokeAsync("SendInput", _sessionId, data);
             }
             catch (Exception ex)
             {
-                Logger.LogDebug(ex, "Error clearing terminal");
+                Logger.LogError(ex, "Error sending input to terminal");
             }
+        }
+    }
+
+    [JSInvokable]
+    public async Task ResizeTerminal(int rows, int cols)
+    {
+        if (_hubConnection != null && _sessionId != null && _isConnected)
+        {
+            try
+            {
+                await _hubConnection.InvokeAsync("ResizeTerminal", _sessionId, rows, cols);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error resizing terminal");
+            }
+        }
+    }
+
+    private async Task ClearTerminal()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("terminalInterop.clearId", TerminalId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Error clearing terminal");
         }
     }
 
     public async ValueTask DisposeAsync()
     {
         await DisconnectAsync();
+        
+        // Dispose JavaScript terminal resources
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("terminalInterop.disposeId", TerminalId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Error disposing terminal interop");
+        }
+        
+        // Dispose DotNetObjectReference
+        _dotNetRef?.Dispose();
+        _dotNetRef = null;
     }
 }
