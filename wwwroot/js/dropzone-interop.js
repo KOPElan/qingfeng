@@ -113,6 +113,17 @@ window.dropzoneInterop = {
                     }
                 });
                 
+                this.on("uploadprogress", function(file, progress, bytesSent) {
+                    // Notify Blazor of upload progress with null check
+                    if (dotNetHelper) {
+                        try {
+                            dotNetHelper.invokeMethodAsync('OnUploadProgress', file.name, Math.round(progress));
+                        } catch (e) {
+                            console.warn('Failed to invoke OnUploadProgress:', e);
+                        }
+                    }
+                });
+                
                 this.on("queuecomplete", function() {
                     // Notify Blazor that all uploads are complete with null check
                     if (dotNetHelper) {

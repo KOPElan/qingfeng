@@ -676,6 +676,16 @@
                     </div>
                 </div>
             </div>
+            @if (!string.IsNullOrEmpty(currentUploadFileName) && currentUploadProgress > 0 && currentUploadProgress < 100)
+            {
+                <div style="margin-top: 1em;">
+                    <FluentLabel>正在上传: @currentUploadFileName</FluentLabel>
+                    <FluentProgressRing Value="@currentUploadProgress" Max="100" Style="margin-top: 0.5em;" />
+                    <div style="text-align: center; margin-top: 0.5em; font-size: 14px; color: var(--accent-fill-rest);">
+                        @currentUploadProgress%
+                    </div>
+                </div>
+            }
             @if (!string.IsNullOrEmpty(uploadMessage))
             {
                 <FluentMessageBar Intent="@(uploadSuccess ? MessageIntent.Success : MessageIntent.Error)">
@@ -1380,10 +1390,12 @@
         // Clean up Dropzone
         await CleanupDropzone();
         
-        // Reset counters when closing
+        // Reset counters and progress when closing
         uploadedFileCount = 0;
         uploadFailedFileCount = 0;
         uploadErrors.Clear();
+        currentUploadFileName = string.Empty;
+        currentUploadProgress = 0;
     }
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1458,6 +1470,8 @@
     private int uploadedFileCount = 0;
     private int uploadFailedFileCount = 0;
     private List<string> uploadErrors = new List<string>();
+    private string currentUploadFileName = string.Empty;
+    private int currentUploadProgress = 0;
     
     [JSInvokable]
     public Task OnFileUploaded(string fileName, bool success, string? errorMessage)
@@ -1511,8 +1525,21 @@
     }
     
     [JSInvokable]
+    public Task OnUploadProgress(string fileName, int progress)
+    {
+        currentUploadFileName = fileName;
+        currentUploadProgress = progress;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+    
+    [JSInvokable]
     public async Task OnAllUploadsComplete()
     {
+        // Clear progress info
+        currentUploadFileName = string.Empty;
+        currentUploadProgress = 0;
+        
         // Refresh file list when all uploads are complete
         await RefreshFiles();
         await InvokeAsync(StateHasChanged);
