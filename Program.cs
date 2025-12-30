@@ -12,7 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 // File upload configuration constants
 const long MAX_FILE_SIZE = 2147483648; // 2GB
 const string CHUNKS_TEMP_DIR = "qingfeng_chunks";
-const int CHUNK_MERGE_DELAY_MS = 100; // Delay before merging to ensure all chunks are written
+const int CHUNK_VALIDATION_RETRIES = 3; // Number of retries for chunk validation
+const int CHUNK_VALIDATION_RETRY_DELAY_MS = 50; // Delay between retries
 
 // Compiled regex for proper UUID validation (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx format)
 // Matches Dropzone's UUID format for security
@@ -237,11 +238,11 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                 {
                     var chunkFilePath = Path.Combine(chunksDir, $"chunk_{i}");
                     
-                    // Retry a few times if chunk file is not immediately available
-                    int retries = 3;
+                    // Retry if chunk file is not immediately available
+                    int retries = CHUNK_VALIDATION_RETRIES;
                     while (retries > 0 && !File.Exists(chunkFilePath))
                     {
-                        await Task.Delay(50);
+                        await Task.Delay(CHUNK_VALIDATION_RETRY_DELAY_MS);
                         retries--;
                     }
                     
@@ -265,8 +266,10 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                 // All chunks received, merge them
                 var finalPath = Path.Combine(directoryPath, fileName);
                 
-                // Create a temporary file for merging
-                var tempMergePath = Path.Combine(Path.GetTempPath(), $"{fileUuid}_merged");
+                // Create a secure temporary directory for merging
+                var tempMergeDir = Path.Combine(Path.GetTempPath(), CHUNKS_TEMP_DIR, "merge");
+                Directory.CreateDirectory(tempMergeDir);
+                var tempMergePath = Path.Combine(tempMergeDir, $"{fileUuid}_merged");
                 
                 try
                 {
@@ -290,9 +293,30 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                         await fileManager.UploadFileStreamAsync(directoryPath, fileName, mergedStream, totalFileSize);
                     }
                     
-                    // Clean up chunks and temp file
-                    Directory.Delete(chunksDir, true);
-                    File.Delete(tempMergePath);
+                    // Clean up chunks and temp file independently
+                    try
+                    {
+                        if (Directory.Exists(chunksDir))
+                        {
+                            Directory.Delete(chunksDir, true);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to delete chunks directory for file {FileUuid}", fileUuid);
+                    }
+                    
+                    try
+                    {
+                        if (File.Exists(tempMergePath))
+                        {
+                            File.Delete(tempMergePath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to delete temporary merge file for file {FileUuid}", fileUuid);
+                    }
                     
                     return Results.Ok(new 
                     { 
@@ -303,13 +327,29 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                 }
                 catch (Exception ex)
                 {
-                    // Clean up on error
+                    // Clean up on error - handle each operation independently
                     try
                     {
                         if (Directory.Exists(chunksDir))
                         {
                             Directory.Delete(chunksDir, true);
                         }
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        // Log cleanup failures with appropriate level
+                        if (IsCleanupException(cleanupEx))
+                        {
+                            logger.LogWarning(cleanupEx, "Failed to cleanup chunks directory for file {FileUuid}", fileUuid);
+                        }
+                        else
+                        {
+                            logger.LogError(cleanupEx, "Unexpected error during chunks cleanup for file {FileUuid}", fileUuid);
+                        }
+                    }
+                    
+                    try
+                    {
                         if (File.Exists(tempMergePath))
                         {
                             File.Delete(tempMergePath);
@@ -317,16 +357,14 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
                     }
                     catch (Exception cleanupEx)
                     {
-                        // Log cleanup failures with appropriate level based on exception type
+                        // Log cleanup failures with appropriate level
                         if (IsCleanupException(cleanupEx))
                         {
-                            // Expected cleanup exceptions - log as warning
-                            logger.LogWarning(cleanupEx, "Failed to cleanup chunks for file {FileUuid}", fileUuid);
+                            logger.LogWarning(cleanupEx, "Failed to cleanup temp merge file for file {FileUuid}", fileUuid);
                         }
                         else
                         {
-                            // Unexpected exceptions - log as error for better debugging
-                            logger.LogError(cleanupEx, "Unexpected error during cleanup for file {FileUuid}", fileUuid);
+                            logger.LogError(cleanupEx, "Unexpected error during temp merge file cleanup for file {FileUuid}", fileUuid);
                         }
                     }
                     
