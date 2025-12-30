@@ -362,11 +362,11 @@
         }
 
         <div class="input-row">
-            <FluentInputFile @ref="fileInput" 
-                           Multiple="true" 
-                           Accept="*/*"
-                           OnChange="OnFilesSelected"
-                           style="display: none;" />
+            <InputFile @ref="fileInput" 
+                      multiple 
+                      accept="*/*"
+                      OnChange="@OnFilesSelected"
+                      style="display: none;" id="fileInput" />
             
             <FluentButton Appearance="Appearance.Outline" 
                          IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Attach())"
@@ -400,7 +400,7 @@
     private string messageContent = string.Empty;
     private string searchTerm = string.Empty;
     private List<IBrowserFile> selectedFiles = new();
-    private FluentInputFile? fileInput;
+    private InputFile? fileInput;
     private ElementReference messagesContainer;
     private bool isLoading = false;
     private bool isLoadingMore = false;
@@ -616,11 +616,7 @@
 
     private async Task OpenFileDialog()
     {
-        if (fileInput != null)
-        {
-            await JSRuntime.InvokeVoidAsync("eval", 
-                $"document.querySelector('input[type=file]').click()");
-        }
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('fileInput').click()");
     }
 
     private async Task DownloadAttachment(int attachmentId)
