@@ -1223,6 +1223,8 @@ public class ShareManagementService : IShareManagementService
             
             // Add Samba user with password using smbpasswd
             // Use -a to add user and -s for non-interactive mode
+            // Note: Username is safe to interpolate because it's validated with SafeNameRegex above,
+            // which only allows alphanumeric characters, underscore, dot, and dash (no shell metacharacters)
             var result = await ExecuteCommandWithInputAsync("smbpasswd", $"-a -s {request.Username}", 
                 $"{request.Password}\n{request.Password}\n");
             
@@ -1279,6 +1281,8 @@ public class ShareManagementService : IShareManagementService
             }
             
             // Update password using smbpasswd -s (non-interactive)
+            // Note: Username is safe to interpolate because it's validated with SafeNameRegex above,
+            // which only allows alphanumeric characters, underscore, dot, and dash (no shell metacharacters)
             var result = await ExecuteCommandWithInputAsync("smbpasswd", $"-s {username}", 
                 $"{password}\n{password}\n");
             
@@ -1330,6 +1334,8 @@ public class ShareManagementService : IShareManagementService
             }
             
             // Remove Samba user using smbpasswd -x
+            // Note: Username is safe to interpolate because it's validated with SafeNameRegex above,
+            // which only allows alphanumeric characters, underscore, dot, and dash (no shell metacharacters)
             var result = await ExecuteCommandAsync("smbpasswd", $"-x {username}");
             
             if (result.exitCode == 0)
