@@ -15,9 +15,10 @@ const string CHUNKS_TEMP_DIR = "qingfeng_chunks";
 const int CHUNK_VALIDATION_RETRIES = 3; // Number of retries for chunk validation
 const int CHUNK_VALIDATION_RETRY_DELAY_MS = 50; // Delay between retries
 
-// Compiled regex for proper UUID validation (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx format)
+// Compiled regex for UUID v4 validation (xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx format)
 // Matches Dropzone's UUID format for security
-var uuidValidationRegex = new Regex(@"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", 
+// y = [89ab] per UUID v4 spec
+var uuidValidationRegex = new Regex(@"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", 
     RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
 // Helper method to check if an exception is a cleanup-related exception
