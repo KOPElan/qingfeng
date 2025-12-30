@@ -2,12 +2,13 @@
 @using QingFeng.Services
 @using QingFeng.Models
 @using QingFeng.Utilities
-@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Icon = Microsoft.FluentUI.AspNetCore.Components.Icon
 @inject IFileManagerService FileManagerService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject ILogger<FileManager> _logger
+@implements IDisposable
 @rendermode InteractiveServer
 
 <PageTitle>文件管理器</PageTitle>
@@ -200,6 +201,73 @@
     .fluent-table tr.selected-row {
         background-color: var(--accent-fill-rest);
         color: white;
+    }
+    
+    /* Dropzone styling to match Fluent UI theme */
+    .dropzone {
+        border: 2px dashed var(--neutral-stroke-rest);
+        border-radius: 8px;
+        background-color: var(--neutral-layer-1);
+        padding: 20px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .dropzone:hover {
+        border-color: var(--accent-fill-rest);
+        background-color: var(--neutral-layer-2);
+    }
+    
+    .dropzone.dz-drag-hover {
+        border-color: var(--accent-fill-rest);
+        background-color: var(--accent-fill-subtle);
+    }
+    
+    .dropzone .dz-message {
+        margin: 0;
+        color: var(--neutral-foreground-rest);
+    }
+    
+    .dropzone .dz-preview {
+        margin: 10px;
+        border: 1px solid var(--neutral-stroke-rest);
+        border-radius: 8px;
+        background-color: var(--neutral-layer-2);
+    }
+    
+    .dropzone .dz-preview .dz-image {
+        border-radius: 8px;
+    }
+    
+    .dropzone .dz-preview .dz-details {
+        background-color: var(--neutral-layer-3);
+        color: var(--neutral-foreground-rest);
+    }
+    
+    .dropzone .dz-preview .dz-progress {
+        background-color: var(--neutral-layer-4);
+    }
+    
+    .dropzone .dz-preview .dz-progress .dz-upload {
+        background-color: var(--accent-fill-rest);
+    }
+    
+    .dropzone .dz-preview .dz-error-message {
+        background-color: var(--error);
+        color: white;
+    }
+    
+    .dropzone .dz-preview .dz-success-mark,
+    .dropzone .dz-preview .dz-error-mark {
+        background-color: transparent;
+    }
+    
+    .dropzone .dz-preview.dz-success .dz-success-mark {
+        color: var(--success);
+    }
+    
+    .dropzone .dz-preview.dz-error .dz-error-mark {
+        color: var(--error);
     }
 </style>
 
@@ -586,14 +654,38 @@
 
 
 <!-- Upload File Dialog -->
-<FluentDialog Hidden="@(!showUploadDialog)" Modal="true" OnDismiss="CloseUploadDialog">
+<FluentDialog Hidden="@(!showUploadDialog)" Modal="true" OnDismiss="CloseUploadDialog" Style="min-width: 600px;">
     <FluentDialogHeader>
         <FluentLabel Typo="Typography.H5">上传文件</FluentLabel>
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
-            <FluentLabel>选择文件</FluentLabel>
-            <InputFile OnChange="HandleFileUpload" multiple />
+            <!-- Dropzone upload area -->
+            <div id="dropzoneUpload"
+                 class="dropzone"
+                 style="min-height: 200px; border: 2px dashed var(--neutral-stroke-rest); border-radius: 8px; background-color: var(--neutral-layer-1);"
+                 role="button"
+                 tabindex="0"
+                 aria-label="拖拽文件到此处或点击选择文件"
+                 aria-describedby="dropzoneHelpText">
+                <div class="dz-message" style="margin: 2em 0;">
+                    <div style="text-align: center;">
+                        <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowUpload())" Color="@Color.Accent" Style="font-size: 48px;" />
+                        <div style="margin-top: 1em; font-size: 16px;">拖拽文件到此处或点击选择文件</div>
+                        <div id="dropzoneHelpText" style="margin-top: 0.5em; font-size: 12px; color: var(--neutral-foreground-hint);">支持单个或批量上传，最大文件大小 2GB（大文件自动分块上传）</div>
+                    </div>
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(currentUploadFileName) && currentUploadProgress > 0 && currentUploadProgress < 100)
+            {
+                <div style="margin-top: 1em;">
+                    <FluentLabel>正在上传: @currentUploadFileName</FluentLabel>
+                    <FluentProgressRing Value="@currentUploadProgress" Max="100" Style="margin-top: 0.5em;" />
+                    <div style="text-align: center; margin-top: 0.5em; font-size: 14px; color: var(--accent-fill-rest);">
+                        @currentUploadProgress%
+                    </div>
+                </div>
+            }
             @if (!string.IsNullOrEmpty(uploadMessage))
             {
                 <FluentMessageBar Intent="@(uploadSuccess ? MessageIntent.Success : MessageIntent.Error)">
@@ -1270,56 +1362,193 @@
     }
 
     // Dialog methods
-    private void ShowUploadDialog()
+    private DotNetObjectReference<FileManager>? dotNetHelper;
+    private bool dropzoneInitialized = false;
+    private bool shouldInitializeDropzone = false;
+    
+    private async Task ShowUploadDialog()
     {
         showUploadDialog = true;
         uploadMessage = string.Empty;
         uploadSuccess = false;
+        uploadedFileCount = 0;
+        uploadFailedFileCount = 0;
+        uploadErrors = new List<string>();
+        
+        // Mark that we should initialize dropzone in OnAfterRenderAsync
+        shouldInitializeDropzone = true;
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void CloseUploadDialog()
+    private async Task CloseUploadDialog()
     {
         showUploadDialog = false;
         uploadMessage = string.Empty;
         uploadSuccess = false;
+        shouldInitializeDropzone = false;
+        
+        // Clean up Dropzone
+        await CleanupDropzone();
+        
+        // Reset counters and progress when closing
+        uploadedFileCount = 0;
+        uploadFailedFileCount = 0;
+        uploadErrors.Clear();
+        currentUploadFileName = string.Empty;
+        currentUploadProgress = 0;
     }
-
-    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        
+        // Initialize Dropzone after the dialog has rendered
+        if (shouldInitializeDropzone && !dropzoneInitialized && showUploadDialog)
+        {
+            shouldInitializeDropzone = false;
+            await InitializeDropzone();
+        }
+    }
+    
+    private async Task InitializeDropzone()
     {
         try
         {
-            uploadMessage = string.Empty;
-            var uploadResults = new System.Text.StringBuilder();
-            var successCount = 0;
-            var failCount = 0;
-            
-            foreach (var file in e.GetMultipleFiles())
+            if (dotNetHelper == null)
             {
-                try
-                {
-                    // Use streaming upload to avoid loading entire file into memory
-                    // More efficient for large files
-                    using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024 * 500); // 500MB max
-                    await FileManagerService.UploadFileStreamAsync(currentPath, file.Name, stream, file.Size);
-                    uploadResults.AppendLine($"成功上传: {file.Name}");
-                    successCount++;
-                }
-                catch (Exception ex)
-                {
-                    uploadResults.AppendLine($"上传失败 {file.Name}: {ex.Message}");
-                    failCount++;
-                }
+                dotNetHelper = DotNetObjectReference.Create(this);
             }
             
-            uploadMessage = uploadResults.ToString();
-            uploadSuccess = failCount == 0; // Only success if all files uploaded
-            await RefreshFiles();
+            var uploadUrl = "/api/files/upload";
+            dropzoneInitialized = await JSRuntime.InvokeAsync<bool>(
+                "dropzoneInterop.init",
+                "dropzoneUpload",
+                uploadUrl,
+                currentPath,
+                dotNetHelper
+            );
+            
+            if (!dropzoneInitialized)
+            {
+                uploadMessage = "初始化上传组件失败: 无法找到上传区域";
+                uploadSuccess = false;
+            }
         }
         catch (Exception ex)
         {
-            uploadMessage = $"上传失败: {ex.Message}";
+            _logger.LogError(ex, "Failed to initialize Dropzone");
+            uploadMessage = $"初始化上传组件失败: {ex.Message}";
             uploadSuccess = false;
         }
+    }
+    
+    private async Task CleanupDropzone()
+    {
+        try
+        {
+            if (dropzoneInitialized)
+            {
+                await JSRuntime.InvokeVoidAsync("dropzoneInterop.destroy", "dropzoneUpload");
+                dropzoneInitialized = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to cleanup Dropzone");
+        }
+        finally
+        {
+            // Always dispose dotNetHelper to prevent memory leak
+            if (dotNetHelper != null)
+            {
+                dotNetHelper.Dispose();
+                dotNetHelper = null;
+            }
+        }
+    }
+    
+    private int uploadedFileCount = 0;
+    private int uploadFailedFileCount = 0;
+    private List<string> uploadErrors = new List<string>();
+    private string currentUploadFileName = string.Empty;
+    private int currentUploadProgress = 0;
+    
+    [JSInvokable]
+    public Task OnFileUploaded(string fileName, bool success, string? errorMessage)
+    {
+        // Use thread-safe operations for concurrent uploads
+        if (success)
+        {
+            System.Threading.Interlocked.Increment(ref uploadedFileCount);
+        }
+        else
+        {
+            System.Threading.Interlocked.Increment(ref uploadFailedFileCount);
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                lock (uploadErrors)
+                {
+                    uploadErrors.Add($"{fileName}: {errorMessage}");
+                }
+            }
+        }
+        
+        // Update message
+        var messages = new List<string>();
+        if (uploadedFileCount > 0)
+        {
+            messages.Add($"成功上传 {uploadedFileCount} 个文件");
+        }
+        if (uploadFailedFileCount > 0)
+        {
+            messages.Add($"上传失败 {uploadFailedFileCount} 个文件");
+            // Add error details
+            lock (uploadErrors)
+            {
+                if (uploadErrors.Count > 0)
+                {
+                    messages.Add("\n错误详情:");
+                    messages.AddRange(uploadErrors.Take(5)); // Show first 5 errors
+                    if (uploadErrors.Count > 5)
+                    {
+                        messages.Add($"... 还有 {uploadErrors.Count - 5} 个错误");
+                    }
+                }
+            }
+        }
+        
+        uploadMessage = string.Join("\n", messages);
+        uploadSuccess = uploadFailedFileCount == 0;
+        
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+    
+    [JSInvokable]
+    public Task OnUploadProgress(string fileName, int progress)
+    {
+        currentUploadFileName = fileName;
+        currentUploadProgress = progress;
+        InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+    
+    [JSInvokable]
+    public async Task OnAllUploadsComplete()
+    {
+        // Clear progress info
+        currentUploadFileName = string.Empty;
+        currentUploadProgress = 0;
+        
+        // Refresh file list when all uploads are complete
+        await RefreshFiles();
+        await InvokeAsync(StateHasChanged);
+    }
+    
+    public void Dispose()
+    {
+        // Best-effort async cleanup
+        _ = CleanupDropzone();
     }
 
     private void ShowCreateFolderDialog()
