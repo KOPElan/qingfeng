@@ -186,13 +186,14 @@ app.MapPost("/api/files/upload", async (HttpRequest request, IFileManagerService
             var totalChunksStr = form["dztotalchunkcount"].ToString();
             var chunkSizeStr = form["dzchunksize"].ToString();
             var totalFileSizeStr = form["dztotalfilesize"].ToString();
-            var fileUuid = form["dzuuid"].ToString();
+            // Get first UUID value (form may contain duplicates)
+            var fileUuid = form["dzuuid"].FirstOrDefault()?.ToString() ?? string.Empty;
             
             // Validate UUID to prevent path traversal attacks
-            // Dropzone generates UUID v4: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx where y is [89ab]
+            // Accepts standard UUID format (8-4-4-4-12 hex pattern)
             if (string.IsNullOrWhiteSpace(fileUuid) || !uuidValidationRegex.IsMatch(fileUuid))
             {
-                logger.LogError("Invalid UUID received: '{FileUuid}'. Expected UUID v4 format.", fileUuid);
+                logger.LogError("Invalid UUID received: '{FileUuid}'. Expected UUID format.", fileUuid);
                 return Results.BadRequest("Invalid file UUID.");
             }
             
