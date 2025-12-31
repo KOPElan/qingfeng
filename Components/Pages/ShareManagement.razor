@@ -371,8 +371,15 @@
 
             <div>
                 <FluentLabel>本地路径 *</FluentLabel>
-                <FluentTextField @bind-Value="shareRequest.Path" Placeholder="/srv/shares/data" Style="width: 100%;" Disabled="@(isEditMode && shareRequest.Type == ShareType.NFS)" />
-                <small style="color: var(--neutral-foreground-hint);">要共享的本地目录路径</small>
+                <FluentAutocomplete TOption="string"
+                                    @bind-Value="shareRequest.Path"
+                                    OnOptionsSearch="@OnSearchDirectories"
+                                    Placeholder="/srv/shares/data"
+                                    Style="width: 100%;"
+                                    Disabled="@(isEditMode && shareRequest.Type == ShareType.NFS)"
+                                    MaximumSelectedOptions="1"
+                                    OptionText="@(item => item)" />
+                <small style="color: var(--neutral-foreground-hint);">要共享的本地目录路径。输入时会显示目录建议</small>
             </div>
 
             @if (shareRequest.Type == ShareType.CIFS)
@@ -404,6 +411,30 @@
                         <small style="color: var(--neutral-foreground-hint);">在只读共享中允许写入的用户列表。使用 &commat; 前缀表示组</small>
                     </div>
                 }
+                
+                <div>
+                    <FluentLabel>文件创建权限 (Create Mask)</FluentLabel>
+                    <FluentSelect TOption="string" @bind-Value="shareRequest.CreateMask" Style="width: 100%;">
+                        <FluentOption Value="@("0644")">0644 (rw-r--r--) - 所有者读写，其他人只读</FluentOption>
+                        <FluentOption Value="@("0664")">0664 (rw-rw-r--) - 所有者和组读写，其他人只读</FluentOption>
+                        <FluentOption Value="@("0744")">0744 (rwxr--r--) - 所有者全部权限，其他人只读</FluentOption>
+                        <FluentOption Value="@("0755")">0755 (rwxr-xr-x) - 所有者全部权限，其他人读和执行</FluentOption>
+                        <FluentOption Value="@("0774")">0774 (rwxrwxr--) - 所有者和组全部权限，其他人只读</FluentOption>
+                        <FluentOption Value="@("0777")">0777 (rwxrwxrwx) - 所有人全部权限</FluentOption>
+                    </FluentSelect>
+                    <small style="color: var(--neutral-foreground-hint);">新创建文件的默认权限</small>
+                </div>
+                
+                <div>
+                    <FluentLabel>目录创建权限 (Directory Mask)</FluentLabel>
+                    <FluentSelect TOption="string" @bind-Value="shareRequest.DirectoryMask" Style="width: 100%;">
+                        <FluentOption Value="@("0755")">0755 (rwxr-xr-x) - 所有者全部权限，其他人读和执行</FluentOption>
+                        <FluentOption Value="@("0775")">0775 (rwxrwxr-x) - 所有者和组全部权限，其他人读和执行</FluentOption>
+                        <FluentOption Value="@("0770")">0770 (rwxrwx---) - 所有者和组全部权限</FluentOption>
+                        <FluentOption Value="@("0777")">0777 (rwxrwxrwx) - 所有人全部权限</FluentOption>
+                    </FluentSelect>
+                    <small style="color: var(--neutral-foreground-hint);">新创建目录的默认权限</small>
+                </div>
             }
             else
             {
@@ -750,6 +781,8 @@
         {
             Type = type ?? ShareType.CIFS,
             Browseable = true,
+            CreateMask = "0744",
+            DirectoryMask = "0755",
             AllowedHosts = "*",
             NfsOptions = "rw,sync,no_subtree_check"
         };
@@ -773,6 +806,8 @@
             GuestOk = share.GuestOk,
             ValidUsers = share.ValidUsers,
             WriteList = share.WriteList,
+            CreateMask = share.CreateMask,
+            DirectoryMask = share.DirectoryMask,
             AllowedHosts = share.AllowedHosts,
             NfsOptions = share.NfsOptions
         };
@@ -1058,6 +1093,72 @@
     {
         showRemoveSambaUserDialog = false;
         sambaUserToRemove = string.Empty;
+    }
+    
+    // Directory autocomplete method
+    private async Task OnSearchDirectories(OptionsSearchEventArgs<string> e)
+    {
+        var searchText = e.Text ?? string.Empty;
+        var options = new List<string>();
+        
+        // If empty, show common root directories
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            options = new List<string> { "/home", "/mnt", "/srv", "/opt", "/var", "/tmp" };
+            e.Items = options;
+            return;
+        }
+        
+        try
+        {
+            // Determine the directory to search
+            string searchDir;
+            string prefix;
+            
+            if (searchText.EndsWith("/"))
+            {
+                // User typed a complete path with trailing slash, search in that directory
+                searchDir = searchText;
+                prefix = searchText;
+            }
+            else
+            {
+                // Extract directory and partial name
+                var lastSlash = searchText.LastIndexOf('/');
+                if (lastSlash >= 0)
+                {
+                    searchDir = searchText.Substring(0, lastSlash + 1);
+                    if (string.IsNullOrEmpty(searchDir))
+                    {
+                        searchDir = "/";
+                    }
+                    prefix = searchText.Substring(0, lastSlash + 1);
+                }
+                else
+                {
+                    searchDir = "/";
+                    prefix = "/";
+                }
+            }
+            
+            // Get directories from the specified path
+            if (Directory.Exists(searchDir))
+            {
+                var directories = Directory.GetDirectories(searchDir)
+                    .Select(d => prefix + Path.GetFileName(d))
+                    .Where(d => d.StartsWith(searchText, StringComparison.OrdinalIgnoreCase))
+                    .Take(10)
+                    .ToList();
+                
+                options = directories;
+            }
+        }
+        catch (Exception)
+        {
+            // Ignore errors and return empty list
+        }
+        
+        e.Items = options.Any() ? options : new List<string> { searchText };
     }
     
     private async Task ConfirmRemoveSambaUser()

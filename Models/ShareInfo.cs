@@ -60,6 +60,16 @@ public class ShareInfo
     public string WriteList { get; set; } = string.Empty;
     
     /// <summary>
+    /// Create mask - file permissions for new files (CIFS only, octal notation)
+    /// </summary>
+    public string CreateMask { get; set; } = "0744";
+    
+    /// <summary>
+    /// Directory mask - directory permissions for new directories (CIFS only, octal notation)
+    /// </summary>
+    public string DirectoryMask { get; set; } = "0755";
+    
+    /// <summary>
     /// Client hosts allowed to access (NFS only)
     /// </summary>
     public string AllowedHosts { get; set; } = "*";
@@ -89,6 +99,8 @@ public class ShareRequest
     public bool GuestOk { get; set; } = false;
     public string ValidUsers { get; set; } = string.Empty;
     public string WriteList { get; set; } = string.Empty;
+    public string CreateMask { get; set; } = "0744";
+    public string DirectoryMask { get; set; } = "0755";
     public string AllowedHosts { get; set; } = "*";
     public string NfsOptions { get; set; } = "rw,sync,no_subtree_check";
 }

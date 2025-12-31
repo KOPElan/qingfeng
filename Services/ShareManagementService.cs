@@ -117,6 +117,14 @@ public class ShareManagementService : IShareManagementService
                             case "write list":
                                 currentShare.WriteList = value;
                                 break;
+                            case "create mask":
+                            case "create mode":
+                                currentShare.CreateMask = value;
+                                break;
+                            case "directory mask":
+                            case "directory mode":
+                                currentShare.DirectoryMask = value;
+                                break;
                             default:
                                 // Store other options
                                 currentShare.CustomOptions[key] = value;
@@ -305,6 +313,17 @@ public class ShareManagementService : IShareManagementService
             if (!string.IsNullOrWhiteSpace(request.WriteList) && request.ReadOnly)
             {
                 shareConfigLines.Add($"   write list = {request.WriteList}");
+            }
+            
+            // Add create mask and directory mask
+            if (!string.IsNullOrWhiteSpace(request.CreateMask))
+            {
+                shareConfigLines.Add($"   create mask = {request.CreateMask}");
+            }
+            
+            if (!string.IsNullOrWhiteSpace(request.DirectoryMask))
+            {
+                shareConfigLines.Add($"   directory mask = {request.DirectoryMask}");
             }
             
             // Append to configuration file
