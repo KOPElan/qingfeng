@@ -1111,6 +1111,13 @@
         
         try
         {
+            // Validate input to prevent path traversal attacks
+            if (searchText.Contains("..") || searchText.Contains("~"))
+            {
+                e.Items = new List<string> { searchText };
+                return;
+            }
+            
             // Determine the directory to search
             string searchDir;
             string prefix;
@@ -1153,9 +1160,18 @@
                 options = directories;
             }
         }
-        catch (Exception)
+        catch (UnauthorizedAccessException)
         {
-            // Ignore errors and return empty list
+            // User doesn't have permission to access this directory, return empty
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Directory doesn't exist, return empty
+        }
+        catch (Exception ex)
+        {
+            // Log other errors but continue
+            System.Diagnostics.Debug.WriteLine($"Error searching directories: {ex.Message}");
         }
         
         e.Items = options.Any() ? options : new List<string> { searchText };
