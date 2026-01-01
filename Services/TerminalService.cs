@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
+using Pty.Net;
 
 namespace QingFeng.Services;
 
@@ -14,16 +15,16 @@ public class TerminalService : ITerminalService, IDisposable
         _logger = logger;
     }
 
-    public Task<string> CreateSessionAsync()
+    public async Task<string> CreateSessionAsync()
     {
         var sessionId = Guid.NewGuid().ToString();
         var session = new TerminalSession(sessionId, _logger);
         
         if (_sessions.TryAdd(sessionId, session))
         {
-            session.Start();
+            await session.StartAsync();
             _logger.LogInformation("Created terminal session: {SessionId}", sessionId);
-            return Task.FromResult(sessionId);
+            return sessionId;
         }
         
         throw new InvalidOperationException("Failed to create terminal session");
@@ -91,12 +92,13 @@ public class TerminalService : ITerminalService, IDisposable
     {
         private readonly string _sessionId;
         private readonly ILogger _logger;
-        private Process? _process;
+        private IPtyConnection? _pty;
         private const int MaxOutputBufferSize = 1024 * 1024; // 1 MB cap to prevent unbounded growth
         private readonly StringBuilder _outputBuffer = new StringBuilder();
         private readonly object _outputLock = new();
         private bool _disposed = false;
         private int _currentBufferSize = 0;
+        private CancellationTokenSource? _readCts;
 
         public TerminalSession(string sessionId, ILogger logger)
         {
@@ -104,59 +106,72 @@ public class TerminalService : ITerminalService, IDisposable
             _logger = logger;
         }
 
-        public void Start()
+        public async Task StartAsync()
         {
-            var startInfo = new ProcessStartInfo
+            try
             {
-                UseShellExecute = false,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-                WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-            };
+                var options = new PtyOptions
+                {
+                    Name = "xterm-256color",
+                    Cols = 80,
+                    Rows = 24,
+                    Cwd = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    Environment = new Dictionary<string, string>
+                    {
+                        ["TERM"] = "xterm-256color",
+                        ["COLORTERM"] = "truecolor"
+                    }
+                };
 
-            if (OperatingSystem.IsWindows())
-            {
-                startInfo.FileName = "cmd.exe";
+                string app;
+
+                if (OperatingSystem.IsWindows())
+                {
+                    app = "cmd.exe";
+                    options.App = app;
+                }
+                else
+                {
+                    app = "/bin/bash";
+                    options.App = app;
+                    options.CommandLine = new[] { "-i" };
+                }
+
+                _pty = await PtyProvider.SpawnAsync(options, CancellationToken.None);
+                
+                _logger.LogInformation("Started PTY terminal session {SessionId} with PID {Pid}", _sessionId, _pty.Pid);
+
+                // Start reading output asynchronously
+                _readCts = new CancellationTokenSource();
+                StartReadingOutput(_readCts.Token);
             }
-            else
+            catch (Exception ex)
             {
-                // Start bash in interactive mode
-                startInfo.FileName = "/bin/bash";
-                startInfo.Arguments = "-i";
-                startInfo.EnvironmentVariables["TERM"] = "xterm-256color";
-                startInfo.EnvironmentVariables["PS1"] = "\\u@\\h:\\w\\$ ";
+                _logger.LogError(ex, "Failed to start PTY terminal session {SessionId}", _sessionId);
+                throw new InvalidOperationException("Failed to start terminal process", ex);
             }
+        }
 
-            _process = Process.Start(startInfo);
-            
-            if (_process == null)
-            {
-                throw new InvalidOperationException("Failed to start terminal process");
-            }
-
-            // Enable auto-flush for input
-            _process.StandardInput.AutoFlush = true;
-
-            // Read output asynchronously
+        private void StartReadingOutput(CancellationToken cancellationToken)
+        {
             Task.Run(async () =>
             {
                 try
                 {
-                    var buffer = new char[4096];
-                    while (!_disposed && _process != null && !_process.HasExited)
+                    var buffer = new byte[4096];
+                    while (!_disposed && _pty != null && !cancellationToken.IsCancellationRequested)
                     {
-                        var count = await _process.StandardOutput.ReadAsync(buffer, 0, buffer.Length);
+                        var count = await _pty.ReaderStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
                         if (count > 0)
                         {
+                            var text = System.Text.Encoding.UTF8.GetString(buffer, 0, count);
                             lock (_outputLock)
                             {
                                 // Check if adding this data would exceed the buffer limit
-                                if (_currentBufferSize + count > MaxOutputBufferSize)
+                                if (_currentBufferSize + text.Length > MaxOutputBufferSize)
                                 {
                                     // Remove old data from the beginning to make room
-                                    var excessSize = (_currentBufferSize + count) - MaxOutputBufferSize;
+                                    var excessSize = (_currentBufferSize + text.Length) - MaxOutputBufferSize;
                                     var currentContent = _outputBuffer.ToString();
                                     _outputBuffer.Clear();
                                     _outputBuffer.Append(currentContent.Substring(excessSize));
@@ -164,61 +179,43 @@ public class TerminalService : ITerminalService, IDisposable
                                     _logger.LogWarning("Terminal output buffer reached maximum size for session {SessionId}, discarding old data", _sessionId);
                                 }
                                 
-                                _outputBuffer.Append(buffer, 0, count);
-                                _currentBufferSize += count;
+                                _outputBuffer.Append(text);
+                                _currentBufferSize += text.Length;
                             }
                         }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error reading terminal output for session {SessionId}", _sessionId);
-                }
-            });
-
-            // Read error output asynchronously
-            Task.Run(async () =>
-            {
-                try
-                {
-                    var buffer = new char[4096];
-                    while (!_disposed && _process != null && !_process.HasExited)
-                    {
-                        var count = await _process.StandardError.ReadAsync(buffer, 0, buffer.Length);
-                        if (count > 0)
+                        else if (count == 0)
                         {
-                            lock (_outputLock)
-                            {
-                                // Check if adding this data would exceed the buffer limit
-                                if (_currentBufferSize + count > MaxOutputBufferSize)
-                                {
-                                    // Remove old data from the beginning to make room
-                                    var excessSize = (_currentBufferSize + count) - MaxOutputBufferSize;
-                                    var currentContent = _outputBuffer.ToString();
-                                    _outputBuffer.Clear();
-                                    _outputBuffer.Append(currentContent.Substring(excessSize));
-                                    _currentBufferSize = _outputBuffer.Length;
-                                }
-                                
-                                _outputBuffer.Append(buffer, 0, count);
-                                _currentBufferSize += count;
-                            }
+                            // PTY closed
+                            _logger.LogInformation("PTY connection closed for session {SessionId}", _sessionId);
+                            break;
                         }
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    // Expected when disposing
+                }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error reading terminal error output for session {SessionId}", _sessionId);
+                    _logger.LogError(ex, "Error reading PTY output for session {SessionId}", _sessionId);
                 }
-            });
+            }, cancellationToken);
         }
 
         public void WriteInput(string input)
         {
-            if (_process != null && !_process.HasExited)
+            if (_pty != null && !_disposed)
             {
-                _process.StandardInput.Write(input);
-                _process.StandardInput.Flush();
+                try
+                {
+                    var bytes = System.Text.Encoding.UTF8.GetBytes(input);
+                    _pty.WriterStream.Write(bytes, 0, bytes.Length);
+                    _pty.WriterStream.Flush();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error writing to PTY for session {SessionId}", _sessionId);
+                }
             }
         }
 
@@ -235,10 +232,18 @@ public class TerminalService : ITerminalService, IDisposable
 
         public void Resize(int rows, int cols)
         {
-            // Note: PTY resize is complex in .NET and requires platform-specific code
-            // For now, we'll just log the resize request
-            // A full implementation would require using pty libraries or P/Invoke
-            _logger.LogDebug("Terminal resize requested: {Rows}x{Cols} for session {SessionId}", rows, cols, _sessionId);
+            if (_pty != null && !_disposed)
+            {
+                try
+                {
+                    _pty.Resize(cols, rows);
+                    _logger.LogDebug("Resized PTY terminal to {Cols}x{Rows} for session {SessionId}", cols, rows, _sessionId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error resizing PTY for session {SessionId}", _sessionId);
+                }
+            }
         }
 
         public void Dispose()
@@ -249,38 +254,14 @@ public class TerminalService : ITerminalService, IDisposable
             
             try
             {
-                if (_process != null && !_process.HasExited)
-                {
-                    // Attempt graceful shutdown first by sending an exit command to the shell
-                    try
-                    {
-                        if (_process.StandardInput.BaseStream.CanWrite)
-                        {
-                            _process.StandardInput.WriteLine("exit");
-                            _process.StandardInput.Flush();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log at debug level because we'll still fall back to a forced kill if needed
-                        _logger.LogDebug(ex, "Failed to send graceful shutdown command to terminal process for session {SessionId}", _sessionId);
-                    }
-
-                    // Give the process a brief chance to exit cleanly
-                    var exited = _process.WaitForExit(1000);
-                    
-                    // If the process is still running, forcefully terminate it and its child processes
-                    if (!exited && !_process.HasExited)
-                    {
-                        _process.Kill(true);
-                        exited = _process.WaitForExit(5000);
-                        if (!exited && !_process.HasExited)
-                        {
-                            _logger.LogWarning("Process for terminal session {SessionId} did not exit within the timeout and may still be running.", _sessionId);
-                        }
-                    }
-                }
-                _process?.Dispose();
+                // Cancel read operation
+                _readCts?.Cancel();
+                _readCts?.Dispose();
+                
+                // Dispose PTY connection
+                _pty?.Dispose();
+                
+                _logger.LogInformation("Disposed PTY terminal session {SessionId}", _sessionId);
             }
             catch (Exception ex)
             {

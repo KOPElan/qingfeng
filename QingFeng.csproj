@@ -17,6 +17,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.1" />
     <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.13.2" />
     <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.13.2" />
+    <PackageReference Include="sch.pty.net" Version="0.3.36-pre" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.1" />
   </ItemGroup>
 
