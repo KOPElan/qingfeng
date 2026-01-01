@@ -5,6 +5,7 @@
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Icon = Microsoft.FluentUI.AspNetCore.Components.Icon
 @inject IFileManagerService FileManagerService
+@inject IFileIndexService FileIndexService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<FileManager> _logger
@@ -398,6 +399,13 @@
                           OnClick="ShowSearchDialog" 
                           Title="搜索">
                 <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Search())" />
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" 
+                          IconOnly="true"
+                          OnClick="ShowRebuildIndexDialog" 
+                          Title="@GetIndexButtonTitle()"
+                          Disabled="@isRebuildingIndex">
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowSync())" />
             </FluentButton>
             <FluentButton Appearance="Appearance.Stealth" 
                           IconOnly="true"
@@ -798,13 +806,30 @@
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
-            <FluentLabel>搜索关键词</FluentLabel>
+            <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; gap: 1rem;">
+                <FluentLabel>搜索关键词</FluentLabel>
+                @if (hasIndex)
+                {
+                    <FluentBadge Appearance="Appearance.Accent" Style="margin-left: auto;">
+                        使用索引搜索 (更快)
+                    </FluentBadge>
+                }
+            </FluentStack>
             <FluentStack Orientation="Orientation.Horizontal">
                 <FluentTextField @bind-Value="searchPattern" Placeholder="输入文件名或模式，如 *.txt" Style="flex: 1;" />
-                <FluentButton Appearance="Appearance.Accent" OnClick="SearchFiles">搜索</FluentButton>
+                <FluentButton Appearance="Appearance.Accent" OnClick="SearchFiles" Disabled="@isSearching">
+                    @(isSearching ? "搜索中..." : "搜索")
+                </FluentButton>
             </FluentStack>
+            @if (isSearching)
+            {
+                <FluentStack HorizontalAlignment="HorizontalAlignment.Center" Style="padding: 1rem;">
+                    <FluentProgressRing />
+                </FluentStack>
+            }
             @if (searchResults != null && searchResults.Any())
             {
+                <FluentLabel>找到 @searchResults.Count 个结果</FluentLabel>
                 <div style="max-height: 400px; overflow-y: auto;">
                     <table class="fluent-table" role="table" aria-label="搜索结果">
                         <thead>
@@ -1029,6 +1054,49 @@
     </FluentDialogFooter>
 </FluentDialog>
 
+<!-- Rebuild Index Dialog -->
+<FluentDialog Hidden="@(!showRebuildIndexDialog)" Modal="true" OnDismiss="CloseRebuildIndexDialog" Style="min-width: 500px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">重建文件索引</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical">
+            @if (indexStats.fileCount > 0)
+            {
+                <FluentMessageBar Intent="MessageIntent.Info">
+                    当前索引包含 @indexStats.fileCount 个文件/文件夹，最后更新时间: @(indexStats.lastIndexed?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "未知")
+                </FluentMessageBar>
+            }
+            
+            <FluentLabel>将为当前目录 "@currentPath" 重建索引</FluentLabel>
+            <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">
+                重建索引将扫描当前目录及其所有子目录，并将文件信息保存到数据库中。这样可以加快搜索速度，避免每次搜索时都需要遍历整个目录。
+            </FluentLabel>
+            
+            @if (isRebuildingIndex)
+            {
+                <FluentStack Orientation="Orientation.Vertical" Style="margin-top: 1rem;">
+                    <FluentProgressRing />
+                    <FluentLabel Style="text-align: center;">正在索引文件... 已处理 @indexProgress 个</FluentLabel>
+                </FluentStack>
+            }
+            
+            @if (!string.IsNullOrEmpty(indexMessage))
+            {
+                <FluentMessageBar Intent="@(indexSuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @indexMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseRebuildIndexDialog" Disabled="@isRebuildingIndex">关闭</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="RebuildIndex" Disabled="@isRebuildingIndex">
+            @(isRebuildingIndex ? "索引中..." : "开始重建")
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
 @code {
     private const int DIALOG_AUTO_CLOSE_DELAY_MS = 1000;
     
@@ -1059,6 +1127,7 @@
     private bool showBatchCopyDialog = false;
     private bool showBatchMoveDialog = false;
     private bool showBatchDeleteDialog = false;
+    private bool showRebuildIndexDialog = false;
 
     // Dialog data
     private string newFolderName = string.Empty;
@@ -1117,6 +1186,15 @@
     private string notificationMessage = string.Empty;
     private bool notificationIsError = false;
 
+    // Index related state
+    private bool isRebuildingIndex = false;
+    private bool isSearching = false;
+    private bool hasIndex = false;
+    private int indexProgress = 0;
+    private string indexMessage = string.Empty;
+    private bool indexSuccess = false;
+    private (DateTime? lastIndexed, int fileCount) indexStats = (null, 0);
+
     protected override async Task OnInitializedAsync()
     {
         // Load drives, shortcuts, and favorites
@@ -1149,6 +1227,17 @@
             var storage = await FileManagerService.GetStorageInfoAsync(currentPath);
             storageTotal = storage.total;
             storageAvailable = storage.available;
+            
+            // Check index status for current path
+            hasIndex = await FileIndexService.HasIndexAsync(currentPath);
+            if (hasIndex)
+            {
+                indexStats = await FileIndexService.GetIndexStatsAsync(currentPath);
+            }
+            else
+            {
+                indexStats = (null, 0);
+            }
         }
         catch (Exception ex)
         {
@@ -1786,18 +1875,33 @@
                 return;
             }
 
-            searchResults = await FileManagerService.SearchFilesAsync(currentPath, searchPattern);
+            isSearching = true;
+            StateHasChanged();
+
+            // Use index if available, otherwise fallback to traditional search
+            if (hasIndex)
+            {
+                searchResults = await FileIndexService.SearchIndexAsync(searchPattern, currentPath);
+            }
+            else
+            {
+                searchResults = await FileManagerService.SearchFilesAsync(currentPath, searchPattern);
+            }
             
             // Warn if large number of results
-            if (searchResults.Count > 1000)
+            if (searchResults.Count >= 1000)
             {
-                ShowNotification($"找到 {searchResults.Count} 个结果，显示可能较慢", false);
+                ShowNotification($"找到 {searchResults.Count} 个结果（已达到上限），可能有更多结果未显示", false);
             }
         }
         catch (Exception ex)
         {
             ShowNotification($"搜索失败: {ex.Message}", true);
             searchResults = new List<FileItemInfo>();
+        }
+        finally
+        {
+            isSearching = false;
         }
     }
 
@@ -2363,5 +2467,86 @@
         {
             ShowNotification($"下载失败: {ex.Message}", true);
         }
+    }
+
+    // Index management methods
+    private async Task ShowRebuildIndexDialog()
+    {
+        showRebuildIndexDialog = true;
+        indexMessage = string.Empty;
+        indexSuccess = false;
+        indexProgress = 0;
+        
+        // Load current index stats
+        hasIndex = await FileIndexService.HasIndexAsync(currentPath);
+        if (hasIndex)
+        {
+            indexStats = await FileIndexService.GetIndexStatsAsync(currentPath);
+        }
+        else
+        {
+            indexStats = (null, 0);
+        }
+    }
+
+    private void CloseRebuildIndexDialog()
+    {
+        if (!isRebuildingIndex)
+        {
+            showRebuildIndexDialog = false;
+            indexMessage = string.Empty;
+            indexSuccess = false;
+            indexProgress = 0;
+        }
+    }
+
+    private async Task RebuildIndex()
+    {
+        try
+        {
+            isRebuildingIndex = true;
+            indexMessage = string.Empty;
+            indexSuccess = false;
+            indexProgress = 0;
+            StateHasChanged();
+
+            var progress = new Progress<int>(count =>
+            {
+                indexProgress = count;
+                InvokeAsync(StateHasChanged);
+            });
+
+            await FileIndexService.RebuildIndexAsync(currentPath, progress);
+            
+            indexMessage = $"索引重建成功！共索引 {indexProgress} 个文件/文件夹";
+            indexSuccess = true;
+            
+            // Refresh index stats
+            hasIndex = true;
+            indexStats = await FileIndexService.GetIndexStatsAsync(currentPath);
+            
+            // Auto-close after delay
+            await Task.Delay(2000);
+            CloseRebuildIndexDialog();
+        }
+        catch (Exception ex)
+        {
+            indexMessage = $"索引重建失败: {ex.Message}";
+            indexSuccess = false;
+            _logger.LogError(ex, "重建索引失败");
+        }
+        finally
+        {
+            isRebuildingIndex = false;
+        }
+    }
+
+    private string GetIndexButtonTitle()
+    {
+        if (hasIndex && indexStats.lastIndexed.HasValue)
+        {
+            return $"重建索引 (最后更新: {indexStats.lastIndexed.Value.ToLocalTime():MM-dd HH:mm})";
+        }
+        return "重建索引 (加快搜索速度)";
     }
 }
