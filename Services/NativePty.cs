@@ -219,6 +219,10 @@ internal class MergedStream : Stream
     private readonly byte[] _buffer2 = new byte[4096];
     private readonly Queue<byte> _queue = new();
     private readonly object _lock = new();
+    private readonly CancellationTokenSource _cts = new();
+    private readonly Task _readTask1;
+    private readonly Task _readTask2;
+    private bool _disposed;
 
     public override bool CanRead => true;
     public override bool CanSeek => false;
@@ -230,50 +234,41 @@ internal class MergedStream : Stream
     {
         _stream1 = stream1;
         _stream2 = stream2;
-        StartReading();
+        _readTask1 = StartReadingAsync(_stream1, _buffer1, _cts.Token);
+        _readTask2 = StartReadingAsync(_stream2, _buffer2, _cts.Token);
     }
 
-    private void StartReading()
+    private async Task StartReadingAsync(Stream stream, byte[] buffer, CancellationToken cancellationToken)
     {
-        Task.Run(async () =>
+        try
         {
-            while (true)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                try
+                var count = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+                if (count == 0)
                 {
-                    var count = await _stream1.ReadAsync(_buffer1, 0, _buffer1.Length);
-                    if (count > 0)
+                    // End of stream
+                    break;
+                }
+                
+                if (count > 0)
+                {
+                    lock (_lock)
                     {
-                        lock (_lock)
-                        {
-                            for (int i = 0; i < count; i++)
-                                _queue.Enqueue(_buffer1[i]);
-                        }
+                        for (int i = 0; i < count; i++)
+                            _queue.Enqueue(buffer[i]);
                     }
                 }
-                catch { break; }
             }
-        });
-
-        Task.Run(async () =>
+        }
+        catch (OperationCanceledException)
         {
-            while (true)
-            {
-                try
-                {
-                    var count = await _stream2.ReadAsync(_buffer2, 0, _buffer2.Length);
-                    if (count > 0)
-                    {
-                        lock (_lock)
-                        {
-                            for (int i = 0; i < count; i++)
-                                _queue.Enqueue(_buffer2[i]);
-                        }
-                    }
-                }
-                catch { break; }
-            }
-        });
+            // Expected during disposal
+        }
+        catch
+        {
+            // Ignore other errors
+        }
     }
 
     public override int Read(byte[] buffer, int offset, int count)
@@ -288,6 +283,28 @@ internal class MergedStream : Stream
             }
             return bytesRead;
         }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                _cts.Cancel();
+                try
+                {
+                    Task.WaitAll(new[] { _readTask1, _readTask2 }, TimeSpan.FromSeconds(1));
+                }
+                catch
+                {
+                    // Ignore timeout or task errors
+                }
+                _cts.Dispose();
+            }
+            _disposed = true;
+        }
+        base.Dispose(disposing);
     }
 
     public override void Flush() { }
