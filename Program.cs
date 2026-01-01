@@ -80,6 +80,7 @@ builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 // Use ProtectedLocalStorage so auth persists across browser restarts
 builder.Services.AddScoped<AuthenticationStateService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IAnydropService, AnydropService>();
 
 var app = builder.Build();
 
@@ -128,6 +129,42 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+
+// Add Anydrop attachment endpoints
+app.MapGet("/api/anydrop/attachment/{attachmentId}/download", async (int attachmentId, IAnydropService anydropService) =>
+{
+    try
+    {
+        var (fileBytes, fileName, contentType) = await anydropService.DownloadAttachmentAsync(attachmentId);
+        return Results.File(fileBytes, contentType, fileName);
+    }
+    catch (FileNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (Exception)
+    {
+        return Results.Problem("An error occurred while downloading the attachment.");
+    }
+});
+
+app.MapGet("/api/anydrop/attachment/{attachmentId}/preview", async (int attachmentId, IAnydropService anydropService) =>
+{
+    try
+    {
+        var (fileBytes, fileName, contentType) = await anydropService.DownloadAttachmentAsync(attachmentId);
+        // For preview, don't force download
+        return Results.File(fileBytes, contentType);
+    }
+    catch (FileNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (Exception)
+    {
+        return Results.Problem("An error occurred while previewing the attachment.");
+    }
+});
 
 // Add file download endpoint
 // TODO: Add authentication/authorization when implementing user management
