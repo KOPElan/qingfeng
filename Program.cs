@@ -63,8 +63,6 @@ builder.Services.AddScoped(provider => provider.GetRequiredService<IDbContextFac
 
 // Add localization services
 builder.Services.AddLocalization();
-// Register protected browser storage so we can use ProtectedLocalStorage
-builder.Services.AddProtectedBrowserStorage();
 
 // Register custom services
 builder.Services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
