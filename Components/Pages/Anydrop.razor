@@ -226,6 +226,21 @@
         flex: 1;
     }
 
+    .message-textarea {
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .message-textarea:focus {
+        border-color: var(--accent-fill-rest) !important;
+        box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.1);
+    }
+
+    .message-textarea:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
     .send-button {
         height: 40px;
     }
@@ -437,15 +452,14 @@
                          Disabled="@isSending" />
 
             <div class="text-input">
-                <FluentTextArea Value="@messageContent" 
-                              ValueChanged="@((string value) => { messageContent = value; StateHasChanged(); })"
-                              Placeholder="输入消息..." 
-                              Rows="1"
-                              Resize="TextAreaResize.Vertical"
-                              @onkeydown="OnKeyDown"
-                              Disabled="@isSending"
-                              Immediate="true"
-                              style="width: 100%;" />
+                <textarea @bind="messageContent" 
+                         @bind:event="oninput"
+                         placeholder="输入消息..." 
+                         rows="1"
+                         @onkeydown="OnKeyDown"
+                         disabled="@isSending"
+                         style="width: 100%; padding: 10px; border: 1px solid var(--neutral-stroke-layer-rest); border-radius: 4px; background: var(--neutral-layer-1); color: var(--neutral-foreground-rest); font-family: inherit; font-size: 14px; resize: vertical; min-height: 40px;"
+                         class="message-textarea"></textarea>
             </div>
 
             <FluentButton Appearance="Appearance.Accent" 
