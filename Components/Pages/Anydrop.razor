@@ -136,8 +136,8 @@
     }
 
     .attachments-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        display: flex;
+        flex-direction: column;
         gap: 12px;
         margin-top: 12px;
     }
@@ -152,23 +152,28 @@
         border: 1px solid var(--neutral-stroke-layer-rest);
         cursor: pointer;
         transition: all 0.2s;
+        max-width: 100%;
     }
 
     .attachment-item:hover {
         border-color: var(--accent-fill-rest);
         transform: translateY(-2px);
+        box-shadow: var(--elevation-shadow-card-hover);
     }
 
     .attachment-preview {
         width: 100%;
-        height: 150px;
-        object-fit: cover;
+        max-width: 400px;
+        height: auto;
+        max-height: 300px;
+        object-fit: contain;
         border-radius: 4px;
     }
 
     .attachment-video {
         width: 100%;
-        height: 150px;
+        max-width: 400px;
+        max-height: 300px;
         border-radius: 4px;
     }
 
@@ -407,26 +412,39 @@
         }
 
         <div class="input-row">
-            <InputFile @ref="fileInput" 
+            <InputFile @ref="mediaFileInput" 
+                      multiple 
+                      accept="image/*,video/*"
+                      OnChange="@OnMediaFilesSelected"
+                      style="display: none;" id="mediaFileInput" />
+            
+            <InputFile @ref="documentFileInput" 
                       multiple 
                       accept="*/*"
-                      OnChange="@OnFilesSelected"
-                      style="display: none;" id="fileInput" />
+                      OnChange="@OnDocumentFilesSelected"
+                      style="display: none;" id="documentFileInput" />
             
             <FluentButton Appearance="Appearance.Outline" 
-                         IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Attach())"
-                         OnClick="OpenFileDialog"
+                         IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Image())"
+                         OnClick="OpenMediaFileDialog"
+                         Title="添加图片/视频"
+                         Disabled="@isSending" />
+
+            <FluentButton Appearance="Appearance.Outline" 
+                         IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Document())"
+                         OnClick="OpenDocumentFileDialog"
                          Title="添加文件"
                          Disabled="@isSending" />
 
             <div class="text-input">
-                <FluentTextArea @bind-Value="@messageContent" 
-                              @bind-Value:event="oninput"
+                <FluentTextArea Value="@messageContent" 
+                              ValueChanged="@((string value) => { messageContent = value; StateHasChanged(); })"
                               Placeholder="输入消息..." 
                               Rows="1"
                               Resize="TextAreaResize.Vertical"
                               @onkeydown="OnKeyDown"
                               Disabled="@isSending"
+                              Immediate="true"
                               style="width: 100%;" />
             </div>
 
@@ -446,7 +464,8 @@
     private string messageContent = string.Empty;
     private string searchTerm = string.Empty;
     private List<IBrowserFile> selectedFiles = new();
-    private InputFile? fileInput;
+    private InputFile? mediaFileInput;
+    private InputFile? documentFileInput;
     private ElementReference messagesContainer;
     private bool isLoading = false;
     private bool isLoadingMore = false;
@@ -672,6 +691,18 @@
         StateHasChanged();
     }
 
+    private void OnMediaFilesSelected(InputFileChangeEventArgs e)
+    {
+        selectedFiles.AddRange(e.GetMultipleFiles(100));
+        StateHasChanged();
+    }
+
+    private void OnDocumentFilesSelected(InputFileChangeEventArgs e)
+    {
+        selectedFiles.AddRange(e.GetMultipleFiles(100));
+        StateHasChanged();
+    }
+
     private void RemoveFile(IBrowserFile file)
     {
         selectedFiles.Remove(file);
@@ -681,6 +712,16 @@
     private async Task OpenFileDialog()
     {
         await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('fileInput').click()");
+    }
+
+    private async Task OpenMediaFileDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('mediaFileInput').click()");
+    }
+
+    private async Task OpenDocumentFileDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('documentFileInput').click()");
     }
 
     private async Task DownloadAttachment(int attachmentId)
