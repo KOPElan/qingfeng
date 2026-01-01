@@ -1879,21 +1879,28 @@
             isSearching = true;
             StateHasChanged();
 
-            // Use index if available, otherwise fallback to traditional search
-            if (hasIndex)
+            // Check if index exists
+            if (!hasIndex)
             {
-                searchResults = await FileIndexService.SearchIndexAsync(searchPattern, currentPath);
+                ShowNotification("当前目录没有索引，请先点击\"重建索引\"按钮建立索引", true);
+                searchResults = new List<FileItemInfo>();
+                isSearching = false;
+                return;
             }
-            else
-            {
-                searchResults = await FileManagerService.SearchFilesAsync(currentPath, searchPattern);
-            }
+
+            // Use index for search
+            searchResults = await FileIndexService.SearchIndexAsync(searchPattern, currentPath);
             
             // Warn if large number of results
             if (searchResults.Count >= 1000)
             {
                 ShowNotification($"找到 {searchResults.Count} 个结果（已达到上限），可能有更多结果未显示", false);
             }
+        }
+        catch (FileNotFoundException)
+        {
+            ShowNotification("索引文件不存在或已损坏，请重新建立索引", true);
+            searchResults = new List<FileItemInfo>();
         }
         catch (Exception ex)
         {

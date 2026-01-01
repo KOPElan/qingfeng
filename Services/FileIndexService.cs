@@ -1,23 +1,26 @@
 using QingFeng.Models;
-using QingFeng.Data;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace QingFeng.Services;
 
 public class FileIndexService : IFileIndexService
 {
     private readonly ILogger<FileIndexService> _logger;
-    private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
 
     // Configuration constants
-    private const int IndexBatchSize = 1000;
     private const int MaxIndexDepth = 20;
+    private const string IndexFileName = ".qingfeng_index.json";
 
-    public FileIndexService(ILogger<FileIndexService> logger, IDbContextFactory<QingFengDbContext> dbContextFactory)
+    public FileIndexService(ILogger<FileIndexService> logger)
     {
         _logger = logger;
-        _dbContextFactory = dbContextFactory;
+    }
+
+    private string GetIndexFilePath(string rootPath)
+    {
+        var normalizedPath = Path.GetFullPath(rootPath);
+        return Path.Combine(normalizedPath, IndexFileName);
     }
 
     public async Task RebuildIndexAsync(string rootPath, IProgress<int>? progress = null)
@@ -33,13 +36,7 @@ public class FileIndexService : IFileIndexService
             }
 
             var rootPathNormalized = Path.GetFullPath(rootPath);
-            
-            using var context = await _dbContextFactory.CreateDbContextAsync();
-            
-            // Clear existing index for this root path
-            await context.FileIndexEntries
-                .Where(e => e.RootPath == rootPathNormalized)
-                .ExecuteDeleteAsync();
+            var indexFilePath = GetIndexFilePath(rootPathNormalized);
             
             // Build new index
             var entries = new List<FileIndexEntry>();
@@ -48,15 +45,27 @@ public class FileIndexService : IFileIndexService
             
             IndexDirectoryRecursive(rootPathNormalized, rootPathNormalized, entries, indexedAt, progress, ref processedCount);
             
-            // Save in batches for better performance
-            for (int i = 0; i < entries.Count; i += IndexBatchSize)
+            // Create index data structure
+            var indexData = new FileIndexData
             {
-                var batch = entries.Skip(i).Take(IndexBatchSize).ToList();
-                await context.FileIndexEntries.AddRangeAsync(batch);
-                await context.SaveChangesAsync();
-            }
+                RootPath = rootPathNormalized,
+                IndexedAt = indexedAt,
+                TotalCount = entries.Count,
+                Entries = entries
+            };
             
-            _logger.LogInformation("索引重建完成: {RootPath}, 共索引 {Count} 个文件/文件夹", rootPath, entries.Count);
+            // Save to JSON file
+            var jsonOptions = new JsonSerializerOptions
+            {
+                WriteIndented = false, // Compact format to save space
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            
+            var jsonContent = JsonSerializer.Serialize(indexData, jsonOptions);
+            await File.WriteAllTextAsync(indexFilePath, jsonContent);
+            
+            _logger.LogInformation("索引重建完成: {RootPath}, 共索引 {Count} 个文件/文件夹，已保存至 {IndexFile}", 
+                rootPath, entries.Count, indexFilePath);
         }
         catch (Exception ex)
         {
@@ -150,32 +159,53 @@ public class FileIndexService : IFileIndexService
 
     public async Task<List<FileItemInfo>> SearchIndexAsync(string searchPattern, string? rootPath = null, int maxResults = 1000)
     {
-        using var context = await _dbContextFactory.CreateDbContextAsync();
-        
-        var query = context.FileIndexEntries.AsQueryable();
-        
-        // Filter by root path if specified
-        if (!string.IsNullOrEmpty(rootPath))
+        if (string.IsNullOrEmpty(rootPath))
         {
-            var normalizedRootPath = Path.GetFullPath(rootPath);
-            query = query.Where(e => e.RootPath == normalizedRootPath);
+            throw new ArgumentException("必须指定根路径进行搜索", nameof(rootPath));
+        }
+
+        var normalizedRootPath = Path.GetFullPath(rootPath);
+        var indexFilePath = GetIndexFilePath(normalizedRootPath);
+        
+        // Check if index file exists
+        if (!File.Exists(indexFilePath))
+        {
+            throw new FileNotFoundException($"索引文件不存在，请先建立索引: {indexFilePath}");
         }
         
-        // Apply search pattern
-        // Support wildcards like *.txt or partial matches
+        // Load index from file
+        var jsonContent = await File.ReadAllTextAsync(indexFilePath);
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        
+        var indexData = JsonSerializer.Deserialize<FileIndexData>(jsonContent, jsonOptions);
+        if (indexData == null || indexData.Entries == null)
+        {
+            throw new InvalidOperationException("索引文件格式无效");
+        }
+        
+        // Filter entries based on search pattern
+        IEnumerable<FileIndexEntry> filteredEntries = indexData.Entries;
+        
         if (searchPattern.Contains('*') || searchPattern.Contains('?'))
         {
-            // Convert wildcard pattern to regex-like pattern for EF Core
-            var pattern = searchPattern.Replace("*", "%").Replace("?", "_");
-            query = query.Where(e => EF.Functions.Like(e.Name, pattern));
+            // Convert wildcard pattern to regex pattern
+            var regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(searchPattern)
+                .Replace("\\*", ".*")
+                .Replace("\\?", ".") + "$";
+            var regex = new System.Text.RegularExpressions.Regex(regexPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            filteredEntries = filteredEntries.Where(e => regex.IsMatch(e.Name));
         }
         else
         {
-            // Simple contains search
-            query = query.Where(e => e.Name.Contains(searchPattern));
+            // Simple contains search (case-insensitive)
+            filteredEntries = filteredEntries.Where(e => e.Name.Contains(searchPattern, StringComparison.OrdinalIgnoreCase));
         }
         
-        var results = await query
+        // Convert to FileItemInfo and apply limit
+        var results = filteredEntries
             .OrderBy(e => e.Name)
             .Take(maxResults)
             .Select(e => new FileItemInfo
@@ -187,7 +217,7 @@ public class FileIndexService : IFileIndexService
                 LastModified = e.LastModified,
                 Extension = e.Extension
             })
-            .ToListAsync();
+            .ToList();
         
         return results;
     }
@@ -195,43 +225,55 @@ public class FileIndexService : IFileIndexService
     public async Task<(DateTime? lastIndexed, int fileCount)> GetIndexStatsAsync(string rootPath)
     {
         var normalizedRootPath = Path.GetFullPath(rootPath);
+        var indexFilePath = GetIndexFilePath(normalizedRootPath);
         
-        using var context = await _dbContextFactory.CreateDbContextAsync();
-        
-        var stats = await context.FileIndexEntries
-            .Where(e => e.RootPath == normalizedRootPath)
-            .GroupBy(e => e.RootPath)
-            .Select(g => new
-            {
-                LastIndexed = g.Max(e => e.IndexedAt),
-                FileCount = g.Count()
-            })
-            .FirstOrDefaultAsync();
-        
-        if (stats == null)
+        if (!File.Exists(indexFilePath))
+        {
             return (null, 0);
+        }
         
-        return (stats.LastIndexed, stats.FileCount);
+        try
+        {
+            var jsonContent = await File.ReadAllTextAsync(indexFilePath);
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            
+            var indexData = JsonSerializer.Deserialize<FileIndexData>(jsonContent, jsonOptions);
+            if (indexData == null)
+            {
+                return (null, 0);
+            }
+            
+            return (indexData.IndexedAt, indexData.TotalCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "读取索引文件失败: {IndexFile}", indexFilePath);
+            return (null, 0);
+        }
     }
 
     public async Task ClearIndexAsync(string rootPath)
     {
         var normalizedRootPath = Path.GetFullPath(rootPath);
+        var indexFilePath = GetIndexFilePath(normalizedRootPath);
         
-        using var context = await _dbContextFactory.CreateDbContextAsync();
+        if (File.Exists(indexFilePath))
+        {
+            File.Delete(indexFilePath);
+            _logger.LogInformation("已删除索引文件: {IndexFile}", indexFilePath);
+        }
         
-        await context.FileIndexEntries
-            .Where(e => e.RootPath == normalizedRootPath)
-            .ExecuteDeleteAsync();
+        await Task.CompletedTask;
     }
 
     public async Task<bool> HasIndexAsync(string rootPath)
     {
         var normalizedRootPath = Path.GetFullPath(rootPath);
+        var indexFilePath = GetIndexFilePath(normalizedRootPath);
         
-        using var context = await _dbContextFactory.CreateDbContextAsync();
-        
-        return await context.FileIndexEntries
-            .AnyAsync(e => e.RootPath == normalizedRootPath);
+        return await Task.FromResult(File.Exists(indexFilePath));
     }
 }
