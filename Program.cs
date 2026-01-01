@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.FluentUI.AspNetCore.Components;
 using QingFeng.Components;
 using QingFeng.Data;
+using QingFeng.Endpoints;
 using QingFeng.Hubs;
 using QingFeng.Services;
 using System.Text.RegularExpressions;
@@ -130,6 +131,20 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+
+// Map all API endpoints
+app.MapSystemMonitorEndpoints();
+app.MapDockerEndpoints();
+app.MapFileManagerEndpoints();
+app.MapDiskManagementEndpoints();
+app.MapShareManagementEndpoints();
+app.MapAuthenticationEndpoints();
+app.MapTerminalEndpoints();
+app.MapAnydropEndpoints();
+app.MapApplicationEndpoints();
+app.MapDockItemEndpoints();
+app.MapScheduledTaskEndpoints();
+app.MapSystemSettingEndpoints();
 
 // Add Anydrop attachment endpoints
 app.MapGet("/api/anydrop/attachment/{attachmentId}/download", async (int attachmentId, IAnydropService anydropService) =>
