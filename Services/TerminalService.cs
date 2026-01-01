@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
-using Pty.Net;
 
 namespace QingFeng.Services;
 
@@ -15,16 +14,16 @@ public class TerminalService : ITerminalService, IDisposable
         _logger = logger;
     }
 
-    public async Task<string> CreateSessionAsync()
+    public Task<string> CreateSessionAsync()
     {
         var sessionId = Guid.NewGuid().ToString();
         var session = new TerminalSession(sessionId, _logger);
         
         if (_sessions.TryAdd(sessionId, session))
         {
-            await session.StartAsync();
+            session.StartAsync();
             _logger.LogInformation("Created terminal session: {SessionId}", sessionId);
-            return sessionId;
+            return Task.FromResult(sessionId);
         }
         
         throw new InvalidOperationException("Failed to create terminal session");
@@ -92,7 +91,7 @@ public class TerminalService : ITerminalService, IDisposable
     {
         private readonly string _sessionId;
         private readonly ILogger _logger;
-        private IPtyConnection? _pty;
+        private INativePtyConnection? _pty;
         private const int MaxOutputBufferSize = 1024 * 1024; // 1 MB cap to prevent unbounded growth
         private readonly StringBuilder _outputBuffer = new StringBuilder();
         private readonly object _outputLock = new();
@@ -108,44 +107,34 @@ public class TerminalService : ITerminalService, IDisposable
             _logger = logger;
         }
 
-        public async Task StartAsync()
+        public Task StartAsync()
         {
             try
             {
-                var options = new PtyOptions
-                {
-                    Name = "xterm-256color",
-                    Cols = 80,
-                    Rows = 24,
-                    Cwd = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    Environment = new Dictionary<string, string>
-                    {
-                        ["TERM"] = "xterm-256color",
-                        ["COLORTERM"] = "truecolor"
-                    }
-                };
-
                 string app;
+                string[] args;
+                var workingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
                 if (OperatingSystem.IsWindows())
                 {
                     app = "cmd.exe";
-                    options.App = app;
+                    args = Array.Empty<string>();
                 }
                 else
                 {
                     app = "/bin/bash";
-                    options.App = app;
-                    options.CommandLine = new[] { "-i" };
+                    args = new[] { "-i" };
                 }
 
-                _pty = await PtyProvider.SpawnAsync(options, CancellationToken.None);
+                _pty = NativePty.Create(app, args, workingDirectory, 80, 24);
                 
-                _logger.LogInformation("Started PTY terminal session {SessionId} with PID {Pid}", _sessionId, _pty.Pid);
+                _logger.LogInformation("Started native PTY terminal session {SessionId} with PID {Pid}", _sessionId, _pty.ProcessId);
 
                 // Start reading output asynchronously
                 _readCts = new CancellationTokenSource();
                 StartReadingOutput(_readCts.Token);
+                
+                return Task.CompletedTask;
             }
             catch (Exception ex)
             {
@@ -160,9 +149,9 @@ public class TerminalService : ITerminalService, IDisposable
             {
                 try
                 {
-                    while (!_disposed && _pty != null && !cancellationToken.IsCancellationRequested)
+                    while (!_disposed && _pty != null && _pty.IsAlive && !cancellationToken.IsCancellationRequested)
                     {
-                        var count = await _pty.ReaderStream.ReadAsync(_readBuffer, 0, _readBuffer.Length, cancellationToken);
+                        var count = await _pty.OutputStream.ReadAsync(_readBuffer, 0, _readBuffer.Length, cancellationToken);
                         if (count > 0)
                         {
                             var text = _encoding.GetString(_readBuffer, 0, count);
@@ -210,8 +199,8 @@ public class TerminalService : ITerminalService, IDisposable
                 try
                 {
                     var bytes = _encoding.GetBytes(input);
-                    _pty.WriterStream.Write(bytes, 0, bytes.Length);
-                    _pty.WriterStream.Flush();
+                    _pty.InputStream.Write(bytes, 0, bytes.Length);
+                    _pty.InputStream.Flush();
                 }
                 catch (Exception ex)
                 {

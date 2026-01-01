@@ -66,7 +66,7 @@
 - **Web终端**：基于浏览器的终端功能
   - 通过浏览器直接操作宿主机命令行
   - 使用 xterm.js 提供完整的终端体验
-  - 使用 PTY (伪终端) 实现真实终端交互
+  - 使用原生PTY (伪终端) 实现真实终端交互
   - 实时双向通信（基于 SignalR）
   - 支持 Linux 和 Windows 系统
   - 终端会话管理
@@ -84,7 +84,7 @@
 - System.Diagnostics.PerformanceCounter
 - SignalR (实时通信)
 - xterm.js (Web终端前端)
-- Pty.Net (PTY伪终端后端)
+- 原生PTY (Linux forkpty, Windows ConPTY)
 
 ## 快速开始
 
