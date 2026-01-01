@@ -372,8 +372,10 @@
             <div>
                 <FluentLabel>本地路径 *</FluentLabel>
                 <FluentAutocomplete TOption="string"
-                                    @bind-Value="shareRequest.Path"
+                                    Value="@shareRequest.Path"
+                                    ValueChanged="@OnPathValueChanged"
                                     OnOptionsSearch="@OnSearchDirectories"
+                                    SelectedOptionsChanged="@OnPathSelected"
                                     Placeholder="/srv/shares/data"
                                     Style="width: 100%;"
                                     Disabled="@(isEditMode && shareRequest.Type == ShareType.NFS)"
@@ -1175,6 +1177,22 @@
         }
         
         e.Items = options.Any() ? options : new List<string> { searchText };
+    }
+    
+    // Handle directory path selection from autocomplete
+    private void OnPathSelected(IEnumerable<string> selectedPaths)
+    {
+        var path = selectedPaths?.FirstOrDefault();
+        if (!string.IsNullOrEmpty(path))
+        {
+            shareRequest.Path = path;
+        }
+    }
+    
+    // Handle manual path input changes
+    private void OnPathValueChanged(string value)
+    {
+        shareRequest.Path = value ?? string.Empty;
     }
     
     private async Task ConfirmRemoveSambaUser()
