@@ -13,7 +13,7 @@ public class AnydropMessage
     public string Content { get; set; } = string.Empty;
     
     /// <summary>
-    /// Type of message: Text, Image, Video, File, or Mixed
+    /// Type of message: Text, Image, Video, Audio, or File
     /// </summary>
     public string MessageType { get; set; } = "Text";
     

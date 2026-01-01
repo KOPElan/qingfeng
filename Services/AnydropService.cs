@@ -123,14 +123,15 @@ public class AnydropService : IAnydropService
         
         context.AnydropAttachments.Add(attachment);
         
-        // Update message type if needed
-        if (message.MessageType == "Text" && attachmentType != "Other")
+        // Update message type to match attachment type
+        // Each message should only have one type of content
+        if (attachmentType != "Other")
         {
             message.MessageType = attachmentType;
         }
-        else if (message.MessageType != "Mixed" && !string.IsNullOrEmpty(message.Content))
+        else
         {
-            message.MessageType = "Mixed";
+            message.MessageType = "File";
         }
         
         await context.SaveChangesAsync();

@@ -29,6 +29,12 @@
         background: var(--neutral-layer-2);
         border-bottom: 1px solid var(--neutral-stroke-divider-rest);
         display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .anydrop-header-top {
+        display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 16px;
@@ -46,6 +52,32 @@
     .anydrop-search {
         flex: 1;
         max-width: 400px;
+    }
+
+    .anydrop-tabs {
+        display: flex;
+        gap: 8px;
+    }
+
+    .tab-button {
+        padding: 8px 16px;
+        border: none;
+        background: transparent;
+        color: var(--neutral-foreground-hint);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .tab-button:hover {
+        color: var(--neutral-foreground-rest);
+    }
+
+    .tab-button.active {
+        color: var(--accent-fill-rest);
+        border-bottom-color: var(--accent-fill-rest);
     }
 
     .messages-container {
@@ -229,16 +261,29 @@
 
 <div class="anydrop-container">
     <div class="anydrop-header">
-        <div class="anydrop-title">
-            <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Cloud())" />
-            <span>云笈</span>
+        <div class="anydrop-header-top">
+            <div class="anydrop-title">
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Cloud())" />
+                <span>云笈</span>
+            </div>
+            <div class="anydrop-search">
+                <FluentSearch @bind-Value="@searchTerm" 
+                             Placeholder="搜索消息和文件..." 
+                             @oninput="OnSearchInput"
+                             Immediate="true"
+                             style="width: 100%;" />
+            </div>
         </div>
-        <div class="anydrop-search">
-            <FluentSearch @bind-Value="@searchTerm" 
-                         Placeholder="搜索消息和文件..." 
-                         @oninput="OnSearchInput"
-                         Immediate="true"
-                         style="width: 100%;" />
+        <div class="anydrop-tabs">
+            <button class="tab-button @(currentTab == "all" ? "active" : "")" @onclick='() => SetTab("all")'>
+                全部
+            </button>
+            <button class="tab-button @(currentTab == "images" ? "active" : "")" @onclick='() => SetTab("images")'>
+                图片
+            </button>
+            <button class="tab-button @(currentTab == "videos" ? "active" : "")" @onclick='() => SetTab("videos")'>
+                视频
+            </button>
         </div>
     </div>
 
@@ -267,7 +312,7 @@
         }
         else
         {
-            @foreach (var message in messages)
+            @foreach (var message in FilteredMessages)
             {
                 <div class="message-item" id="message-@message.Id" @key="message.Id">
                     <div class="message-header">
@@ -410,6 +455,27 @@
     private bool isSearching = false;
     private int? lastMessageId = null;
     private System.Threading.Timer? searchDebounceTimer;
+    private string currentTab = "all";
+
+    private IEnumerable<AnydropMessage> FilteredMessages
+    {
+        get
+        {
+            if (currentTab == "all")
+                return messages;
+            else if (currentTab == "images")
+                return messages.Where(m => m.MessageType == "Image");
+            else if (currentTab == "videos")
+                return messages.Where(m => m.MessageType == "Video");
+            return messages;
+        }
+    }
+
+    private void SetTab(string tab)
+    {
+        currentTab = tab;
+        StateHasChanged();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -533,42 +599,41 @@
 
         try
         {
-            // Determine message type
-            var messageType = "Text";
-            if (selectedFiles.Count > 0)
+            var createdMessages = new List<AnydropMessage>();
+
+            // Send text message first if there's content
+            if (!string.IsNullOrWhiteSpace(messageContent))
             {
-                if (string.IsNullOrWhiteSpace(messageContent))
+                var textMessage = await AnydropService.CreateMessageAsync(messageContent, "Text");
+                if (textMessage != null)
                 {
-                    // Pure file message
-                    var firstFile = selectedFiles.First();
-                    if (firstFile.ContentType.StartsWith("image/"))
-                        messageType = "Image";
-                    else if (firstFile.ContentType.StartsWith("video/"))
-                        messageType = "Video";
-                    else
-                        messageType = "File";
-                }
-                else
-                {
-                    messageType = "Mixed";
+                    createdMessages.Add(textMessage);
                 }
             }
 
-            // Create message
-            var message = await AnydropService.CreateMessageAsync(messageContent, messageType);
-
-            // Upload attachments
+            // Send each file as a separate message
             foreach (var file in selectedFiles)
             {
                 try
                 {
+                    // Create empty message for the file
+                    var fileMessage = await AnydropService.CreateMessageAsync(string.Empty, "File");
+                    
+                    // Upload the file attachment
                     using var stream = file.OpenReadStream(maxAllowedSize: 2147483648); // 2GB max
                     await AnydropService.AddAttachmentAsync(
-                        message.Id, 
+                        fileMessage.Id, 
                         file.Name, 
                         stream, 
                         file.Size, 
                         file.ContentType);
+                    
+                    // Refresh to get the updated message with attachment
+                    var refreshedFileMessage = await AnydropService.GetMessageByIdAsync(fileMessage.Id);
+                    if (refreshedFileMessage != null)
+                    {
+                        createdMessages.Add(refreshedFileMessage);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -576,12 +641,10 @@
                 }
             }
 
-            // Refresh message to get attachments
-            var refreshedMessage = await AnydropService.GetMessageByIdAsync(message.Id);
-            if (refreshedMessage != null)
+            // Add all created messages to the top of the list
+            foreach (var msg in createdMessages)
             {
-                // Add to top of list
-                messages.Insert(0, refreshedMessage);
+                messages.Insert(0, msg);
             }
 
             // Clear input
