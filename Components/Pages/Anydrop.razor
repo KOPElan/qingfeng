@@ -411,6 +411,36 @@
     .search-result-content {
         color: var(--neutral-foreground-rest);
     }
+
+    /* Timeline styles */
+    .timeline-group {
+        margin-bottom: 32px;
+    }
+
+    .timeline-header {
+        position: sticky;
+        top: 0;
+        background: var(--neutral-layer-1);
+        z-index: 10;
+        padding: 12px 0;
+        margin-bottom: 16px;
+        border-bottom: 2px solid var(--accent-fill-rest);
+    }
+
+    .timeline-date {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--neutral-foreground-rest);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .timeline-count {
+        font-size: 14px;
+        font-weight: 400;
+        color: var(--neutral-foreground-hint);
+    }
 </style>
 
 <div class="anydrop-container">
@@ -467,34 +497,64 @@
         }
         else if (currentTab == "images" || currentTab == "videos")
         {
-            <!-- Grid view for images/videos -->
-            <div class="media-grid">
-                @foreach (var message in FilteredMessages)
+            <!-- Grid view for images/videos with timeline -->
+            <div style="padding: 20px 24px; overflow-y: auto;">
+                @{
+                    var groupedByDate = FilteredMessages
+                        .Where(m => m.Attachments != null && m.Attachments.Any())
+                        .SelectMany(m => m.Attachments.Select(a => new { Message = m, Attachment = a }))
+                        .GroupBy(x => x.Message.CreatedAt.ToLocalTime().Date)
+                        .OrderByDescending(g => g.Key);
+                }
+                
+                @foreach (var dateGroup in groupedByDate)
                 {
-                    @if (message.Attachments != null && message.Attachments.Any())
-                    {
-                        @foreach (var attachment in message.Attachments)
-                        {
-                            <div class="media-grid-item" @onclick="@(() => OpenPreviewModal(attachment))" @key="attachment.Id">
-                                @if (attachment.AttachmentType == "Image")
+                    <div class="timeline-group" @key="dateGroup.Key">
+                        <div class="timeline-header">
+                            <div class="timeline-date">
+                                @if (dateGroup.Key.Date == DateTime.Today)
                                 {
-                                    <img src="/api/anydrop/attachment/@attachment.Id/preview" 
-                                         alt="@attachment.FileName" 
-                                         loading="lazy" />
+                                    <span>今天</span>
                                 }
-                                else if (attachment.AttachmentType == "Video")
+                                else if (dateGroup.Key.Date == DateTime.Today.AddDays(-1))
                                 {
-                                    <video aria-label="@attachment.FileName">
-                                        <source src="/api/anydrop/attachment/@attachment.Id/preview" 
-                                               type="@attachment.ContentType">
-                                    </video>
+                                    <span>昨天</span>
                                 }
-                                <div class="media-grid-item-overlay">
-                                    @attachment.FileName
-                                </div>
+                                else if (dateGroup.Key.Year == DateTime.Today.Year)
+                                {
+                                    <span>@dateGroup.Key.ToString("M月d日")</span>
+                                }
+                                else
+                                {
+                                    <span>@dateGroup.Key.ToString("yyyy年M月d日")</span>
+                                }
+                                <span class="timeline-count">(@dateGroup.Count() 项)</span>
                             </div>
-                        }
-                    }
+                        </div>
+                        <div class="media-grid">
+                            @foreach (var item in dateGroup)
+                            {
+                                <div class="media-grid-item" @onclick="@(() => OpenPreviewModal(item.Attachment))" @key="item.Attachment.Id">
+                                    @if (item.Attachment.AttachmentType == "Image")
+                                    {
+                                        <img src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
+                                             alt="@item.Attachment.FileName" 
+                                             loading="lazy" />
+                                    }
+                                    else if (item.Attachment.AttachmentType == "Video")
+                                    {
+                                        <video aria-label="@item.Attachment.FileName">
+                                            <source src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
+                                                   type="@item.Attachment.ContentType">
+                                        </video>
+                                    }
+                                    <div class="media-grid-item-overlay">
+                                        @item.Attachment.FileName
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
                 }
             </div>
         }
