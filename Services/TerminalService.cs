@@ -99,6 +99,8 @@ public class TerminalService : ITerminalService, IDisposable
         private bool _disposed = false;
         private int _currentBufferSize = 0;
         private CancellationTokenSource? _readCts;
+        private readonly byte[] _readBuffer = new byte[4096]; // Reuse buffer
+        private readonly Encoding _encoding = System.Text.Encoding.UTF8; // Reuse encoder
 
         public TerminalSession(string sessionId, ILogger logger)
         {
@@ -158,13 +160,12 @@ public class TerminalService : ITerminalService, IDisposable
             {
                 try
                 {
-                    var buffer = new byte[4096];
                     while (!_disposed && _pty != null && !cancellationToken.IsCancellationRequested)
                     {
-                        var count = await _pty.ReaderStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+                        var count = await _pty.ReaderStream.ReadAsync(_readBuffer, 0, _readBuffer.Length, cancellationToken);
                         if (count > 0)
                         {
-                            var text = System.Text.Encoding.UTF8.GetString(buffer, 0, count);
+                            var text = _encoding.GetString(_readBuffer, 0, count);
                             lock (_outputLock)
                             {
                                 // Check if adding this data would exceed the buffer limit
@@ -208,7 +209,7 @@ public class TerminalService : ITerminalService, IDisposable
             {
                 try
                 {
-                    var bytes = System.Text.Encoding.UTF8.GetBytes(input);
+                    var bytes = _encoding.GetBytes(input);
                     _pty.WriterStream.Write(bytes, 0, bytes.Length);
                     _pty.WriterStream.Flush();
                 }
