@@ -36,12 +36,13 @@ public class FileIndexService : IFileIndexService
     {
         var currentPath = Path.GetFullPath(startPath);
         
-        // Search upwards until we find an index file or reach the root
+        // Search upwards layer by layer until we find an index file or reach the filesystem root
         while (!string.IsNullOrEmpty(currentPath))
         {
             var indexFilePath = Path.Combine(currentPath, IndexFileName);
             if (File.Exists(indexFilePath))
             {
+                _logger.LogDebug("找到索引文件: {IndexFile}，搜索路径: {StartPath}", indexFilePath, startPath);
                 return indexFilePath;
             }
             
@@ -52,6 +53,7 @@ public class FileIndexService : IFileIndexService
             currentPath = parent.FullName;
         }
         
+        _logger.LogDebug("未找到索引文件，搜索路径: {StartPath}", startPath);
         return null;
     }
     
@@ -250,7 +252,7 @@ public class FileIndexService : IFileIndexService
         
         if (string.IsNullOrEmpty(indexFilePath) || !File.Exists(indexFilePath))
         {
-            throw new FileNotFoundException($"未找到索引文件。请在根目录建立索引: {normalizedRootPath}");
+            throw new FileNotFoundException($"未找到索引文件。请在当前目录或其父目录建立索引: {normalizedRootPath}");
         }
         
         _logger.LogDebug("使用索引文件: {IndexFile} 搜索目录: {SearchPath}", indexFilePath, normalizedRootPath);
