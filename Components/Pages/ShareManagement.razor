@@ -28,6 +28,16 @@
     .fluent-table tr:hover {
         background-color: var(--neutral-fill-secondary-hover);
     }
+    
+    .path-suggestion {
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .path-suggestion:hover {
+        background-color: var(--neutral-fill-hover);
+    }
 </style>
 
 @if (!IsAuthorized)
@@ -371,16 +381,27 @@
 
             <div>
                 <FluentLabel>本地路径 *</FluentLabel>
-                <FluentAutocomplete TOption="string"
-                                    Value="@shareRequest.Path"
-                                    ValueChanged="@OnPathValueChanged"
-                                    OnOptionsSearch="@OnSearchDirectories"
-                                    SelectedOptionsChanged="@OnPathSelected"
-                                    Placeholder="/srv/shares/data"
-                                    Style="width: 100%;"
-                                    Disabled="@(isEditMode && shareRequest.Type == ShareType.NFS)"
-                                    MaximumSelectedOptions="1"
-                                    OptionText="@(item => item)" />
+                <FluentTextField @bind-Value="@shareRequest.Path"
+                                 @oninput="@OnPathInput"
+                                 Placeholder="/srv/shares/data"
+                                 Style="width: 100%;"
+                                 Disabled="@(isEditMode && shareRequest.Type == ShareType.NFS)" 
+                                 Autocomplete="off">
+                    @if (pathSuggestions.Any())
+                    {
+                        <div style="position: absolute; z-index: 1000; background: var(--neutral-layer-1); border: 1px solid var(--neutral-stroke-rest); border-radius: 4px; max-height: 200px; overflow-y: auto; width: 100%; margin-top: 2px;">
+                            @foreach (var suggestion in pathSuggestions)
+                            {
+                                <div @onclick="@(() => SelectPath(suggestion))" 
+                                     style="padding: 8px 12px; cursor: pointer; hover:background-color: var(--neutral-fill-hover);"
+                                     @onmouseover="@((MouseEventArgs e) => { /* hover effect */ })"
+                                     class="path-suggestion">
+                                    @suggestion
+                                </div>
+                            }
+                        </div>
+                    }
+                </FluentTextField>
                 <small style="color: var(--neutral-foreground-hint);">要共享的本地目录路径。输入时会显示目录建议</small>
             </div>
 
@@ -743,6 +764,10 @@
     // Feature Detection
     private bool showFeatureDetection = false;
     private ShareManagementFeatureDetection? featureDetectionResult = null;
+    
+    // Path autocomplete
+    private List<string> pathSuggestions = new();
+    private bool isUpdatingPathProgrammatically = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1179,20 +1204,86 @@
         e.Items = options.Any() ? options : new List<string> { searchText };
     }
     
-    // Handle directory path selection from autocomplete
-    private void OnPathSelected(IEnumerable<string> selectedPaths)
+    // Handle directory path input
+    private void OnPathInput(ChangeEventArgs e)
     {
-        var path = selectedPaths?.FirstOrDefault();
-        if (!string.IsNullOrEmpty(path))
+        // Skip if we're updating programmatically
+        if (isUpdatingPathProgrammatically)
         {
-            shareRequest.Path = path;
+            isUpdatingPathProgrammatically = false;
+            return;
+        }
+        
+        var searchText = e.Value?.ToString() ?? string.Empty;
+        shareRequest.Path = searchText;
+        
+        pathSuggestions.Clear();
+        
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            pathSuggestions = new List<string> { "/home", "/mnt", "/srv", "/opt", "/var", "/tmp" };
+            return;
+        }
+        
+        try
+        {
+            // Validate input to prevent path traversal attacks
+            if (searchText.Contains("..") || searchText.Contains("~"))
+            {
+                return;
+            }
+            
+            // Determine the directory to search
+            string searchDir;
+            string prefix;
+            
+            if (searchText.EndsWith("/"))
+            {
+                searchDir = searchText;
+                prefix = searchText;
+            }
+            else
+            {
+                var lastSlash = searchText.LastIndexOf('/');
+                if (lastSlash >= 0)
+                {
+                    searchDir = searchText.Substring(0, lastSlash + 1);
+                    if (string.IsNullOrEmpty(searchDir))
+                    {
+                        searchDir = "/";
+                    }
+                    prefix = searchText.Substring(0, lastSlash + 1);
+                }
+                else
+                {
+                    searchDir = "/";
+                    prefix = "/";
+                }
+            }
+            
+            // Get directories from the specified path
+            if (Directory.Exists(searchDir))
+            {
+                pathSuggestions = Directory.GetDirectories(searchDir)
+                    .Select(d => prefix + Path.GetFileName(d))
+                    .Where(d => d.StartsWith(searchText, StringComparison.OrdinalIgnoreCase))
+                    .Take(10)
+                    .ToList();
+            }
+        }
+        catch
+        {
+            // Ignore errors and keep empty list
         }
     }
     
-    // Handle manual path input changes
-    private void OnPathValueChanged(string value)
+    // Handle path selection from suggestions
+    private void SelectPath(string path)
     {
-        shareRequest.Path = value ?? string.Empty;
+        isUpdatingPathProgrammatically = true;
+        shareRequest.Path = path;
+        pathSuggestions.Clear();
+        StateHasChanged();
     }
     
     private async Task ConfirmRemoveSambaUser()
