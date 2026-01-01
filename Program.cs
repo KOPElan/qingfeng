@@ -78,6 +78,9 @@ builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 // Use ProtectedLocalStorage so auth persists across browser restarts
 builder.Services.AddScoped<AuthenticationStateService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IFileIndexService, FileIndexService>();
+builder.Services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
+builder.Services.AddHostedService<ScheduledTaskExecutorService>();
 builder.Services.AddScoped<IAnydropService, AnydropService>();
 
 var app = builder.Build();

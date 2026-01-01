@@ -16,6 +16,7 @@ public class QingFengDbContext : DbContext
     public DbSet<SystemSetting> SystemSettings { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<FavoriteFolder> FavoriteFolders { get; set; } = null!;
+    public DbSet<ScheduledTask> ScheduledTasks { get; set; } = null!;
     public DbSet<AnydropMessage> AnydropMessages { get; set; } = null!;
     public DbSet<AnydropAttachment> AnydropAttachments { get; set; } = null!;
 
@@ -84,6 +85,19 @@ public class QingFengDbContext : DbContext
             entity.Property(e => e.Icon).IsRequired().HasMaxLength(100);
         });
 
+        // Configure ScheduledTask
+        modelBuilder.Entity<ScheduledTask>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TaskType);
+            entity.HasIndex(e => e.NextRunTime);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.TaskType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Configuration).HasMaxLength(4000);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+        });
+        
         // Configure AnydropMessage
         modelBuilder.Entity<AnydropMessage>(entity =>
         {
