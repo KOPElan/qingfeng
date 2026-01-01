@@ -63,6 +63,8 @@ builder.Services.AddScoped(provider => provider.GetRequiredService<IDbContextFac
 
 // Add localization services
 builder.Services.AddLocalization();
+// Register protected browser storage so we can use ProtectedLocalStorage
+builder.Services.AddProtectedBrowserStorage();
 
 // Register custom services
 builder.Services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
@@ -75,6 +77,7 @@ builder.Services.AddScoped<IDockItemService, DockItemService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<ILocalizationService, LocalizationService>();
+// Use ProtectedLocalStorage so auth persists across browser restarts
 builder.Services.AddScoped<AuthenticationStateService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 

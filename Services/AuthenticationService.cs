@@ -33,7 +33,7 @@ public class AuthenticationService : IAuthenticationService
         user.LastLoginAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
 
-        // Set authentication state (now persisted to session storage)
+        // Set authentication state (now persisted to protected local storage)
         await _authState.SetUserAsync(user);
 
         return user;
@@ -80,7 +80,7 @@ public class AuthenticationService : IAuthenticationService
     public async Task<User?> GetCurrentUserAsync()
     {
         // Now returns from session storage-backed state
-        return await _authState.GetCurrentUserAsync();
+        return await _authState.GetCurrentUserAsync(); // Now returns from protected local storage-backed state
     }
 
     public async Task<bool> IsAdminAsync()
