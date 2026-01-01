@@ -16,6 +16,8 @@ public class QingFengDbContext : DbContext
     public DbSet<SystemSetting> SystemSettings { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<FavoriteFolder> FavoriteFolders { get; set; } = null!;
+    public DbSet<FileIndexEntry> FileIndexEntries { get; set; } = null!;
+    public DbSet<ScheduledTask> ScheduledTasks { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -80,6 +82,32 @@ public class QingFengDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Path).IsRequired().HasMaxLength(1000);
             entity.Property(e => e.Icon).IsRequired().HasMaxLength(100);
+        });
+
+        // Configure FileIndexEntry
+        modelBuilder.Entity<FileIndexEntry>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Path);
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.RootPath);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Path).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.Extension).HasMaxLength(50);
+            entity.Property(e => e.RootPath).IsRequired().HasMaxLength(2000);
+        });
+
+        // Configure ScheduledTask
+        modelBuilder.Entity<ScheduledTask>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TaskType);
+            entity.HasIndex(e => e.NextRunTime);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.TaskType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Configuration).HasMaxLength(4000);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
         });
     }
 }

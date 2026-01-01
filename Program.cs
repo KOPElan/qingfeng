@@ -77,6 +77,9 @@ builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 builder.Services.AddScoped<AuthenticationStateService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IFileIndexService, FileIndexService>();
+builder.Services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
+builder.Services.AddHostedService<ScheduledTaskExecutorService>();
 
 var app = builder.Build();
 
