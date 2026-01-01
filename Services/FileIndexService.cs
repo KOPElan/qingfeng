@@ -38,18 +38,23 @@ public class FileIndexService : IFileIndexService
             var rootPathNormalized = Path.GetFullPath(rootPath);
             var indexFilePath = GetIndexFilePath(rootPathNormalized);
             
-            // Build new index
-            var entries = new List<FileIndexEntry>();
-            var indexedAt = DateTime.UtcNow;
-            var processedCount = 0;
-            
-            IndexDirectoryRecursive(rootPathNormalized, rootPathNormalized, entries, indexedAt, progress, ref processedCount);
+            // Build new index on background thread to avoid blocking UI
+            var entries = await Task.Run(async () =>
+            {
+                var entryList = new List<FileIndexEntry>();
+                var indexedAt = DateTime.UtcNow;
+                var processedCount = 0;
+                
+                await IndexDirectoryRecursiveAsync(rootPathNormalized, rootPathNormalized, entryList, indexedAt, progress, processedCount, 0);
+                
+                return entryList;
+            });
             
             // Create index data structure
             var indexData = new FileIndexData
             {
                 RootPath = rootPathNormalized,
-                IndexedAt = indexedAt,
+                IndexedAt = DateTime.UtcNow,
                 TotalCount = entries.Count,
                 Entries = entries
             };
@@ -74,17 +79,17 @@ public class FileIndexService : IFileIndexService
         }
     }
 
-    private void IndexDirectoryRecursive(
+    private async Task<int> IndexDirectoryRecursiveAsync(
         string currentPath, 
         string rootPath, 
         List<FileIndexEntry> entries, 
         DateTime indexedAt,
         IProgress<int>? progress,
-        ref int processedCount,
+        int processedCount,
         int currentDepth = 0)
     {
         if (currentDepth > MaxIndexDepth)
-            return;
+            return processedCount;
 
         try
         {
@@ -108,9 +113,12 @@ public class FileIndexService : IFileIndexService
                     });
                     
                     processedCount++;
-                    if (processedCount % 100 == 0)
+                    
+                    // Report progress and yield to prevent blocking
+                    if (processedCount % 50 == 0)
                     {
                         progress?.Report(processedCount);
+                        await Task.Yield(); // Allow UI to update
                     }
                 }
                 catch (Exception ex)
@@ -137,13 +145,16 @@ public class FileIndexService : IFileIndexService
                     });
                     
                     processedCount++;
-                    if (processedCount % 100 == 0)
+                    
+                    // Report progress and yield to prevent blocking
+                    if (processedCount % 50 == 0)
                     {
                         progress?.Report(processedCount);
+                        await Task.Yield(); // Allow UI to update
                     }
                     
                     // Recursively index subdirectory
-                    IndexDirectoryRecursive(subDir.FullName, rootPath, entries, indexedAt, progress, ref processedCount, currentDepth + 1);
+                    processedCount = await IndexDirectoryRecursiveAsync(subDir.FullName, rootPath, entries, indexedAt, progress, processedCount, currentDepth + 1);
                 }
                 catch (Exception ex)
                 {
@@ -155,6 +166,8 @@ public class FileIndexService : IFileIndexService
         {
             _logger.LogDebug(ex, "无法访问目录: {DirectoryPath}", currentPath);
         }
+        
+        return processedCount;
     }
 
     public async Task<List<FileItemInfo>> SearchIndexAsync(string searchPattern, string? rootPath = null, int maxResults = 1000)
