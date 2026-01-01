@@ -60,7 +60,14 @@ public class ScheduledTaskExecutorService : BackgroundService
             // Execute task in background (don't wait)
             _ = Task.Run(async () =>
             {
-                await ExecuteTaskAsync(task.Id, task.TaskType, task.Configuration);
+                try
+                {
+                    await ExecuteTaskAsync(task.Id, task.TaskType, task.Configuration);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "执行定时任务时发生未处理的异常: TaskId={TaskId}", task.Id);
+                }
             }, cancellationToken);
         }
     }

@@ -10,6 +10,10 @@ public class FileIndexService : IFileIndexService
     private readonly ILogger<FileIndexService> _logger;
     private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
 
+    // Configuration constants
+    private const int IndexBatchSize = 1000;
+    private const int MaxIndexDepth = 20;
+
     public FileIndexService(ILogger<FileIndexService> logger, IDbContextFactory<QingFengDbContext> dbContextFactory)
     {
         _logger = logger;
@@ -45,10 +49,9 @@ public class FileIndexService : IFileIndexService
             IndexDirectoryRecursive(rootPathNormalized, rootPathNormalized, entries, indexedAt, progress, ref processedCount);
             
             // Save in batches for better performance
-            const int batchSize = 1000;
-            for (int i = 0; i < entries.Count; i += batchSize)
+            for (int i = 0; i < entries.Count; i += IndexBatchSize)
             {
-                var batch = entries.Skip(i).Take(batchSize).ToList();
+                var batch = entries.Skip(i).Take(IndexBatchSize).ToList();
                 await context.FileIndexEntries.AddRangeAsync(batch);
                 await context.SaveChangesAsync();
             }
@@ -69,10 +72,9 @@ public class FileIndexService : IFileIndexService
         DateTime indexedAt,
         IProgress<int>? progress,
         ref int processedCount,
-        int maxDepth = 20,
         int currentDepth = 0)
     {
-        if (currentDepth > maxDepth)
+        if (currentDepth > MaxIndexDepth)
             return;
 
         try
@@ -132,7 +134,7 @@ public class FileIndexService : IFileIndexService
                     }
                     
                     // Recursively index subdirectory
-                    IndexDirectoryRecursive(subDir.FullName, rootPath, entries, indexedAt, progress, ref processedCount, maxDepth, currentDepth + 1);
+                    IndexDirectoryRecursive(subDir.FullName, rootPath, entries, indexedAt, progress, ref processedCount, currentDepth + 1);
                 }
                 catch (Exception ex)
                 {

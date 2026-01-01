@@ -1187,6 +1187,7 @@
     private bool notificationIsError = false;
 
     // Index related state
+    private const int IndexDialogAutoCloseDelayMs = 2000;
     private bool isRebuildingIndex = false;
     private bool isSearching = false;
     private bool hasIndex = false;
@@ -2526,7 +2527,7 @@
             indexStats = await FileIndexService.GetIndexStatsAsync(currentPath);
             
             // Auto-close after delay
-            await Task.Delay(2000);
+            await Task.Delay(IndexDialogAutoCloseDelayMs);
             CloseRebuildIndexDialog();
         }
         catch (Exception ex)

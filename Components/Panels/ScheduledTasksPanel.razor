@@ -142,6 +142,8 @@
 </FluentDialog>
 
 @code {
+    private const int TaskDialogAutoCloseDelayMs = 1000;
+    
     private List<ScheduledTask>? tasks;
     private bool showTaskDialog = false;
     private ScheduledTask? editingTask = null;
@@ -293,7 +295,7 @@
             await LoadTasksAsync();
             
             // Close dialog after delay
-            await Task.Delay(1000);
+            await Task.Delay(TaskDialogAutoCloseDelayMs);
             CloseTaskDialog();
         }
         catch (Exception ex)
