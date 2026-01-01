@@ -76,4 +76,24 @@ public interface IShareManagementService
     /// Detect available features and required packages
     /// </summary>
     Task<ShareManagementFeatureDetection> DetectFeaturesAsync();
+    
+    /// <summary>
+    /// Get all Samba users
+    /// </summary>
+    Task<List<SambaUser>> GetSambaUsersAsync();
+    
+    /// <summary>
+    /// Add a Samba user with password
+    /// </summary>
+    Task<OperationResult> AddSambaUserAsync(SambaUserRequest request);
+    
+    /// <summary>
+    /// Update a Samba user's password
+    /// </summary>
+    Task<OperationResult> UpdateSambaUserPasswordAsync(string username, string password);
+    
+    /// <summary>
+    /// Remove a Samba user
+    /// </summary>
+    Task<OperationResult> RemoveSambaUserAsync(string username);
 }

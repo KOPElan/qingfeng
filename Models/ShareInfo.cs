@@ -60,6 +60,16 @@ public class ShareInfo
     public string WriteList { get; set; } = string.Empty;
     
     /// <summary>
+    /// Create mask - file permissions for new files (CIFS only, octal notation)
+    /// </summary>
+    public string CreateMask { get; set; } = "0744";
+    
+    /// <summary>
+    /// Directory mask - directory permissions for new directories (CIFS only, octal notation)
+    /// </summary>
+    public string DirectoryMask { get; set; } = "0755";
+    
+    /// <summary>
     /// Client hosts allowed to access (NFS only)
     /// </summary>
     public string AllowedHosts { get; set; } = "*";
@@ -89,6 +99,61 @@ public class ShareRequest
     public bool GuestOk { get; set; } = false;
     public string ValidUsers { get; set; } = string.Empty;
     public string WriteList { get; set; } = string.Empty;
+    public string CreateMask { get; set; } = "0744";
+    public string DirectoryMask { get; set; } = "0755";
     public string AllowedHosts { get; set; } = "*";
     public string NfsOptions { get; set; } = "rw,sync,no_subtree_check";
+}
+
+/// <summary>
+/// Represents a Samba user
+/// </summary>
+public class SambaUser
+{
+    /// <summary>
+    /// Unix username
+    /// </summary>
+    public string Username { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Unix user ID
+    /// </summary>
+    public int Uid { get; set; }
+    
+    /// <summary>
+    /// Whether the user has a Samba password set
+    /// </summary>
+    public bool HasSambaPassword { get; set; }
+}
+
+/// <summary>
+/// Request model for creating/updating a Samba user
+/// </summary>
+public class SambaUserRequest
+{
+    /// <summary>
+    /// Unix username (must exist on the system)
+    /// </summary>
+    public string Username { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Samba password for the user
+    /// </summary>
+    public string Password { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Result of an operation
+/// </summary>
+public class OperationResult
+{
+    /// <summary>
+    /// Whether the operation was successful
+    /// </summary>
+    public bool Success { get; set; }
+    
+    /// <summary>
+    /// Message describing the result
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
 }

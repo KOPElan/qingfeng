@@ -250,6 +250,86 @@
         <p style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有配置的 NFS 导出</p>
     }
 </FluentCard>
+
+<!-- Samba Users -->
+<FluentCard Style="margin-bottom: 1.5rem;">
+    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <FluentLabel Typo="Typography.H5">
+            👤 Samba 用户管理
+        </FluentLabel>
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
+            <FluentButton Appearance="Appearance.Outline" OnClick="() => ShowAddSambaUserDialog()" Style="font-size: 0.875rem;">
+                ➕ 添加 Samba 用户
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Outline" OnClick="RefreshSambaUsers" Style="font-size: 0.875rem;">
+                🔄 刷新用户列表
+            </FluentButton>
+        </FluentStack>
+    </FluentStack>
+    @if (sambaUsers != null && sambaUsers.Any())
+    {
+        <div style="overflow-x: auto; margin-top: 1rem;">
+            <table class="fluent-table" style="width: 100%;" role="table" aria-label="Samba用户">
+                <thead>
+                    <tr>
+                        <th scope="col">用户名</th>
+                        <th scope="col">用户ID</th>
+                        <th scope="col">状态</th>
+                        <th scope="col">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in sambaUsers)
+                    {
+                        <tr>
+                            <td><strong>@user.Username</strong></td>
+                            <td>@user.Uid</td>
+                            <td>
+                                @if (user.HasSambaPassword)
+                                {
+                                    <FluentBadge Appearance="Appearance.Accent" BackgroundColor="#107C10">已启用</FluentBadge>
+                                }
+                                else
+                                {
+                                    <FluentBadge Appearance="Appearance.Neutral">未启用</FluentBadge>
+                                }
+                            </td>
+                            <td>
+                                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
+                                    <FluentButton Appearance="Appearance.Outline" 
+                                                  OnClick="() => ShowChangeSambaPasswordDialog(user.Username)" 
+                                                  Title="修改密码" 
+                                                  aria-label="@($"修改用户 {user.Username} 的密码")"
+                                                  Style="font-size: 0.875rem;">
+                                        🔑 修改密码
+                                    </FluentButton>
+                                    <FluentButton Appearance="Appearance.Outline" 
+                                                  OnClick="() => ShowRemoveSambaUserConfirmation(user.Username)" 
+                                                  Title="删除用户" 
+                                                  aria-label="@($"删除用户 {user.Username}")"
+                                                  Style="font-size: 0.875rem;">
+                                        🗑️ 删除
+                                    </FluentButton>
+                                </FluentStack>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (isLoadingSambaUsers)
+    {
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; align-items: center; margin-top: 1rem;">
+            <FluentProgressRing />
+            <p style="margin: 0;">加载中...</p>
+        </FluentStack>
+    }
+    else
+    {
+        <p style="color: var(--neutral-foreground-hint); margin-top: 1rem;">没有配置的 Samba 用户</p>
+    }
+</FluentCard>
 </FluentStack>
 
 <!-- Add/Edit Share Dialog -->
@@ -291,8 +371,15 @@
 
             <div>
                 <FluentLabel>本地路径 *</FluentLabel>
-                <FluentTextField @bind-Value="shareRequest.Path" Placeholder="/srv/shares/data" Style="width: 100%;" Disabled="@(isEditMode && shareRequest.Type == ShareType.NFS)" />
-                <small style="color: var(--neutral-foreground-hint);">要共享的本地目录路径</small>
+                <FluentAutocomplete TOption="string"
+                                    @bind-Value="@shareRequest.Path"
+                                    OnOptionsSearch="@OnSearchDirectories"
+                                    Placeholder="/srv/shares/data"
+                                    Style="width: 100%;"
+                                    Disabled="@(isEditMode && shareRequest.Type == ShareType.NFS)"
+                                    Multiple="false"
+                                    OptionText="@(item => item)" />
+                <small style="color: var(--neutral-foreground-hint);">要共享的本地目录路径。输入时会显示目录建议</small>
             </div>
 
             @if (shareRequest.Type == ShareType.CIFS)
@@ -324,6 +411,30 @@
                         <small style="color: var(--neutral-foreground-hint);">在只读共享中允许写入的用户列表。使用 &commat; 前缀表示组</small>
                     </div>
                 }
+                
+                <div>
+                    <FluentLabel>文件创建权限 (Create Mask)</FluentLabel>
+                    <FluentSelect TOption="string" @bind-Value="shareRequest.CreateMask" Style="width: 100%;">
+                        <FluentOption Value="@("0644")">0644 (rw-r--r--) - 所有者读写，其他人只读</FluentOption>
+                        <FluentOption Value="@("0664")">0664 (rw-rw-r--) - 所有者和组读写，其他人只读</FluentOption>
+                        <FluentOption Value="@("0744")">0744 (rwxr--r--) - 所有者全部权限，其他人只读</FluentOption>
+                        <FluentOption Value="@("0755")">0755 (rwxr-xr-x) - 所有者全部权限，其他人读和执行</FluentOption>
+                        <FluentOption Value="@("0774")">0774 (rwxrwxr--) - 所有者和组全部权限，其他人只读</FluentOption>
+                        <FluentOption Value="@("0777")">0777 (rwxrwxrwx) - 所有人全部权限</FluentOption>
+                    </FluentSelect>
+                    <small style="color: var(--neutral-foreground-hint);">新创建文件的默认权限</small>
+                </div>
+                
+                <div>
+                    <FluentLabel>目录创建权限 (Directory Mask)</FluentLabel>
+                    <FluentSelect TOption="string" @bind-Value="shareRequest.DirectoryMask" Style="width: 100%;">
+                        <FluentOption Value="@("0755")">0755 (rwxr-xr-x) - 所有者全部权限，其他人读和执行</FluentOption>
+                        <FluentOption Value="@("0775")">0775 (rwxrwxr-x) - 所有者和组全部权限，其他人读和执行</FluentOption>
+                        <FluentOption Value="@("0770")">0770 (rwxrwx---) - 所有者和组全部权限</FluentOption>
+                        <FluentOption Value="@("0777")">0777 (rwxrwxrwx) - 所有人全部权限</FluentOption>
+                    </FluentSelect>
+                    <small style="color: var(--neutral-foreground-hint);">新创建目录的默认权限</small>
+                </div>
             }
             else
             {
@@ -485,6 +596,109 @@
     </FluentDialogFooter>
 </FluentDialog>
 
+<!-- Add Samba User Dialog -->
+<FluentDialog Hidden="@(!showAddSambaUserDialog)" Modal="true" OnDismiss="HideAddSambaUserDialog" Style="width: 90%; max-width: 500px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">➕ 添加 Samba 用户</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (!string.IsNullOrEmpty(sambaUserDialogMessage))
+        {
+            <FluentMessageBar Intent="@(sambaUserDialogError ? MessageIntent.Error : MessageIntent.Success)" Style="margin-bottom: 1rem;">
+                @sambaUserDialogMessage
+                <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => sambaUserDialogMessage = string.Empty)" aria-label="Close" Style="margin-left: auto;">
+                    ✕
+                </FluentButton>
+            </FluentMessageBar>
+        }
+
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+            <div>
+                <FluentLabel>用户名 *</FluentLabel>
+                <FluentTextField @bind-Value="sambaUserRequest.Username" Placeholder="username" Style="width: 100%;" />
+                <small style="color: var(--neutral-foreground-hint);">必须是已存在的 Unix 用户名</small>
+            </div>
+
+            <div>
+                <FluentLabel>密码 *</FluentLabel>
+                <FluentTextField @bind-Value="sambaUserRequest.Password" Placeholder="输入密码" Style="width: 100%;" Type="InputType.Password" />
+                <small style="color: var(--neutral-foreground-hint);">Samba 用户密码</small>
+            </div>
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="HideAddSambaUserDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="SaveSambaUser" Disabled="@(string.IsNullOrWhiteSpace(sambaUserRequest.Username) || string.IsNullOrWhiteSpace(sambaUserRequest.Password) || isProcessingSambaUser)">
+            @if (isProcessingSambaUser)
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.5rem;" />
+            }
+            ✓ 添加
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<!-- Change Samba User Password Dialog -->
+<FluentDialog Hidden="@(!showChangeSambaPasswordDialog)" Modal="true" OnDismiss="HideChangeSambaPasswordDialog" Style="width: 90%; max-width: 500px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">🔑 修改 Samba 用户密码</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (!string.IsNullOrEmpty(sambaPasswordDialogMessage))
+        {
+            <FluentMessageBar Intent="@(sambaPasswordDialogError ? MessageIntent.Error : MessageIntent.Success)" Style="margin-bottom: 1rem;">
+                @sambaPasswordDialogMessage
+                <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => sambaPasswordDialogMessage = string.Empty)" aria-label="Close" Style="margin-left: auto;">
+                    ✕
+                </FluentButton>
+            </FluentMessageBar>
+        }
+
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+            <div>
+                <FluentLabel>用户名</FluentLabel>
+                <FluentTextField Value="@selectedSambaUsername" Style="width: 100%;" Disabled="true" />
+            </div>
+
+            <div>
+                <FluentLabel>新密码 *</FluentLabel>
+                <FluentTextField @bind-Value="newSambaPassword" Placeholder="输入新密码" Style="width: 100%;" Type="InputType.Password" />
+            </div>
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="HideChangeSambaPasswordDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="SaveSambaPassword" Disabled="@(string.IsNullOrWhiteSpace(newSambaPassword) || isProcessingSambaPassword)">
+            @if (isProcessingSambaPassword)
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.5rem;" />
+            }
+            ✓ 保存
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<!-- Remove Samba User Confirmation Dialog -->
+<FluentDialog Hidden="@(!showRemoveSambaUserDialog)" Modal="true" OnDismiss="HideRemoveSambaUserDialog" Style="width: 90%; max-width: 500px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">⚠️ 确认删除 Samba 用户</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <p>确定要删除 Samba 用户 <strong>@sambaUserToRemove</strong> 吗？</p>
+        <p style="color: var(--neutral-foreground-hint);">此操作将删除该用户的 Samba 密码，但不会删除系统用户。</p>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="HideRemoveSambaUserDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="ConfirmRemoveSambaUser" Disabled="@isProcessingSambaUser">
+            @if (isProcessingSambaUser)
+            {
+                <FluentProgressRing Style="width: 16px; height: 16px; margin-right: 0.5rem;" />
+            }
+            确认删除
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
 @code {
     private List<ShareInfo> cifsShares = new();
     private List<ShareInfo> nfsShares = new();
@@ -505,6 +719,25 @@
     private bool showRemoveDialog = false;
     private ShareInfo? shareToRemove = null;
     
+    // Samba users
+    private List<SambaUser> sambaUsers = new();
+    private bool isLoadingSambaUsers = false;
+    
+    // Samba user dialogs
+    private bool showAddSambaUserDialog = false;
+    private bool showChangeSambaPasswordDialog = false;
+    private bool showRemoveSambaUserDialog = false;
+    private bool isProcessingSambaUser = false;
+    private bool isProcessingSambaPassword = false;
+    private string sambaUserDialogMessage = string.Empty;
+    private bool sambaUserDialogError = false;
+    private string sambaPasswordDialogMessage = string.Empty;
+    private bool sambaPasswordDialogError = false;
+    private SambaUserRequest sambaUserRequest = new();
+    private string selectedSambaUsername = string.Empty;
+    private string newSambaPassword = string.Empty;
+    private string sambaUserToRemove = string.Empty;
+    
     // Feature Detection
     private bool showFeatureDetection = false;
     private ShareManagementFeatureDetection? featureDetectionResult = null;
@@ -515,6 +748,7 @@
         if (firstRender && IsAuthorized)
         {
             await RefreshData();
+            await RefreshSambaUsers();
             StateHasChanged();
         }
     }
@@ -547,6 +781,8 @@
         {
             Type = type ?? ShareType.CIFS,
             Browseable = true,
+            CreateMask = "0744",
+            DirectoryMask = "0755",
             AllowedHosts = "*",
             NfsOptions = "rw,sync,no_subtree_check"
         };
@@ -570,6 +806,8 @@
             GuestOk = share.GuestOk,
             ValidUsers = share.ValidUsers,
             WriteList = share.WriteList,
+            CreateMask = share.CreateMask,
+            DirectoryMask = share.DirectoryMask,
             AllowedHosts = share.AllowedHosts,
             NfsOptions = share.NfsOptions
         };
@@ -738,5 +976,235 @@
     private void HideFeatureDetection()
     {
         showFeatureDetection = false;
+    }
+    
+    // Samba User Management Methods
+    private async Task RefreshSambaUsers()
+    {
+        isLoadingSambaUsers = true;
+        message = string.Empty;
+        
+        try
+        {
+            sambaUsers = await ShareManagementService.GetSambaUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            message = $"加载 Samba 用户失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isLoadingSambaUsers = false;
+        }
+    }
+    
+    private void ShowAddSambaUserDialog()
+    {
+        sambaUserRequest = new SambaUserRequest();
+        sambaUserDialogMessage = string.Empty;
+        sambaUserDialogError = false;
+        showAddSambaUserDialog = true;
+    }
+    
+    private void HideAddSambaUserDialog()
+    {
+        showAddSambaUserDialog = false;
+    }
+    
+    private async Task SaveSambaUser()
+    {
+        isProcessingSambaUser = true;
+        sambaUserDialogMessage = string.Empty;
+        
+        try
+        {
+            var result = await ShareManagementService.AddSambaUserAsync(sambaUserRequest);
+            sambaUserDialogMessage = result.Message;
+            sambaUserDialogError = !result.Success;
+            
+            if (result.Success)
+            {
+                await Task.Delay(1500);
+                showAddSambaUserDialog = false;
+                await RefreshSambaUsers();
+            }
+        }
+        catch (Exception ex)
+        {
+            sambaUserDialogMessage = $"添加用户失败: {ex.Message}";
+            sambaUserDialogError = true;
+        }
+        finally
+        {
+            isProcessingSambaUser = false;
+        }
+    }
+    
+    private void ShowChangeSambaPasswordDialog(string username)
+    {
+        selectedSambaUsername = username;
+        newSambaPassword = string.Empty;
+        sambaPasswordDialogMessage = string.Empty;
+        sambaPasswordDialogError = false;
+        showChangeSambaPasswordDialog = true;
+    }
+    
+    private void HideChangeSambaPasswordDialog()
+    {
+        showChangeSambaPasswordDialog = false;
+    }
+    
+    private async Task SaveSambaPassword()
+    {
+        isProcessingSambaPassword = true;
+        sambaPasswordDialogMessage = string.Empty;
+        
+        try
+        {
+            var result = await ShareManagementService.UpdateSambaUserPasswordAsync(selectedSambaUsername, newSambaPassword);
+            sambaPasswordDialogMessage = result.Message;
+            sambaPasswordDialogError = !result.Success;
+            
+            if (result.Success)
+            {
+                await Task.Delay(1500);
+                showChangeSambaPasswordDialog = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            sambaPasswordDialogMessage = $"修改密码失败: {ex.Message}";
+            sambaPasswordDialogError = true;
+        }
+        finally
+        {
+            isProcessingSambaPassword = false;
+        }
+    }
+    
+    private void ShowRemoveSambaUserConfirmation(string username)
+    {
+        sambaUserToRemove = username;
+        showRemoveSambaUserDialog = true;
+    }
+    
+    private void HideRemoveSambaUserDialog()
+    {
+        showRemoveSambaUserDialog = false;
+        sambaUserToRemove = string.Empty;
+    }
+    
+    // Directory autocomplete method
+    private async Task OnSearchDirectories(OptionsSearchEventArgs<string> e)
+    {
+        var searchText = e.Text ?? string.Empty;
+        var options = new List<string>();
+        
+        // If empty, show common root directories
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            options = new List<string> { "/home", "/mnt", "/srv", "/opt", "/var", "/tmp" };
+            e.Items = options;
+            return;
+        }
+        
+        try
+        {
+            // Validate input to prevent path traversal attacks
+            if (searchText.Contains("..") || searchText.Contains("~"))
+            {
+                e.Items = new List<string> { searchText };
+                return;
+            }
+            
+            // Determine the directory to search
+            string searchDir;
+            string prefix;
+            
+            if (searchText.EndsWith("/"))
+            {
+                // User typed a complete path with trailing slash, search in that directory
+                searchDir = searchText;
+                prefix = searchText;
+            }
+            else
+            {
+                // Extract directory and partial name
+                var lastSlash = searchText.LastIndexOf('/');
+                if (lastSlash >= 0)
+                {
+                    searchDir = searchText.Substring(0, lastSlash + 1);
+                    if (string.IsNullOrEmpty(searchDir))
+                    {
+                        searchDir = "/";
+                    }
+                    prefix = searchText.Substring(0, lastSlash + 1);
+                }
+                else
+                {
+                    searchDir = "/";
+                    prefix = "/";
+                }
+            }
+            
+            // Get directories from the specified path
+            if (Directory.Exists(searchDir))
+            {
+                var directories = Directory.GetDirectories(searchDir)
+                    .Select(d => prefix + Path.GetFileName(d))
+                    .Where(d => d.StartsWith(searchText, StringComparison.OrdinalIgnoreCase))
+                    .Take(10)
+                    .ToList();
+                
+                options = directories;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // User doesn't have permission to access this directory, return empty
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Directory doesn't exist, return empty
+        }
+        catch (Exception ex)
+        {
+            // Log other errors but continue
+            System.Diagnostics.Debug.WriteLine($"Error searching directories: {ex.Message}");
+        }
+        
+        e.Items = options.Any() ? options : new List<string> { searchText };
+    }
+    
+    private async Task ConfirmRemoveSambaUser()
+    {
+        if (string.IsNullOrEmpty(sambaUserToRemove))
+            return;
+
+        isProcessingSambaUser = true;
+        message = string.Empty;
+        
+        try
+        {
+            var result = await ShareManagementService.RemoveSambaUserAsync(sambaUserToRemove);
+            message = result.Message;
+            isError = !result.Success;
+            
+            if (result.Success)
+            {
+                showRemoveSambaUserDialog = false;
+                await RefreshSambaUsers();
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"删除用户失败: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isProcessingSambaUser = false;
+        }
     }
 }
