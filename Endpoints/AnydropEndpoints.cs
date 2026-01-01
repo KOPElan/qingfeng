@@ -77,6 +77,8 @@ public static class AnydropEndpoints
                     return Results.BadRequest("No file uploaded.");
                 }
 
+                // Note: Currently processes only the first file
+                // TODO: Add file type validation and size limits for security
                 var file = form.Files[0];
                 var contentType = file.ContentType ?? "application/octet-stream";
 
@@ -138,6 +140,9 @@ public static class AnydropEndpoints
         })
         .WithName("GetAnydropMessageCount")
         .WithSummary("获取消息总数");
+
+        // Attachment download endpoints (kept in Program.cs for backward compatibility)
+        // These are also mapped in Program.cs to maintain existing API routes
     }
 
     // Request DTO

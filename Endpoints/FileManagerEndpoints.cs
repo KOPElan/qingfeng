@@ -14,6 +14,7 @@ public static class FileManagerEndpoints
         {
             try
             {
+                // Note: Path validation is handled by IFileManagerService.IsPathAllowed()
                 var files = await service.GetFilesAsync(path);
                 return Results.Ok(files);
             }

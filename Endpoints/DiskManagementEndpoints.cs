@@ -44,6 +44,7 @@ public static class DiskManagementEndpoints
         {
             try
             {
+                // Note: Device path validation is handled by IDiskManagementService
                 var disk = await service.GetDiskInfoAsync(devicePath);
                 if (disk == null)
                 {
