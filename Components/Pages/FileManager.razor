@@ -1061,6 +1061,12 @@
     </FluentDialogHeader>
     <FluentDialogBody>
         <FluentStack Orientation="Orientation.Vertical">
+            <FluentLabel>索引目录</FluentLabel>
+            <FluentTextField @bind-Value="indexRootPath" Placeholder="输入要建立索引的目录路径" Style="width: 100%;" />
+            <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
+                提示：将在此目录建立索引，子目录也会被包含在索引中。建议选择用户目录（如 /home）而非系统根目录。
+            </FluentLabel>
+            
             @if (indexStats.fileCount > 0)
             {
                 <FluentMessageBar Intent="MessageIntent.Info">
@@ -1068,9 +1074,11 @@
                 </FluentMessageBar>
             }
             
-            <FluentLabel>将为当前目录 "@currentPath" 重建索引</FluentLabel>
             <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">
-                重建索引将扫描当前目录及其所有子目录，并将文件信息保存到数据库中。这样可以加快搜索速度，避免每次搜索时都需要遍历整个目录。
+                重建索引将扫描指定目录及其所有子目录，并将文件信息保存到索引文件中。这样可以加快搜索速度，避免每次搜索时都需要遍历整个目录。
+            </FluentLabel>
+            <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
+                注意：系统目录（/proc, /sys, /dev等）和隐藏目录将被自动排除
             </FluentLabel>
             
             @if (isRebuildingIndex)
@@ -1194,6 +1202,7 @@
     private int indexProgress = 0;
     private string indexMessage = string.Empty;
     private bool indexSuccess = false;
+    private string indexRootPath = string.Empty;
     private (DateTime? lastIndexed, int fileCount) indexStats = (null, 0);
 
     protected override async Task OnInitializedAsync()
@@ -2485,6 +2494,9 @@
         indexSuccess = false;
         indexProgress = 0;
         
+        // Set default index path to current path
+        indexRootPath = currentPath;
+        
         // Load current index stats
         hasIndex = await FileIndexService.HasIndexAsync(currentPath);
         if (hasIndex)
@@ -2512,6 +2524,21 @@
     {
         try
         {
+            // Validate the index root path
+            if (string.IsNullOrWhiteSpace(indexRootPath))
+            {
+                indexMessage = "请输入有效的索引目录路径";
+                indexSuccess = false;
+                return;
+            }
+            
+            if (!Directory.Exists(indexRootPath))
+            {
+                indexMessage = $"目录不存在: {indexRootPath}";
+                indexSuccess = false;
+                return;
+            }
+            
             isRebuildingIndex = true;
             indexMessage = string.Empty;
             indexSuccess = false;
@@ -2524,14 +2551,14 @@
                 InvokeAsync(StateHasChanged);
             });
 
-            await FileIndexService.RebuildIndexAsync(currentPath, progress);
+            await FileIndexService.RebuildIndexAsync(indexRootPath, progress);
             
             indexMessage = $"索引重建成功！共索引 {indexProgress} 个文件/文件夹";
             indexSuccess = true;
             
             // Refresh index stats
             hasIndex = true;
-            indexStats = await FileIndexService.GetIndexStatsAsync(currentPath);
+            indexStats = await FileIndexService.GetIndexStatsAsync(indexRootPath);
             
             // Auto-close after delay
             await Task.Delay(IndexDialogAutoCloseDelayMs);

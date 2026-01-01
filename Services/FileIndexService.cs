@@ -11,6 +11,14 @@ public class FileIndexService : IFileIndexService
     // Configuration constants
     private const int MaxIndexDepth = 20;
     private const string IndexFileName = ".qingfeng_index.json";
+    
+    // System directories to exclude from indexing (Linux)
+    private static readonly HashSet<string> ExcludedDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "/proc", "/sys", "/dev", "/run", "/tmp",
+        "/var/run", "/var/lock", "/var/tmp",
+        ".git", ".svn", ".hg", "node_modules", ".vs", "bin", "obj"
+    };
 
     public FileIndexService(ILogger<FileIndexService> logger)
     {
@@ -21,6 +29,45 @@ public class FileIndexService : IFileIndexService
     {
         var normalizedPath = Path.GetFullPath(rootPath);
         return Path.Combine(normalizedPath, IndexFileName);
+    }
+    
+    // Find the index file by searching up the directory tree
+    private string? FindIndexFile(string startPath)
+    {
+        var currentPath = Path.GetFullPath(startPath);
+        
+        // Search upwards until we find an index file or reach the root
+        while (!string.IsNullOrEmpty(currentPath))
+        {
+            var indexFilePath = Path.Combine(currentPath, IndexFileName);
+            if (File.Exists(indexFilePath))
+            {
+                return indexFilePath;
+            }
+            
+            var parent = Directory.GetParent(currentPath);
+            if (parent == null)
+                break;
+                
+            currentPath = parent.FullName;
+        }
+        
+        return null;
+    }
+    
+    private bool ShouldExcludeDirectory(string directoryPath)
+    {
+        var dirName = Path.GetFileName(directoryPath);
+        
+        // Check if directory name matches any excluded patterns
+        if (ExcludedDirectories.Contains(dirName))
+            return true;
+            
+        // Check if it's a Linux system directory
+        if (ExcludedDirectories.Contains(directoryPath))
+            return true;
+            
+        return false;
     }
 
     public async Task RebuildIndexAsync(string rootPath, IProgress<int>? progress = null)
@@ -90,6 +137,13 @@ public class FileIndexService : IFileIndexService
     {
         if (currentDepth > MaxIndexDepth)
             return processedCount;
+        
+        // Skip excluded directories
+        if (ShouldExcludeDirectory(currentPath))
+        {
+            _logger.LogDebug("跳过排除的目录: {DirectoryPath}", currentPath);
+            return processedCount;
+        }
 
         try
         {
@@ -100,6 +154,10 @@ public class FileIndexService : IFileIndexService
             {
                 try
                 {
+                    // Skip hidden files except the index file itself
+                    if (file.Name.StartsWith(".") && file.Name != IndexFileName)
+                        continue;
+                    
                     entries.Add(new FileIndexEntry
                     {
                         Name = file.Name,
@@ -132,6 +190,14 @@ public class FileIndexService : IFileIndexService
             {
                 try
                 {
+                    // Skip excluded directories
+                    if (ShouldExcludeDirectory(subDir.FullName))
+                        continue;
+                    
+                    // Skip hidden directories
+                    if (subDir.Name.StartsWith("."))
+                        continue;
+                    
                     entries.Add(new FileIndexEntry
                     {
                         Name = subDir.Name,
@@ -178,13 +244,16 @@ public class FileIndexService : IFileIndexService
         }
 
         var normalizedRootPath = Path.GetFullPath(rootPath);
-        var indexFilePath = GetIndexFilePath(normalizedRootPath);
         
-        // Check if index file exists
-        if (!File.Exists(indexFilePath))
+        // Try to find index file in current directory or parent directories
+        var indexFilePath = FindIndexFile(normalizedRootPath);
+        
+        if (string.IsNullOrEmpty(indexFilePath) || !File.Exists(indexFilePath))
         {
-            throw new FileNotFoundException($"索引文件不存在，请先建立索引: {indexFilePath}");
+            throw new FileNotFoundException($"未找到索引文件。请在根目录建立索引: {normalizedRootPath}");
         }
+        
+        _logger.LogDebug("使用索引文件: {IndexFile} 搜索目录: {SearchPath}", indexFilePath, normalizedRootPath);
         
         // Load index from file
         var jsonContent = await File.ReadAllTextAsync(indexFilePath);
@@ -201,6 +270,12 @@ public class FileIndexService : IFileIndexService
         
         // Filter entries based on search pattern
         IEnumerable<FileIndexEntry> filteredEntries = indexData.Entries;
+        
+        // If searching in a subdirectory, filter to only entries within that subdirectory
+        if (normalizedRootPath != indexData.RootPath)
+        {
+            filteredEntries = filteredEntries.Where(e => e.Path.StartsWith(normalizedRootPath, StringComparison.OrdinalIgnoreCase));
+        }
         
         if (searchPattern.Contains('*') || searchPattern.Contains('?'))
         {
@@ -238,9 +313,11 @@ public class FileIndexService : IFileIndexService
     public async Task<(DateTime? lastIndexed, int fileCount)> GetIndexStatsAsync(string rootPath)
     {
         var normalizedRootPath = Path.GetFullPath(rootPath);
-        var indexFilePath = GetIndexFilePath(normalizedRootPath);
         
-        if (!File.Exists(indexFilePath))
+        // Try to find index file in current directory or parent directories
+        var indexFilePath = FindIndexFile(normalizedRootPath);
+        
+        if (string.IsNullOrEmpty(indexFilePath) || !File.Exists(indexFilePath))
         {
             return (null, 0);
         }
@@ -285,8 +362,10 @@ public class FileIndexService : IFileIndexService
     public async Task<bool> HasIndexAsync(string rootPath)
     {
         var normalizedRootPath = Path.GetFullPath(rootPath);
-        var indexFilePath = GetIndexFilePath(normalizedRootPath);
         
-        return await Task.FromResult(File.Exists(indexFilePath));
+        // Try to find index file in current directory or parent directories
+        var indexFilePath = FindIndexFile(normalizedRootPath);
+        
+        return await Task.FromResult(!string.IsNullOrEmpty(indexFilePath) && File.Exists(indexFilePath));
     }
 }

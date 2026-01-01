@@ -96,6 +96,8 @@ public class QingFengDbContext : DbContext
             entity.Property(e => e.TaskType).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Configuration).HasMaxLength(4000);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+        });
+        
         // Configure AnydropMessage
         modelBuilder.Entity<AnydropMessage>(entity =>
         {
