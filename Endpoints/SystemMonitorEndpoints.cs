@@ -38,7 +38,7 @@ public static class SystemMonitorEndpoints
             var info = await service.GetDiskInfoAsync();
             return Results.Ok(info);
         })
-        .WithName("GetDiskInfo")
+        .WithName("GetSystemDiskInfo")
         .WithSummary("获取磁盘信息");
 
         group.MapGet("/network", async (ISystemMonitorService service) =>
