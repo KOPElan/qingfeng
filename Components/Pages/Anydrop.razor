@@ -468,7 +468,7 @@
         else if (currentTab == "images" || currentTab == "videos")
         {
             <!-- Grid view for images/videos -->
-            <div class="media-grid" style="flex-direction: column;">
+            <div class="media-grid">
                 @foreach (var message in FilteredMessages)
                 {
                     @if (message.Attachments != null && message.Attachments.Any())
@@ -484,7 +484,7 @@
                                 }
                                 else if (attachment.AttachmentType == "Video")
                                 {
-                                    <video>
+                                    <video aria-label="@attachment.FileName">
                                         <source src="/api/anydrop/attachment/@attachment.Id/preview" 
                                                type="@attachment.ContentType">
                                     </video>
@@ -1095,7 +1095,16 @@
     {
         modalSearchTerm = e.Value?.ToString() ?? string.Empty;
         
+        // Dispose existing timer to avoid multiple concurrent searches
         modalSearchDebounceTimer?.Dispose();
+        
+        if (string.IsNullOrWhiteSpace(modalSearchTerm))
+        {
+            searchResults.Clear();
+            StateHasChanged();
+            return;
+        }
+        
         modalSearchDebounceTimer = new System.Threading.Timer(_ =>
         {
             InvokeAsync(PerformModalSearch);
