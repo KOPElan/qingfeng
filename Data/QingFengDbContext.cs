@@ -17,6 +17,8 @@ public class QingFengDbContext : DbContext
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<FavoriteFolder> FavoriteFolders { get; set; } = null!;
     public DbSet<ScheduledTask> ScheduledTasks { get; set; } = null!;
+    public DbSet<AnydropMessage> AnydropMessages { get; set; } = null!;
+    public DbSet<AnydropAttachment> AnydropAttachments { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -94,6 +96,28 @@ public class QingFengDbContext : DbContext
             entity.Property(e => e.TaskType).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Configuration).HasMaxLength(4000);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+        // Configure AnydropMessage
+        modelBuilder.Entity<AnydropMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.Property(e => e.MessageType).IsRequired().HasMaxLength(50);
+        });
+
+        // Configure AnydropAttachment
+        modelBuilder.Entity<AnydropAttachment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.MessageId);
+            entity.Property(e => e.FileName).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.FilePath).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.ContentType).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.AttachmentType).IsRequired().HasMaxLength(50);
+            
+            entity.HasOne(e => e.Message)
+                .WithMany(m => m.Attachments)
+                .HasForeignKey(e => e.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -5,14 +5,14 @@ namespace QingFeng.Services;
 
 public class AuthenticationStateService
 {
-    private readonly ProtectedSessionStorage _sessionStorage;
+    private readonly ProtectedLocalStorage _localStorage;
     private User? _currentUser;
     private bool _initialized = false;
     private const string StorageKey = "CurrentUser";
 
-    public AuthenticationStateService(ProtectedSessionStorage sessionStorage)
+    public AuthenticationStateService(ProtectedLocalStorage localStorage)
     {
-        _sessionStorage = sessionStorage;
+        _localStorage = localStorage;
     }
 
     public async Task<User?> GetCurrentUserAsync()
@@ -35,11 +35,11 @@ public class AuthenticationStateService
         
         if (user != null)
         {
-            await _sessionStorage.SetAsync(StorageKey, user);
+            await _localStorage.SetAsync(StorageKey, user);
         }
         else
         {
-            await _sessionStorage.DeleteAsync(StorageKey);
+            await _localStorage.DeleteAsync(StorageKey);
         }
     }
 
@@ -47,14 +47,14 @@ public class AuthenticationStateService
     {
         _currentUser = null;
         _initialized = true;
-        await _sessionStorage.DeleteAsync(StorageKey);
+        await _localStorage.DeleteAsync(StorageKey);
     }
 
     private async Task InitializeAsync()
     {
         try
         {
-            var result = await _sessionStorage.GetAsync<User>(StorageKey);
+            var result = await _localStorage.GetAsync<User>(StorageKey);
             _currentUser = result.Success ? result.Value : null;
         }
         catch

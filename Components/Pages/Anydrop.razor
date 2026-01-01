@@ -1,0 +1,1239 @@
+@page "/anydrop"
+@using QingFeng.Services
+@using QingFeng.Models
+@using QingFeng.Utilities
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@inject IAnydropService AnydropService
+@inject IJSRuntime JSRuntime
+@inject ILogger<Anydrop> Logger
+@rendermode InteractiveServer
+
+<PageTitle>云笈 - Anydrop</PageTitle>
+
+<style>
+    .anydrop-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 180px);
+        max-width: 1200px;
+        margin: 0 auto;
+        background: var(--neutral-layer-1);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: var(--elevation-shadow-card-rest);
+    }
+
+    .anydrop-header {
+        padding: 20px 24px;
+        background: var(--neutral-layer-2);
+        border-bottom: 1px solid var(--neutral-stroke-divider-rest);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .anydrop-header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .anydrop-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--neutral-foreground-rest);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .anydrop-search {
+        flex: 1;
+        max-width: 400px;
+    }
+
+    .anydrop-tabs {
+        display: flex;
+        gap: 8px;
+    }
+
+    .tab-button {
+        padding: 8px 16px;
+        border: none;
+        background: transparent;
+        color: var(--neutral-foreground-hint);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .tab-button:hover {
+        color: var(--neutral-foreground-rest);
+    }
+
+    .tab-button.active {
+        color: var(--accent-fill-rest);
+        border-bottom-color: var(--accent-fill-rest);
+    }
+
+    .messages-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 24px;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 16px;
+    }
+
+    .message-item {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px;
+        background: var(--neutral-layer-2);
+        border-radius: 12px;
+        border: 1px solid var(--neutral-stroke-layer-rest);
+        transition: all 0.2s;
+    }
+
+    .message-item:hover {
+        border-color: var(--accent-fill-rest);
+        box-shadow: var(--elevation-shadow-card-hover);
+    }
+
+    .message-item.highlight {
+        border-color: var(--accent-fill-rest);
+        background: var(--accent-fill-subtle);
+        animation: highlight-pulse 1s ease-in-out;
+    }
+
+    @@keyframes highlight-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    .message-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .message-time {
+        font-size: 12px;
+        color: var(--neutral-foreground-hint);
+    }
+
+    .message-content {
+        color: var(--neutral-foreground-rest);
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.5;
+    }
+
+    .attachments-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .attachment-item {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        background: var(--neutral-layer-3);
+        border-radius: 8px;
+        border: 1px solid var(--neutral-stroke-layer-rest);
+        cursor: pointer;
+        transition: all 0.2s;
+        max-width: 100%;
+    }
+
+    .attachment-item:hover {
+        border-color: var(--accent-fill-rest);
+        transform: translateY(-2px);
+        box-shadow: var(--elevation-shadow-card-hover);
+    }
+
+    .attachment-preview {
+        width: 100%;
+        max-width: 400px;
+        height: auto;
+        max-height: 300px;
+        object-fit: contain;
+        border-radius: 4px;
+    }
+
+    .attachment-video {
+        width: 100%;
+        max-width: 400px;
+        max-height: 300px;
+        border-radius: 4px;
+    }
+
+    .attachment-icon {
+        width: 100%;
+        height: 150px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--neutral-layer-4);
+        border-radius: 4px;
+    }
+
+    .attachment-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .attachment-name {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--neutral-foreground-rest);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .attachment-size {
+        font-size: 11px;
+        color: var(--neutral-foreground-hint);
+    }
+
+    .input-container {
+        padding: 20px 24px;
+        background: var(--neutral-layer-2);
+        border-top: 1px solid var(--neutral-stroke-divider-rest);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .input-row {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+    }
+
+    .text-input {
+        flex: 1;
+    }
+
+    .message-textarea {
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .message-textarea:focus {
+        border-color: var(--accent-fill-rest) !important;
+        box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.1);
+    }
+
+    .message-textarea:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .send-button {
+        height: 40px;
+    }
+
+    .file-upload-area {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .selected-file {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: var(--neutral-layer-3);
+        border-radius: 6px;
+        border: 1px solid var(--neutral-stroke-layer-rest);
+        font-size: 12px;
+    }
+
+    .loading-indicator {
+        text-align: center;
+        padding: 20px;
+        color: var(--neutral-foreground-hint);
+    }
+
+    .no-messages {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        color: var(--neutral-foreground-hint);
+    }
+
+    /* Grid view for images/videos */
+    .media-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 16px;
+        padding: 20px 24px;
+    }
+
+    .media-grid-item {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        overflow: hidden;
+        cursor: pointer;
+        border: 1px solid var(--neutral-stroke-layer-rest);
+        transition: all 0.2s;
+    }
+
+    .media-grid-item:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--elevation-shadow-card-hover);
+        border-color: var(--accent-fill-rest);
+    }
+
+    .media-grid-item img,
+    .media-grid-item video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .media-grid-item-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+        padding: 8px;
+        color: white;
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Modal styles */
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal-content {
+        background: var(--neutral-layer-1);
+        border-radius: 12px;
+        max-width: 90vw;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: var(--elevation-shadow-dialog);
+    }
+
+    .modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--neutral-stroke-divider-rest);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-body {
+        padding: 20px 24px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--neutral-stroke-divider-rest);
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .preview-modal-content {
+        max-width: 1200px;
+        width: 90vw;
+    }
+
+    .preview-image,
+    .preview-video {
+        max-width: 100%;
+        max-height: 70vh;
+        margin: 0 auto;
+        display: block;
+    }
+
+    .search-modal-content {
+        width: 600px;
+    }
+
+    .search-result-item {
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--neutral-stroke-layer-rest);
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .search-result-item:hover {
+        background: var(--neutral-layer-2);
+        border-color: var(--accent-fill-rest);
+    }
+
+    .search-result-time {
+        font-size: 12px;
+        color: var(--neutral-foreground-hint);
+        margin-bottom: 4px;
+    }
+
+    .search-result-content {
+        color: var(--neutral-foreground-rest);
+    }
+
+    /* Timeline styles */
+    .timeline-group {
+        margin-bottom: 32px;
+    }
+
+    .timeline-header {
+        position: sticky;
+        top: 0;
+        background: var(--neutral-layer-1);
+        z-index: 10;
+        padding: 12px 0;
+        margin-bottom: 16px;
+        border-bottom: 2px solid var(--accent-fill-rest);
+    }
+
+    .timeline-date {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--neutral-foreground-rest);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .timeline-count {
+        font-size: 14px;
+        font-weight: 400;
+        color: var(--neutral-foreground-hint);
+    }
+</style>
+
+<div class="anydrop-container">
+    <div class="anydrop-header">
+        <div class="anydrop-header-top">
+            <div class="anydrop-title">
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Cloud())" />
+                <span>云笈</span>
+            </div>
+            <div class="anydrop-search">
+                <FluentButton Appearance="Appearance.Outline" 
+                             IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Search())"
+                             OnClick="OpenSearchModal"
+                             Title="搜索消息和文件">
+                    搜索
+                </FluentButton>
+            </div>
+        </div>
+        <div class="anydrop-tabs">
+            <button class="tab-button @(currentTab == "all" ? "active" : "")" @onclick='() => SetTab("all")'>
+                全部
+            </button>
+            <button class="tab-button @(currentTab == "images" ? "active" : "")" @onclick='() => SetTab("images")'>
+                图片
+            </button>
+            <button class="tab-button @(currentTab == "videos" ? "active" : "")" @onclick='() => SetTab("videos")'>
+                视频
+            </button>
+        </div>
+    </div>
+
+    <div class="messages-container" @ref="messagesContainer" @onscroll="OnScroll">
+        @if (isLoading && messages.Count == 0)
+        {
+            <div class="loading-indicator">
+                <FluentProgressRing />
+                <div style="margin-top: 12px;">加载中...</div>
+            </div>
+        }
+        else if (messages.Count == 0 && !isSearching)
+        {
+            <div class="no-messages">
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Cloud())" Color="Color.Accent" />
+                <div style="font-size: 18px; font-weight: 500;">欢迎使用云笈</div>
+                <div>开始记录您的文字、图片、视频和文件吧！</div>
+            </div>
+        }
+        else if (messages.Count == 0 && isSearching)
+        {
+            <div class="no-messages">
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Search())" />
+                <div>未找到匹配的消息</div>
+            </div>
+        }
+        else if (currentTab == "images" || currentTab == "videos")
+        {
+            <!-- Grid view for images/videos with timeline -->
+            <div style="padding: 20px 24px; overflow-y: auto;">
+                @{
+                    var groupedByDate = FilteredMessages
+                        .Where(m => m.Attachments != null && m.Attachments.Any())
+                        .SelectMany(m => m.Attachments.Select(a => new { Message = m, Attachment = a }))
+                        .GroupBy(x => x.Message.CreatedAt.ToLocalTime().Date)
+                        .OrderByDescending(g => g.Key);
+                }
+                
+                @foreach (var dateGroup in groupedByDate)
+                {
+                    <div class="timeline-group" @key="dateGroup.Key">
+                        <div class="timeline-header">
+                            <div class="timeline-date">
+                                @if (dateGroup.Key.Date == DateTime.Today)
+                                {
+                                    <span>今天</span>
+                                }
+                                else if (dateGroup.Key.Date == DateTime.Today.AddDays(-1))
+                                {
+                                    <span>昨天</span>
+                                }
+                                else if (dateGroup.Key.Year == DateTime.Today.Year)
+                                {
+                                    <span>@dateGroup.Key.ToString("M月d日")</span>
+                                }
+                                else
+                                {
+                                    <span>@dateGroup.Key.ToString("yyyy年M月d日")</span>
+                                }
+                                <span class="timeline-count">(@dateGroup.Count() 项)</span>
+                            </div>
+                        </div>
+                        <div class="media-grid">
+                            @foreach (var item in dateGroup)
+                            {
+                                <div class="media-grid-item" @onclick="@(() => OpenPreviewModal(item.Attachment))" @key="item.Attachment.Id">
+                                    @if (item.Attachment.AttachmentType == "Image")
+                                    {
+                                        <img src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
+                                             alt="@item.Attachment.FileName" 
+                                             loading="lazy" />
+                                    }
+                                    else if (item.Attachment.AttachmentType == "Video")
+                                    {
+                                        <video aria-label="@item.Attachment.FileName">
+                                            <source src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
+                                                   type="@item.Attachment.ContentType">
+                                        </video>
+                                    }
+                                    <div class="media-grid-item-overlay">
+                                        @item.Attachment.FileName
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            @foreach (var message in FilteredMessages)
+            {
+                <div class="message-item" id="message-@message.Id" @key="message.Id">
+                    <div class="message-header">
+                        <div class="message-time">
+                            @message.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                        </div>
+                        <FluentButton Appearance="Appearance.Lightweight" 
+                                     IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())"
+                                     OnClick="@(() => DeleteMessage(message.Id))" />
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(message.Content))
+                    {
+                        <div class="message-content">@message.Content</div>
+                    }
+
+                    @if (message.Attachments != null && message.Attachments.Any())
+                    {
+                        <div class="attachments-grid">
+                            @foreach (var attachment in message.Attachments)
+                            {
+                                <div class="attachment-item" @onclick="@(() => DownloadAttachment(attachment.Id))">
+                                    @if (attachment.AttachmentType == "Image")
+                                    {
+                                        <img src="/api/anydrop/attachment/@attachment.Id/preview" 
+                                             alt="@attachment.FileName" 
+                                             class="attachment-preview" 
+                                             loading="lazy" />
+                                    }
+                                    else if (attachment.AttachmentType == "Video")
+                                    {
+                                        <video class="attachment-video" controls>
+                                            <source src="/api/anydrop/attachment/@attachment.Id/preview" 
+                                                   type="@attachment.ContentType">
+                                        </video>
+                                    }
+                                    else
+                                    {
+                                        <div class="attachment-icon">
+                                            <FluentIcon Value="@GetIconForAttachment(attachment)" Size="@IconSize.Size48" />
+                                        </div>
+                                    }
+                                    <div class="attachment-info">
+                                        <div class="attachment-name" title="@attachment.FileName">
+                                            @attachment.FileName
+                                        </div>
+                                        <div class="attachment-size">
+                                            @FileUtilities.FormatSize(attachment.FileSize)
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (hasMore && !isSearching)
+            {
+                <div class="loading-indicator">
+                    @if (isLoadingMore)
+                    {
+                        <FluentProgressRing />
+                        <div style="margin-top: 12px;">加载更多...</div>
+                    }
+                    else
+                    {
+                        <FluentButton Appearance="Appearance.Outline" OnClick="LoadMoreMessages">
+                            加载更多消息
+                        </FluentButton>
+                    }
+                </div>
+            }
+        }
+    </div>
+
+    <div class="input-container">
+        @if (selectedFiles.Count > 0)
+        {
+            <div class="file-upload-area">
+                @foreach (var file in selectedFiles)
+                {
+                    <div class="selected-file">
+                        <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Document())" />
+                        <span>@file.Name (@FileUtilities.FormatSize(file.Size))</span>
+                        <FluentButton Appearance="Appearance.Lightweight" 
+                                     IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Dismiss())"
+                                     OnClick="@(() => RemoveFile(file))" />
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="input-row">
+            <InputFile @ref="mediaFileInput" 
+                      multiple 
+                      accept="image/*,video/*"
+                      OnChange="@OnMediaFilesSelected"
+                      style="display: none;" id="mediaFileInput" />
+            
+            <InputFile @ref="documentFileInput" 
+                      multiple 
+                      accept="*/*"
+                      OnChange="@OnDocumentFilesSelected"
+                      style="display: none;" id="documentFileInput" />
+            
+            <FluentButton Appearance="Appearance.Outline" 
+                         IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Image())"
+                         OnClick="OpenMediaFileDialog"
+                         Title="添加图片/视频"
+                         Disabled="@isSending" />
+
+            <FluentButton Appearance="Appearance.Outline" 
+                         IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Document())"
+                         OnClick="OpenDocumentFileDialog"
+                         Title="添加文件"
+                         Disabled="@isSending" />
+
+            <div class="text-input">
+                <textarea @bind="messageContent" 
+                         @bind:event="oninput"
+                         placeholder="输入消息..." 
+                         rows="1"
+                         @onkeydown="OnKeyDown"
+                         disabled="@isSending"
+                         style="width: 100%; padding: 10px; border: 1px solid var(--neutral-stroke-layer-rest); border-radius: 4px; background: var(--neutral-layer-1); color: var(--neutral-foreground-rest); font-family: inherit; font-size: 14px; resize: vertical; min-height: 40px;"
+                         class="message-textarea"></textarea>
+            </div>
+
+            <FluentButton Appearance="Appearance.Accent" 
+                         IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Send())"
+                         OnClick="SendMessage"
+                         Disabled="@(isSending || (string.IsNullOrWhiteSpace(messageContent) && selectedFiles.Count == 0))"
+                         class="send-button">
+                @(isSending ? "发送中..." : "发送")
+            </FluentButton>
+        </div>
+    </div>
+</div>
+
+@* Preview Modal *@
+@if (showPreviewModal && selectedAttachment != null)
+{
+    <div class="modal-backdrop" @onclick="ClosePreviewModal">
+        <div class="modal-content preview-modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="margin: 0;">@selectedAttachment.FileName</h3>
+                <FluentButton Appearance="Appearance.Lightweight"
+                             IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())"
+                             OnClick="ClosePreviewModal" />
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                @if (selectedAttachment.AttachmentType == "Image")
+                {
+                    <img src="/api/anydrop/attachment/@selectedAttachment.Id/preview"
+                         alt="@selectedAttachment.FileName"
+                         class="preview-image" />
+                }
+                else if (selectedAttachment.AttachmentType == "Video")
+                {
+                    <video class="preview-video" controls>
+                        <source src="/api/anydrop/attachment/@selectedAttachment.Id/preview"
+                               type="@selectedAttachment.ContentType">
+                    </video>
+                }
+            </div>
+            <div class="modal-footer">
+                <FluentButton Appearance="Appearance.Neutral"
+                             OnClick="ClosePreviewModal">
+                    关闭
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Accent"
+                             IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowDownload())"
+                             OnClick="@(() => DownloadAttachment(selectedAttachment.Id))">
+                    下载
+                </FluentButton>
+            </div>
+        </div>
+    </div>
+}
+
+@* Search Modal *@
+@if (showSearchModal)
+{
+    <div class="modal-backdrop" @onclick="CloseSearchModal">
+        <div class="modal-content search-modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="margin: 0;">搜索消息和文件</h3>
+                <FluentButton Appearance="Appearance.Lightweight"
+                             IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())"
+                             OnClick="CloseSearchModal" />
+            </div>
+            <div class="modal-body">
+                <FluentSearch @bind-Value="@modalSearchTerm"
+                             Placeholder="输入搜索关键词..."
+                             @oninput="OnModalSearchInput"
+                             Immediate="true"
+                             style="width: 100%; margin-bottom: 20px;" />
+
+                @if (isModalSearching && searchResults.Count == 0)
+                {
+                    <div style="text-align: center; padding: 20px; color: var(--neutral-foreground-hint);">
+                        <FluentProgressRing />
+                        <div style="margin-top: 12px;">搜索中...</div>
+                    </div>
+                }
+                else if (searchResults.Count == 0 && !string.IsNullOrWhiteSpace(modalSearchTerm))
+                {
+                    <div style="text-align: center; padding: 20px; color: var(--neutral-foreground-hint);">
+                        未找到匹配的消息
+                    </div>
+                }
+                else if (searchResults.Count > 0)
+                {
+                    @foreach (var result in searchResults)
+                    {
+                        <div class="search-result-item" @onclick="@(() => NavigateToMessage(result.Id))">
+                            <div class="search-result-time">
+                                @result.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                            </div>
+                            <div class="search-result-content">
+                                @if (!string.IsNullOrWhiteSpace(result.Content))
+                                {
+                                    <span>@result.Content</span>
+                                }
+                                else if (result.Attachments != null && result.Attachments.Any())
+                                {
+                                    <span>📎 @result.Attachments.First().FileName</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AnydropMessage> messages = new();
+    private string messageContent = string.Empty;
+    private string searchTerm = string.Empty;
+    private string modalSearchTerm = string.Empty;
+    private List<IBrowserFile> selectedFiles = new();
+    private InputFile? mediaFileInput;
+    private InputFile? documentFileInput;
+    private ElementReference messagesContainer;
+    private bool isLoading = false;
+    private bool isLoadingMore = false;
+    private bool isSending = false;
+    private bool hasMore = true;
+    private bool isSearching = false;
+    private bool isModalSearching = false;
+    private int? lastMessageId = null;
+    private System.Threading.Timer? searchDebounceTimer;
+    private System.Threading.Timer? modalSearchDebounceTimer;
+    private string currentTab = "all";
+    
+    // Modal states
+    private bool showPreviewModal = false;
+    private bool showSearchModal = false;
+    private AnydropAttachment? selectedAttachment = null;
+    private List<AnydropMessage> searchResults = new();
+
+    private IEnumerable<AnydropMessage> FilteredMessages
+    {
+        get
+        {
+            if (currentTab == "all")
+                return messages;
+            else if (currentTab == "images")
+                return messages.Where(m => m.MessageType == "Image");
+            else if (currentTab == "videos")
+                return messages.Where(m => m.MessageType == "Video");
+            return messages;
+        }
+    }
+
+    private void SetTab(string tab)
+    {
+        currentTab = tab;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMessages();
+    }
+
+    private async Task LoadMessages()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            messages = await AnydropService.GetMessagesAsync(20);
+            hasMore = messages.Count == 20;
+            lastMessageId = messages.Any() ? messages.Min(m => m.Id) : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading messages");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadMoreMessages()
+    {
+        if (!hasMore || isLoadingMore || isSearching || lastMessageId == null)
+            return;
+
+        isLoadingMore = true;
+        StateHasChanged();
+
+        try
+        {
+            var moreMessages = await AnydropService.GetMessagesAsync(20, lastMessageId);
+            if (moreMessages.Count > 0)
+            {
+                messages.AddRange(moreMessages);
+                lastMessageId = moreMessages.Min(m => m.Id);
+                hasMore = moreMessages.Count == 20;
+            }
+            else
+            {
+                hasMore = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading more messages");
+        }
+        finally
+        {
+            isLoadingMore = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        
+        // Debounce search
+        searchDebounceTimer?.Dispose();
+        searchDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () => await PerformSearch());
+        }, null, 500, Timeout.Infinite);
+    }
+
+    private async Task PerformSearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            isSearching = false;
+            await LoadMessages();
+            return;
+        }
+
+        isSearching = true;
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            messages = await AnydropService.SearchMessagesAsync(searchTerm);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error searching messages");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnScroll()
+    {
+        // Check if scrolled to top for infinite scroll
+        var scrollTop = await JSRuntime.InvokeAsync<double>("eval", 
+            "document.querySelector('.messages-container').scrollTop");
+        
+        if (scrollTop <= 100 && !isLoadingMore)
+        {
+            await LoadMoreMessages();
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (isSending || (string.IsNullOrWhiteSpace(messageContent) && selectedFiles.Count == 0))
+            return;
+
+        isSending = true;
+        StateHasChanged();
+
+        try
+        {
+            var createdMessages = new List<AnydropMessage>();
+
+            // Send text message first if there's content
+            if (!string.IsNullOrWhiteSpace(messageContent))
+            {
+                var textMessage = await AnydropService.CreateMessageAsync(messageContent, "Text");
+                if (textMessage != null)
+                {
+                    createdMessages.Add(textMessage);
+                }
+            }
+
+            // Send each file as a separate message
+            foreach (var file in selectedFiles)
+            {
+                try
+                {
+                    // Create empty message for the file
+                    var fileMessage = await AnydropService.CreateMessageAsync(string.Empty, "File");
+                    
+                    // Upload the file attachment
+                    using var stream = file.OpenReadStream(maxAllowedSize: 2147483648); // 2GB max
+                    await AnydropService.AddAttachmentAsync(
+                        fileMessage.Id, 
+                        file.Name, 
+                        stream, 
+                        file.Size, 
+                        file.ContentType);
+                    
+                    // Refresh to get the updated message with attachment
+                    var refreshedFileMessage = await AnydropService.GetMessageByIdAsync(fileMessage.Id);
+                    if (refreshedFileMessage != null)
+                    {
+                        createdMessages.Add(refreshedFileMessage);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error uploading file: {FileName}", file.Name);
+                }
+            }
+
+            // Add all created messages to the top of the list
+            foreach (var msg in createdMessages)
+            {
+                messages.Insert(0, msg);
+            }
+
+            // Clear input
+            messageContent = string.Empty;
+            selectedFiles.Clear();
+            
+            // Scroll to bottom (which is top in reverse flex)
+            await JSRuntime.InvokeVoidAsync("eval", 
+                "document.querySelector('.messages-container').scrollTop = 0");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error sending message");
+        }
+        finally
+        {
+            isSending = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        selectedFiles.AddRange(e.GetMultipleFiles(100));
+        StateHasChanged();
+    }
+
+    private void OnMediaFilesSelected(InputFileChangeEventArgs e)
+    {
+        selectedFiles.AddRange(e.GetMultipleFiles(100));
+        StateHasChanged();
+    }
+
+    private void OnDocumentFilesSelected(InputFileChangeEventArgs e)
+    {
+        selectedFiles.AddRange(e.GetMultipleFiles(100));
+        StateHasChanged();
+    }
+
+    private void RemoveFile(IBrowserFile file)
+    {
+        selectedFiles.Remove(file);
+        StateHasChanged();
+    }
+
+    private async Task OpenFileDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('fileInput').click()");
+    }
+
+    private async Task OpenMediaFileDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('mediaFileInput').click()");
+    }
+
+    private async Task OpenDocumentFileDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('documentFileInput').click()");
+    }
+
+    private async Task DownloadAttachment(int attachmentId)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("open", $"/api/anydrop/attachment/{attachmentId}/download", "_blank");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error downloading attachment");
+        }
+    }
+
+    private async Task DeleteMessage(int messageId)
+    {
+        try
+        {
+            await AnydropService.DeleteMessageAsync(messageId);
+            messages.RemoveAll(m => m.Id == messageId);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting message");
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendMessage();
+        }
+    }
+
+    private Icon GetIconForAttachment(AnydropAttachment attachment)
+    {
+        return attachment.AttachmentType switch
+        {
+            "Document" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Document(),
+            "Audio" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Speaker1(),
+            "Video" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Video(),
+            "Image" => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Image(),
+            _ => new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.DocumentText()
+        };
+    }
+
+    // Preview Modal Methods
+    private void OpenPreviewModal(AnydropAttachment attachment)
+    {
+        selectedAttachment = attachment;
+        showPreviewModal = true;
+        StateHasChanged();
+    }
+
+    private void ClosePreviewModal()
+    {
+        showPreviewModal = false;
+        selectedAttachment = null;
+        StateHasChanged();
+    }
+
+    // Search Modal Methods
+    private void OpenSearchModal()
+    {
+        showSearchModal = true;
+        modalSearchTerm = string.Empty;
+        searchResults.Clear();
+        StateHasChanged();
+    }
+
+    private void CloseSearchModal()
+    {
+        showSearchModal = false;
+        modalSearchTerm = string.Empty;
+        searchResults.Clear();
+        StateHasChanged();
+    }
+
+    private void OnModalSearchInput(ChangeEventArgs e)
+    {
+        modalSearchTerm = e.Value?.ToString() ?? string.Empty;
+        
+        // Dispose existing timer to avoid multiple concurrent searches
+        modalSearchDebounceTimer?.Dispose();
+        
+        if (string.IsNullOrWhiteSpace(modalSearchTerm))
+        {
+            searchResults.Clear();
+            StateHasChanged();
+            return;
+        }
+        
+        modalSearchDebounceTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(PerformModalSearch);
+        }, null, 500, Timeout.Infinite);
+    }
+
+    private async Task PerformModalSearch()
+    {
+        if (string.IsNullOrWhiteSpace(modalSearchTerm))
+        {
+            searchResults.Clear();
+            StateHasChanged();
+            return;
+        }
+
+        isModalSearching = true;
+        StateHasChanged();
+
+        try
+        {
+            searchResults = await AnydropService.SearchMessagesAsync(modalSearchTerm);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error searching messages in modal");
+        }
+        finally
+        {
+            isModalSearching = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task NavigateToMessage(int messageId)
+    {
+        // Close search modal
+        CloseSearchModal();
+
+        // Switch to "all" tab to show the message
+        currentTab = "all";
+
+        // Check if message is already loaded
+        var messageExists = messages.Any(m => m.Id == messageId);
+        
+        if (!messageExists)
+        {
+            // Load messages including the target message
+            // This is a simplified approach - you might need to load more context
+            await LoadMessages();
+        }
+
+        // Scroll to the message and highlight it
+        await Task.Delay(100); // Small delay to ensure DOM is updated
+        await JSRuntime.InvokeVoidAsync("eval", 
+            $"document.getElementById('message-{messageId}')?.scrollIntoView({{ behavior: 'smooth', block: 'center' }})");
+        
+        // Add highlight animation
+        await JSRuntime.InvokeVoidAsync("eval", 
+            $"document.getElementById('message-{messageId}')?.classList.add('highlight')");
+        
+        // Remove highlight after animation
+        await Task.Delay(2000);
+        await JSRuntime.InvokeVoidAsync("eval", 
+            $"document.getElementById('message-{messageId}')?.classList.remove('highlight')");
+    }
+
+    public void Dispose()
+    {
+        searchDebounceTimer?.Dispose();
+        modalSearchDebounceTimer?.Dispose();
+    }
+}
