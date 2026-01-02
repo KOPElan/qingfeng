@@ -141,8 +141,45 @@ public static class AnydropEndpoints
         .WithName("GetAnydropMessageCount")
         .WithSummary("获取消息总数");
 
-        // Attachment download endpoints (kept in Program.cs for backward compatibility)
-        // These are also mapped in Program.cs to maintain existing API routes
+        // Attachment download/preview endpoints
+        group.MapGet("/attachment/{attachmentId}/download", async (int attachmentId, IAnydropService service) =>
+        {
+            try
+            {
+                var (fileBytes, fileName, contentType) = await service.DownloadAttachmentAsync(attachmentId);
+                return Results.File(fileBytes, contentType, fileName);
+            }
+            catch (FileNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (Exception)
+            {
+                return Results.Problem("An error occurred while downloading the attachment.");
+            }
+        })
+        .WithName("DownloadAnydropAttachment")
+        .WithSummary("下载附件");
+
+        group.MapGet("/attachment/{attachmentId}/preview", async (int attachmentId, IAnydropService service) =>
+        {
+            try
+            {
+                var (fileBytes, fileName, contentType) = await service.DownloadAttachmentAsync(attachmentId);
+                // For preview, don't force download
+                return Results.File(fileBytes, contentType);
+            }
+            catch (FileNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (Exception)
+            {
+                return Results.Problem("An error occurred while previewing the attachment.");
+            }
+        })
+        .WithName("PreviewAnydropAttachment")
+        .WithSummary("预览附件");
     }
 
     // Request DTO
