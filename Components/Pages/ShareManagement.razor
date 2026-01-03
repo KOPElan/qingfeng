@@ -837,10 +837,10 @@
                     ? await ShareManagementService.AddCifsShareAsync(shareRequest)
                     : await ShareManagementService.AddNfsShareAsync(shareRequest));
             
-            dialogMessage = result;
-            dialogError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
+            dialogMessage = result.Message;
+            dialogError = !result.Success;
             
-            if (!dialogError)
+            if (result.Success)
             {
                 await Task.Delay(1500);
                 showShareDialog = false;
@@ -884,10 +884,10 @@
                 ? await ShareManagementService.RemoveCifsShareAsync(shareToRemove.Name)
                 : await ShareManagementService.RemoveNfsShareAsync(shareToRemove.Path);
             
-            message = result;
-            isError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
+            message = result.Message;
+            isError = !result.Success;
             
-            if (!isError)
+            if (result.Success)
             {
                 showRemoveDialog = false;
                 await RefreshData();
@@ -912,8 +912,8 @@
         try
         {
             var result = await ShareManagementService.RestartSambaServiceAsync();
-            message = result;
-            isError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
+            message = result.Message;
+            isError = !result.Success;
         }
         catch (Exception ex)
         {
@@ -934,8 +934,8 @@
         try
         {
             var result = await ShareManagementService.RestartNfsServiceAsync();
-            message = result;
-            isError = !result.Contains("Successfully", StringComparison.OrdinalIgnoreCase);
+            message = result.Message;
+            isError = !result.Success;
         }
         catch (Exception ex)
         {

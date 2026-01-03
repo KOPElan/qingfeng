@@ -30,47 +30,47 @@ public interface IShareManagementService
     /// <summary>
     /// Add a new CIFS share
     /// </summary>
-    Task<string> AddCifsShareAsync(ShareRequest request);
+    Task<OperationResult> AddCifsShareAsync(ShareRequest request);
     
     /// <summary>
     /// Add a new NFS export
     /// </summary>
-    Task<string> AddNfsShareAsync(ShareRequest request);
+    Task<OperationResult> AddNfsShareAsync(ShareRequest request);
     
     /// <summary>
     /// Update an existing CIFS share
     /// </summary>
-    Task<string> UpdateCifsShareAsync(string shareName, ShareRequest request);
+    Task<OperationResult> UpdateCifsShareAsync(string shareName, ShareRequest request);
     
     /// <summary>
     /// Update an existing NFS export
     /// </summary>
-    Task<string> UpdateNfsShareAsync(string exportPath, ShareRequest request);
+    Task<OperationResult> UpdateNfsShareAsync(string exportPath, ShareRequest request);
     
     /// <summary>
     /// Remove a CIFS share
     /// </summary>
-    Task<string> RemoveCifsShareAsync(string shareName);
+    Task<OperationResult> RemoveCifsShareAsync(string shareName);
     
     /// <summary>
     /// Remove an NFS export
     /// </summary>
-    Task<string> RemoveNfsShareAsync(string exportPath);
+    Task<OperationResult> RemoveNfsShareAsync(string exportPath);
     
     /// <summary>
     /// Restart Samba service to apply configuration changes
     /// </summary>
-    Task<string> RestartSambaServiceAsync();
+    Task<OperationResult> RestartSambaServiceAsync();
     
     /// <summary>
     /// Restart NFS service to apply configuration changes
     /// </summary>
-    Task<string> RestartNfsServiceAsync();
+    Task<OperationResult> RestartNfsServiceAsync();
     
     /// <summary>
     /// Test Samba configuration for syntax errors
     /// </summary>
-    Task<string> TestSambaConfigAsync();
+    Task<OperationResult> TestSambaConfigAsync();
     
     /// <summary>
     /// Detect available features and required packages

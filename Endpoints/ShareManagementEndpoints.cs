@@ -60,7 +60,11 @@ public static class ShareManagementEndpoints
             try
             {
                 var result = await service.AddCifsShareAsync(request);
-                return Results.Ok(new { message = "CIFS共享已创建", result });
+                if (result.Success)
+                {
+                    return Results.Ok(new { success = true, message = result.Message });
+                }
+                return Results.BadRequest(new { success = false, message = result.Message });
             }
             catch (Exception ex)
             {
@@ -75,7 +79,11 @@ public static class ShareManagementEndpoints
             try
             {
                 var result = await service.AddNfsShareAsync(request);
-                return Results.Ok(new { message = "NFS共享已创建", result });
+                if (result.Success)
+                {
+                    return Results.Ok(new { success = true, message = result.Message });
+                }
+                return Results.BadRequest(new { success = false, message = result.Message });
             }
             catch (Exception ex)
             {
@@ -90,7 +98,11 @@ public static class ShareManagementEndpoints
             try
             {
                 var result = await service.UpdateCifsShareAsync(shareName, request);
-                return Results.Ok(new { message = "CIFS共享已更新", result });
+                if (result.Success)
+                {
+                    return Results.Ok(new { success = true, message = result.Message });
+                }
+                return Results.BadRequest(new { success = false, message = result.Message });
             }
             catch (Exception ex)
             {
@@ -105,7 +117,11 @@ public static class ShareManagementEndpoints
             try
             {
                 var result = await service.UpdateNfsShareAsync(exportPath, request);
-                return Results.Ok(new { message = "NFS共享已更新", result });
+                if (result.Success)
+                {
+                    return Results.Ok(new { success = true, message = result.Message });
+                }
+                return Results.BadRequest(new { success = false, message = result.Message });
             }
             catch (Exception ex)
             {
@@ -120,7 +136,11 @@ public static class ShareManagementEndpoints
             try
             {
                 var result = await service.RemoveCifsShareAsync(shareName);
-                return Results.Ok(new { message = "CIFS共享已删除", result });
+                if (result.Success)
+                {
+                    return Results.Ok(new { success = true, message = result.Message });
+                }
+                return Results.BadRequest(new { success = false, message = result.Message });
             }
             catch (Exception ex)
             {
@@ -135,7 +155,11 @@ public static class ShareManagementEndpoints
             try
             {
                 var result = await service.RemoveNfsShareAsync(exportPath);
-                return Results.Ok(new { message = "NFS共享已删除", result });
+                if (result.Success)
+                {
+                    return Results.Ok(new { success = true, message = result.Message });
+                }
+                return Results.BadRequest(new { success = false, message = result.Message });
             }
             catch (Exception ex)
             {
@@ -150,7 +174,11 @@ public static class ShareManagementEndpoints
             try
             {
                 var result = await service.RestartSambaServiceAsync();
-                return Results.Ok(new { message = "Samba服务已重启", result });
+                if (result.Success)
+                {
+                    return Results.Ok(new { success = true, message = result.Message });
+                }
+                return Results.BadRequest(new { success = false, message = result.Message });
             }
             catch (Exception ex)
             {
@@ -165,7 +193,11 @@ public static class ShareManagementEndpoints
             try
             {
                 var result = await service.RestartNfsServiceAsync();
-                return Results.Ok(new { message = "NFS服务已重启", result });
+                if (result.Success)
+                {
+                    return Results.Ok(new { success = true, message = result.Message });
+                }
+                return Results.BadRequest(new { success = false, message = result.Message });
             }
             catch (Exception ex)
             {
@@ -180,7 +212,11 @@ public static class ShareManagementEndpoints
             try
             {
                 var result = await service.TestSambaConfigAsync();
-                return Results.Ok(new { message = "配置测试完成", result });
+                if (result.Success)
+                {
+                    return Results.Ok(new { success = true, message = result.Message });
+                }
+                return Results.BadRequest(new { success = false, message = result.Message });
             }
             catch (Exception ex)
             {
