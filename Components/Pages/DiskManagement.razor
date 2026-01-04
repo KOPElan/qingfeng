@@ -364,45 +364,22 @@
         }
 
         <FluentLabel Typo="Typography.H6">当前状态</FluentLabel>
-        @if (!string.IsNullOrEmpty(powerStatus))
+        @if (powerStatusResult != null && powerStatusResult.Success)
         {
-            // 尝试从 hdparm 输出中解析关键信息
-            var lines = powerStatus
-                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-            string deviceLine = lines.Length > 0 ? lines[0].Trim() : string.Empty;
-            string stateLine = lines.FirstOrDefault(
-                l => l.Contains("drive state is", StringComparison.OrdinalIgnoreCase)
-                  || l.Contains("drive state:", StringComparison.OrdinalIgnoreCase)
-            );
-            string driveState = string.Empty;
-            if (!string.IsNullOrEmpty(stateLine))
-            {
-                var idx = stateLine.IndexOf(':');
-                driveState = idx >= 0 && idx + 1 < stateLine.Length
-                    ? stateLine[(idx + 1)..].Trim()
-                    : stateLine.Trim();
-            }
             <div style="border: 1px solid var(--neutral-stroke-divider-rest); border-radius: 4px; padding: 0.5rem; margin-bottom: 0.5rem; background-color: var(--neutral-layer-2);">
-                @if (!string.IsNullOrEmpty(deviceLine))
-                {
-                    <div><strong>设备:</strong> @deviceLine</div>
-                }
-                @if (!string.IsNullOrEmpty(driveState))
-                {
-                    <div style="margin-top: 0.25rem;">
-                        <strong>电源状态:</strong> @driveState
-                    </div>
-                }
-                else
+                <div>
+                    <strong>电源状态:</strong> @powerStatusResult.Status
+                </div>
+                @if (!string.IsNullOrEmpty(powerStatusResult.Message))
                 {
                     <div style="margin-top: 0.25rem; color: var(--neutral-foreground-hint);">
-                        无法从输出中解析详细电源状态，以下为原始信息。
+                        @powerStatusResult.Message
                     </div>
                 }
             </div>
             <details style="margin-bottom: 1rem;">
                 <summary style="color: var(--neutral-foreground-hint); cursor: pointer;">查看原始 hdparm 输出</summary>
-                <pre style="background-color: var(--neutral-layer-2); padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; margin-bottom: 0; overflow-x: auto;"><code>@powerStatus</code></pre>
+                <pre style="background-color: var(--neutral-layer-2); padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; margin-bottom: 0; overflow-x: auto;"><code>@powerStatusResult.RawOutput</code></pre>
             </details>
         }
         else
@@ -699,7 +676,7 @@
     // Power Management
     private bool showPowerManagement = false;
     private DiskInfo? selectedDiskForPower = null;
-    private string powerStatus = string.Empty;
+    private PowerStatusResult? powerStatusResult = null;
     private string powerMessage = string.Empty;
     private bool powerError = false;
     private int spinDownTimeout = 0;
@@ -768,7 +745,7 @@
 
         try
         {
-            string result;
+            DiskOperationResult result;
             if (wizardPermanent)
             {
                 result = await DiskManagementService.MountDiskPermanentAsync(
@@ -786,14 +763,8 @@
                     string.IsNullOrWhiteSpace(wizardOptions) ? null : wizardOptions);
             }
 
-            var operationResult = new
-            {
-                Success = result.Contains("Successfully", StringComparison.OrdinalIgnoreCase),
-                Message = result
-            };
-
-            wizardMessage = operationResult.Message;
-            wizardError = !operationResult.Success;
+            wizardMessage = result.Message;
+            wizardError = !result.Success;
             if (!wizardError)
             {
                 await RefreshData();
@@ -823,8 +794,8 @@
         try
         {
             var result = await DiskManagementService.UnmountDiskAsync(mountPoint);
-            message = result;
-            isError = !result.Contains("Successfully");
+            message = result.Message;
+            isError = !result.Success;
             await RefreshData();
         }
         catch (Exception ex)
@@ -871,7 +842,7 @@
 
         try
         {
-            string result;
+            DiskOperationResult result;
             if (networkWizardPermanent)
             {
                 result = await DiskManagementService.MountNetworkDiskPermanentAsync(
@@ -897,14 +868,8 @@
                     string.IsNullOrWhiteSpace(networkWizardOptions) ? null : networkWizardOptions);
             }
 
-            var operationResult = new
-            {
-                Success = result.Contains("Successfully", StringComparison.OrdinalIgnoreCase),
-                Message = result
-            };
-
-            networkWizardMessage = operationResult.Message;
-            networkWizardError = !operationResult.Success;
+            networkWizardMessage = result.Message;
+            networkWizardError = !result.Success;
             if (!networkWizardError)
             {
                 await RefreshData();
@@ -928,7 +893,7 @@
     private async Task ShowPowerManagement(DiskInfo disk)
     {
         selectedDiskForPower = disk;
-        powerStatus = string.Empty;
+        powerStatusResult = null;
         powerMessage = string.Empty;
         powerError = false;
         
@@ -954,7 +919,16 @@
         powerMessage = string.Empty;
         try
         {
-            powerStatus = await DiskManagementService.GetDiskPowerStatusAsync(selectedDiskForPower.DevicePath);
+            powerStatusResult = await DiskManagementService.GetDiskPowerStatusAsync(selectedDiskForPower.DevicePath);
+            if (!powerStatusResult.Success)
+            {
+                powerMessage = powerStatusResult.Message;
+                powerError = true;
+            }
+            else
+            {
+                powerError = false;
+            }
         }
         catch (Exception ex)
         {
@@ -975,8 +949,8 @@
         try
         {
             var result = await DiskManagementService.SetDiskSpinDownAsync(selectedDiskForPower.DevicePath, spinDownTimeout);
-            powerMessage = result;
-            powerError = !result.Contains("Set") && !result.Contains("Disabled");
+            powerMessage = result.Message;
+            powerError = !result.Success;
         }
         catch (Exception ex)
         {
@@ -1002,8 +976,8 @@
         try
         {
             var result = await DiskManagementService.SetDiskApmLevelAsync(selectedDiskForPower.DevicePath, apmLevel);
-            powerMessage = result;
-            powerError = !result.Contains("Set");
+            powerMessage = result.Message;
+            powerError = !result.Success;
         }
         catch (Exception ex)
         {

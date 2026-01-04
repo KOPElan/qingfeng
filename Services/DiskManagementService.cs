@@ -233,31 +233,31 @@ public class DiskManagementService : IDiskManagementService
         return null;
     }
 
-    public async Task<string> MountDiskAsync(string devicePath, string mountPoint, string? fileSystem = null, string? options = null)
+    public async Task<DiskOperationResult> MountDiskAsync(string devicePath, string mountPoint, string? fileSystem = null, string? options = null)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Disk mounting is only supported on Linux";
+            return DiskOperationResult.Failed("磁盘挂载仅在 Linux 系统上支持");
         }
 
         if (!ValidateDevicePath(devicePath))
         {
-            return "Invalid device path";
+            return DiskOperationResult.Failed("无效的设备路径");
         }
 
         if (!ValidateMountPoint(mountPoint))
         {
-            return "Invalid mount point";
+            return DiskOperationResult.Failed("无效的挂载点");
         }
 
         if (fileSystem != null && InvalidChars.Any(c => fileSystem.Contains(c)))
         {
-            return "Invalid characters in filesystem type";
+            return DiskOperationResult.Failed("文件系统类型包含无效字符");
         }
 
         if (options != null && InvalidChars.Any(c => options.Contains(c)))
         {
-            return "Invalid characters in mount options";
+            return DiskOperationResult.Failed("挂载选项包含无效字符");
         }
 
         try
@@ -297,32 +297,32 @@ public class DiskManagementService : IDiskManagementService
 
                 if (process.ExitCode == 0)
                 {
-                    return $"Successfully mounted {devicePath} to {mountPoint}";
+                    return DiskOperationResult.Successful($"成功将 {devicePath} 挂载到 {mountPoint}");
                 }
                 else
                 {
-                    return $"Failed to mount: {error}";
+                    return DiskOperationResult.Failed($"挂载失败", error);
                 }
             }
 
-            return "Failed to start mount process";
+            return DiskOperationResult.Failed("无法启动挂载进程");
         }
         catch (Exception ex)
         {
-            return $"Error mounting disk: {ex.Message}";
+            return DiskOperationResult.Failed("挂载磁盘时出错", ex.Message);
         }
     }
 
-    public async Task<string> MountDiskPermanentAsync(string devicePath, string mountPoint, string? fileSystem = null, string? options = null)
+    public async Task<DiskOperationResult> MountDiskPermanentAsync(string devicePath, string mountPoint, string? fileSystem = null, string? options = null)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Permanent disk mounting is only supported on Linux";
+            return DiskOperationResult.Failed("永久挂载磁盘仅在 Linux 系统上支持");
         }
 
         // First mount temporarily
         var mountResult = await MountDiskAsync(devicePath, mountPoint, fileSystem, options);
-        if (!mountResult.Contains("Successfully"))
+        if (!mountResult.Success)
         {
             return mountResult;
         }
@@ -333,7 +333,7 @@ public class DiskManagementService : IDiskManagementService
             var diskInfo = await GetDiskInfoAsync(devicePath);
             if (diskInfo == null)
             {
-                return "Could not get disk information";
+                return DiskOperationResult.Failed("无法获取磁盘信息");
             }
 
             var fstabEntry = string.IsNullOrEmpty(diskInfo.UUID)
@@ -364,40 +364,40 @@ public class DiskManagementService : IDiskManagementService
                 {
                     if (line.Trim() == fstabEntry)
                     {
-                        return $"Successfully mounted {devicePath} to {mountPoint}; matching entry already exists in /etc/fstab";
+                        return DiskOperationResult.Successful($"成功将 {devicePath} 挂载到 {mountPoint}；/etc/fstab 中已存在匹配条目");
                     }
                 }
 
                 await File.AppendAllTextAsync(fstabPath, fstabEntry + Environment.NewLine);
-                return $"Successfully mounted {devicePath} to {mountPoint} and added to /etc/fstab";
+                return DiskOperationResult.Successful($"成功将 {devicePath} 挂载到 {mountPoint} 并添加到 /etc/fstab");
             }
             catch (UnauthorizedAccessException)
             {
-                return $"Mounted successfully but permission denied writing to /etc/fstab. Entry: {fstabEntry}";
+                return DiskOperationResult.Failed($"挂载成功但写入 /etc/fstab 时权限被拒绝。条目: {fstabEntry}");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error appending to /etc/fstab for device '{devicePath}' at mount point '{mountPoint}'. Exception: {ex}");
-                return $"Mounted successfully but error updating /etc/fstab: {ex.Message}. Entry: {fstabEntry}";
+                return DiskOperationResult.Failed($"挂载成功但更新 /etc/fstab 时出错", $"{ex.Message}。条目: {fstabEntry}");
             }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error during permanent mount setup for device '{devicePath}' at mount point '{mountPoint}'. Exception: {ex}");
-            return $"Mounted successfully but error updating /etc/fstab: {ex.Message}";
+            return DiskOperationResult.Failed("挂载成功但更新 /etc/fstab 时出错", ex.Message);
         }
     }
 
-    public async Task<string> UnmountDiskAsync(string mountPoint)
+    public async Task<DiskOperationResult> UnmountDiskAsync(string mountPoint)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Disk unmounting is only supported on Linux";
+            return DiskOperationResult.Failed("磁盘卸载仅在 Linux 系统上支持");
         }
 
         if (!ValidateMountPoint(mountPoint))
         {
-            return "Invalid mount point";
+            return DiskOperationResult.Failed("无效的挂载点");
         }
 
         try
@@ -421,19 +421,19 @@ public class DiskManagementService : IDiskManagementService
 
                 if (process.ExitCode == 0)
                 {
-                    return $"Successfully unmounted {mountPoint}";
+                    return DiskOperationResult.Successful($"成功卸载 {mountPoint}");
                 }
                 else
                 {
-                    return $"Failed to unmount: {error}";
+                    return DiskOperationResult.Failed($"卸载失败", error);
                 }
             }
 
-            return "Failed to start umount process";
+            return DiskOperationResult.Failed("无法启动卸载进程");
         }
         catch (Exception ex)
         {
-            return $"Error unmounting disk: {ex.Message}";
+            return DiskOperationResult.Failed("卸载磁盘时出错", ex.Message);
         }
     }
 
@@ -490,21 +490,21 @@ public class DiskManagementService : IDiskManagementService
         return Task.FromResult(fileSystems);
     }
 
-    public async Task<string> SetDiskSpinDownAsync(string devicePath, int timeoutMinutes)
+    public async Task<DiskOperationResult> SetDiskSpinDownAsync(string devicePath, int timeoutMinutes)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Disk power management is only supported on Linux";
+            return DiskOperationResult.Failed("磁盘电源管理仅在 Linux 系统上支持");
         }
 
         if (!ValidateDevicePath(devicePath))
         {
-            return "Invalid device path";
+            return DiskOperationResult.Failed("无效的设备路径");
         }
 
         if (timeoutMinutes < 0 || timeoutMinutes > 330)
         {
-            return "Timeout must be between 0 and 330 minutes (0 = disabled, max 5.5 hours)";
+            return DiskOperationResult.Failed("超时时间必须在 0 到 330 分钟之间（0 = 禁用，最多 5.5 小时）");
         }
 
         try
@@ -513,7 +513,7 @@ public class DiskManagementService : IDiskManagementService
             var confResult = await UpdateHdparmConfAsync(devicePath, spindownTime: timeoutMinutes);
             if (!confResult.Success)
             {
-                return confResult.Message;
+                return DiskOperationResult.Failed(confResult.Message);
             }
 
             // Convert minutes to hdparm encoding (0-255)
@@ -540,39 +540,39 @@ public class DiskManagementService : IDiskManagementService
                 if (process.ExitCode == 0)
                 {
                     var msg = timeoutMinutes == 0
-                        ? $"Successfully disabled spin-down for {devicePath} (persistent)"
-                        : $"Successfully set spin-down timeout to {timeoutMinutes} minutes for {devicePath} (persistent)";
-                    return msg;
+                        ? $"成功为 {devicePath} 禁用自动休眠（持久配置）"
+                        : $"成功为 {devicePath} 设置自动休眠时间为 {timeoutMinutes} 分钟（持久配置）";
+                    return DiskOperationResult.Successful(msg);
                 }
                 else
                 {
-                    return $"Configuration saved, but failed to apply immediately: {error}";
+                    return DiskOperationResult.Failed("配置已保存，但立即应用失败", error);
                 }
             }
 
-            return "Configuration saved, but failed to start hdparm process";
+            return DiskOperationResult.Failed("配置已保存，但无法启动 hdparm 进程");
         }
         catch (Exception ex)
         {
-            return $"Error setting disk spin-down: {ex.Message}";
+            return DiskOperationResult.Failed("设置磁盘自动休眠时出错", ex.Message);
         }
     }
 
-    public async Task<string> SetDiskApmLevelAsync(string devicePath, int level)
+    public async Task<DiskOperationResult> SetDiskApmLevelAsync(string devicePath, int level)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Disk power management is only supported on Linux";
+            return DiskOperationResult.Failed("磁盘电源管理仅在 Linux 系统上支持");
         }
 
         if (!ValidateDevicePath(devicePath))
         {
-            return "Invalid device path";
+            return DiskOperationResult.Failed("无效的设备路径");
         }
 
         if (level < 1 || level > 255)
         {
-            return "APM level must be between 1 and 255 (1=minimum power, 255=maximum performance)";
+            return DiskOperationResult.Failed("APM 级别必须在 1 到 255 之间（1=最低功耗，255=最高性能）");
         }
 
         try
@@ -581,7 +581,7 @@ public class DiskManagementService : IDiskManagementService
             var confResult = await UpdateHdparmConfAsync(devicePath, apmLevel: level);
             if (!confResult.Success)
             {
-                return confResult.Message;
+                return DiskOperationResult.Failed(confResult.Message);
             }
 
             // Also apply immediately using hdparm command
@@ -603,28 +603,28 @@ public class DiskManagementService : IDiskManagementService
                 var error = await process.StandardError.ReadToEndAsync();
 
                 return process.ExitCode == 0
-                    ? $"Successfully set APM level to {level} for {devicePath} (persistent)"
-                    : $"Configuration saved, but failed to apply immediately: {error}";
+                    ? DiskOperationResult.Successful($"成功为 {devicePath} 设置 APM 级别为 {level}（持久配置）")
+                    : DiskOperationResult.Failed("配置已保存，但立即应用失败", error);
             }
 
-            return "Configuration saved, but failed to start hdparm process";
+            return DiskOperationResult.Failed("配置已保存，但无法启动 hdparm 进程");
         }
         catch (Exception ex)
         {
-            return $"Error setting APM level: {ex.Message}";
+            return DiskOperationResult.Failed("设置 APM 级别时出错", ex.Message);
         }
     }
 
-    public async Task<string> GetDiskPowerStatusAsync(string devicePath)
+    public async Task<PowerStatusResult> GetDiskPowerStatusAsync(string devicePath)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Disk power status check is only supported on Linux";
+            return PowerStatusResult.Failed("磁盘电源状态检查仅在 Linux 系统上支持");
         }
 
         if (!ValidateDevicePath(devicePath))
         {
-            return "Invalid device path";
+            return PowerStatusResult.Failed("无效的设备路径");
         }
 
         try
@@ -648,19 +648,39 @@ public class DiskManagementService : IDiskManagementService
 
                 if (process.ExitCode == 0)
                 {
-                    return output;
+                    // Parse the output to extract status
+                    // Output format: "/dev/sda:\n drive state is:  active/idle\n"
+                    var status = "unknown";
+                    if (output.Contains("active", StringComparison.OrdinalIgnoreCase))
+                    {
+                        status = "active";
+                    }
+                    else if (output.Contains("idle", StringComparison.OrdinalIgnoreCase))
+                    {
+                        status = "idle";
+                    }
+                    else if (output.Contains("standby", StringComparison.OrdinalIgnoreCase))
+                    {
+                        status = "standby";
+                    }
+                    else if (output.Contains("sleeping", StringComparison.OrdinalIgnoreCase))
+                    {
+                        status = "sleeping";
+                    }
+                    
+                    return PowerStatusResult.Successful(status, output);
                 }
                 else
                 {
-                    return $"Failed to get power status: {error}";
+                    return PowerStatusResult.Failed($"获取电源状态失败: {error}");
                 }
             }
 
-            return "Failed to start hdparm process";
+            return PowerStatusResult.Failed("无法启动 hdparm 进程");
         }
         catch (Exception ex)
         {
-            return $"Error getting disk power status: {ex.Message}";
+            return PowerStatusResult.Failed($"获取磁盘电源状态时出错: {ex.Message}");
         }
     }
 
@@ -1206,40 +1226,40 @@ public class DiskManagementService : IDiskManagementService
         return networkDisks;
     }
     
-    public async Task<string> MountNetworkDiskAsync(string server, string sharePath, string mountPoint, NetworkDiskType diskType, string? username = null, string? password = null, string? domain = null, string? options = null)
+    public async Task<DiskOperationResult> MountNetworkDiskAsync(string server, string sharePath, string mountPoint, NetworkDiskType diskType, string? username = null, string? password = null, string? domain = null, string? options = null)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Network disk mounting is only supported on Linux";
+            return DiskOperationResult.Failed("网络磁盘挂载仅在 Linux 系统上支持");
         }
         
         if (!ValidateNetworkPath(server, sharePath))
         {
-            return "Invalid server or share path";
+            return DiskOperationResult.Failed("无效的服务器或共享路径");
         }
         
         if (!ValidateMountPoint(mountPoint))
         {
-            return "Invalid mount point";
+            return DiskOperationResult.Failed("无效的挂载点");
         }
         
         if (options != null && InvalidChars.Any(c => options.Contains(c)))
         {
-            return "Invalid characters in mount options";
+            return DiskOperationResult.Failed("挂载选项包含无效字符");
         }
         
         // Validate credentials don't contain invalid characters
         if (!string.IsNullOrEmpty(username) && username.Any(c => InvalidCredentialCharsSet.Contains(c)))
         {
-            return "Username contains invalid characters (newline or equals sign)";
+            return DiskOperationResult.Failed("用户名包含无效字符（换行符或等号）");
         }
         if (!string.IsNullOrEmpty(password) && password.Any(c => InvalidCredentialCharsSet.Contains(c)))
         {
-            return "Password contains invalid characters (newline or equals sign)";
+            return DiskOperationResult.Failed("密码包含无效字符（换行符或等号）");
         }
         if (!string.IsNullOrEmpty(domain) && domain.Any(c => InvalidCredentialCharsSet.Contains(c)))
         {
-            return "Domain contains invalid characters (newline or equals sign)";
+            return DiskOperationResult.Failed("域名包含无效字符（换行符或等号）");
         }
         
         try
@@ -1319,7 +1339,7 @@ public class DiskManagementService : IDiskManagementService
                             tempCredFile = null;
                         }
                         Debug.WriteLine($"Failed to create secure credential file: {ex}");
-                        return $"Failed to create secure credential file: {ex.Message}";
+                        return DiskOperationResult.Failed("创建安全凭据文件失败", ex.Message);
                     }
                 }
                 
@@ -1363,11 +1383,11 @@ public class DiskManagementService : IDiskManagementService
                     var error = await process.StandardError.ReadToEndAsync();
                     
                     return process.ExitCode == 0
-                        ? $"Successfully mounted {device} to {mountPoint}"
-                        : $"Failed to mount: {error}";
+                        ? DiskOperationResult.Successful($"成功将 {device} 挂载到 {mountPoint}")
+                        : DiskOperationResult.Failed("挂载失败", error);
                 }
                 
-                return "Failed to start mount process";
+                return DiskOperationResult.Failed("无法启动挂载进程");
             }
             finally
             {
@@ -1387,20 +1407,20 @@ public class DiskManagementService : IDiskManagementService
         }
         catch (Exception ex)
         {
-            return $"Error mounting network disk: {ex.Message}";
+            return DiskOperationResult.Failed("挂载网络磁盘时出错", ex.Message);
         }
     }
     
-    public async Task<string> MountNetworkDiskPermanentAsync(string server, string sharePath, string mountPoint, NetworkDiskType diskType, string? username = null, string? password = null, string? domain = null, string? options = null)
+    public async Task<DiskOperationResult> MountNetworkDiskPermanentAsync(string server, string sharePath, string mountPoint, NetworkDiskType diskType, string? username = null, string? password = null, string? domain = null, string? options = null)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Permanent network disk mounting is only supported on Linux";
+            return DiskOperationResult.Failed("永久挂载网络磁盘仅在 Linux 系统上支持");
         }
         
         // First mount temporarily
         var mountResult = await MountNetworkDiskAsync(server, sharePath, mountPoint, diskType, username, password, domain, options);
-        if (!mountResult.Contains("Successfully"))
+        if (!mountResult.Success)
         {
             return mountResult;
         }
@@ -1504,7 +1524,7 @@ public class DiskManagementService : IDiskManagementService
                             // Ignore file deletion errors
                         }
                         Debug.WriteLine($"Failed to create CIFS credentials file: {ex}");
-                        return $"Failed to create secure CIFS credentials file '{credFile}'. Refusing to store credentials insecurely in /etc/fstab. Error: {ex.Message}";
+                        return DiskOperationResult.Failed($"创建安全的 CIFS 凭据文件 '{credFile}' 失败。拒绝在 /etc/fstab 中不安全地存储凭据", ex.Message);
                     }
                 }
             }
@@ -1514,7 +1534,7 @@ public class DiskManagementService : IDiskManagementService
                 var normalizedSharePath = sharePath.Trim().TrimStart('/');
                 if (string.IsNullOrEmpty(normalizedSharePath))
                 {
-                    return "Invalid NFS share path: share path must not be empty or consist only of '/'.";
+                    return DiskOperationResult.Failed("无效的 NFS 共享路径：共享路径不能为空或仅包含 '/'");
                 }
                 
                 device = $"{server}:/{normalizedSharePath}";
@@ -1575,26 +1595,26 @@ public class DiskManagementService : IDiskManagementService
 
                 if (hasExistingEntry)
                 {
-                    return $"Successfully mounted {device} to {mountPoint}; matching entry already exists in /etc/fstab";
+                    return DiskOperationResult.Successful($"成功将 {device} 挂载到 {mountPoint}；/etc/fstab 中已存在匹配条目");
                 }
                 
                 await File.AppendAllTextAsync(fstabPath, fstabEntry + Environment.NewLine);
-                return $"Successfully mounted {device} to {mountPoint} and added to /etc/fstab";
+                return DiskOperationResult.Successful($"成功将 {device} 挂载到 {mountPoint} 并添加到 /etc/fstab");
             }
             catch (UnauthorizedAccessException)
             {
-                return $"Mounted successfully but permission denied writing to /etc/fstab. Entry: {fstabEntry}";
+                return DiskOperationResult.Failed($"挂载成功但写入 /etc/fstab 时权限被拒绝。条目: {fstabEntry}");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error appending to /etc/fstab for network disk '{device}' at mount point '{mountPoint}'. Exception: {ex}");
-                return $"Mounted successfully but error updating /etc/fstab: {ex.Message}. Entry: {fstabEntry}";
+                return DiskOperationResult.Failed($"挂载成功但更新 /etc/fstab 时出错", $"{ex.Message}。条目: {fstabEntry}");
             }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error during permanent network mount setup. Exception: {ex}");
-            return $"Mounted successfully but error updating /etc/fstab: {ex.Message}";
+            return DiskOperationResult.Failed("挂载成功但更新 /etc/fstab 时出错", ex.Message);
         }
     }
     

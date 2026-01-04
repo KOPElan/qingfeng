@@ -114,3 +114,79 @@ public class DiskPowerSettings
     /// </summary>
     public int? ApmLevel { get; set; }
 }
+
+/// <summary>
+/// Result of a disk operation (mount, unmount, power management, etc.)
+/// </summary>
+public class DiskOperationResult
+{
+    /// <summary>
+    /// Whether the operation was successful
+    /// </summary>
+    public bool Success { get; set; }
+    
+    /// <summary>
+    /// Human-readable message describing the result
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Optional error details if the operation failed
+    /// </summary>
+    public string? ErrorDetails { get; set; }
+    
+    /// <summary>
+    /// Optional data associated with the operation result
+    /// </summary>
+    public object? Data { get; set; }
+    
+    /// <summary>
+    /// Creates a successful result
+    /// </summary>
+    public static DiskOperationResult Successful(string message, object? data = null) =>
+        new() { Success = true, Message = message, Data = data };
+    
+    /// <summary>
+    /// Creates a failed result
+    /// </summary>
+    public static DiskOperationResult Failed(string message, string? errorDetails = null) =>
+        new() { Success = false, Message = message, ErrorDetails = errorDetails };
+}
+
+/// <summary>
+/// Result of a disk power status query
+/// </summary>
+public class PowerStatusResult
+{
+    /// <summary>
+    /// Whether the query was successful
+    /// </summary>
+    public bool Success { get; set; }
+    
+    /// <summary>
+    /// Human-readable message
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Power status: "active", "standby", "sleeping", "idle", or "unknown"
+    /// </summary>
+    public string Status { get; set; } = "unknown";
+    
+    /// <summary>
+    /// Raw output from the power status command
+    /// </summary>
+    public string RawOutput { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Creates a successful result
+    /// </summary>
+    public static PowerStatusResult Successful(string status, string rawOutput) =>
+        new() { Success = true, Status = status, RawOutput = rawOutput, Message = $"磁盘电源状态: {status}" };
+    
+    /// <summary>
+    /// Creates a failed result
+    /// </summary>
+    public static PowerStatusResult Failed(string message) =>
+        new() { Success = false, Message = message, Status = "unknown" };
+}
