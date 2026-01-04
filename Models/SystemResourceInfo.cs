@@ -136,7 +136,9 @@ public class DiskOperationResult
     public string? ErrorDetails { get; set; }
     
     /// <summary>
-    /// Optional data associated with the operation result
+    /// Optional data associated with the operation result.
+    /// This can contain operation-specific information such as disk information, mount details, etc.
+    /// Common types: DiskInfo, string (device paths), null (for simple success/failure)
     /// </summary>
     public object? Data { get; set; }
     

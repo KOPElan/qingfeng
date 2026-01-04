@@ -651,21 +651,41 @@ public class DiskManagementService : IDiskManagementService
                     // Parse the output to extract status
                     // Output format: "/dev/sda:\n drive state is:  active/idle\n"
                     var status = "unknown";
-                    if (output.Contains("active", StringComparison.OrdinalIgnoreCase))
+                    var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    
+                    // Look for the line containing "drive state is:" or "drive state:"
+                    foreach (var line in lines)
                     {
-                        status = "active";
-                    }
-                    else if (output.Contains("idle", StringComparison.OrdinalIgnoreCase))
-                    {
-                        status = "idle";
-                    }
-                    else if (output.Contains("standby", StringComparison.OrdinalIgnoreCase))
-                    {
-                        status = "standby";
-                    }
-                    else if (output.Contains("sleeping", StringComparison.OrdinalIgnoreCase))
-                    {
-                        status = "sleeping";
+                        var trimmedLine = line.Trim();
+                        if (trimmedLine.Contains("drive state is:", StringComparison.OrdinalIgnoreCase) ||
+                            trimmedLine.Contains("drive state:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Extract the part after the colon
+                            var colonIndex = trimmedLine.IndexOf(':');
+                            if (colonIndex >= 0 && colonIndex + 1 < trimmedLine.Length)
+                            {
+                                var statePart = trimmedLine[(colonIndex + 1)..].Trim().ToLowerInvariant();
+                                
+                                // Check for specific states in priority order
+                                if (statePart.Contains("standby"))
+                                {
+                                    status = "standby";
+                                }
+                                else if (statePart.Contains("sleeping"))
+                                {
+                                    status = "sleeping";
+                                }
+                                else if (statePart.Contains("active"))
+                                {
+                                    status = "active";
+                                }
+                                else if (statePart.Contains("idle"))
+                                {
+                                    status = "idle";
+                                }
+                            }
+                            break;
+                        }
                     }
                     
                     return PowerStatusResult.Successful(status, output);
