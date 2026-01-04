@@ -16,6 +16,29 @@ public class NetworkManagementService : INetworkManagementService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Validates that an interface name contains only safe characters to prevent command injection
+    /// </summary>
+    private static bool IsValidInterfaceName(string interfaceName)
+    {
+        if (string.IsNullOrWhiteSpace(interfaceName))
+            return false;
+
+        // Interface names should only contain alphanumeric characters, dashes, underscores, dots, and colons
+        return System.Text.RegularExpressions.Regex.IsMatch(interfaceName, @"^[a-zA-Z0-9\-_.:]+$");
+    }
+
+    /// <summary>
+    /// Validates that an IP address is in correct format
+    /// </summary>
+    private static bool IsValidIpAddress(string ipAddress)
+    {
+        if (string.IsNullOrWhiteSpace(ipAddress))
+            return false;
+
+        return System.Net.IPAddress.TryParse(ipAddress, out var _);
+    }
+
     public async Task<List<NetworkInterfaceInfo>> GetNetworkInterfacesAsync()
     {
         var interfaces = new List<NetworkInterfaceInfo>();
@@ -54,6 +77,31 @@ public class NetworkManagementService : INetworkManagementService
             return false;
         }
 
+        // Validate inputs to prevent command injection
+        if (!IsValidInterfaceName(interfaceName))
+        {
+            _logger.LogError("Invalid interface name: {Interface}", interfaceName);
+            return false;
+        }
+
+        if (!IsValidIpAddress(ipAddress))
+        {
+            _logger.LogError("Invalid IP address: {IpAddress}", ipAddress);
+            return false;
+        }
+
+        if (!IsValidIpAddress(netmask))
+        {
+            _logger.LogError("Invalid netmask: {Netmask}", netmask);
+            return false;
+        }
+
+        if (gateway != null && !IsValidIpAddress(gateway))
+        {
+            _logger.LogError("Invalid gateway: {Gateway}", gateway);
+            return false;
+        }
+
         try
         {
             // Try to use nmcli (NetworkManager) first
@@ -79,6 +127,13 @@ public class NetworkManagementService : INetworkManagementService
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             _logger.LogWarning("Network configuration is only supported on Linux");
+            return false;
+        }
+
+        // Validate input to prevent command injection
+        if (!IsValidInterfaceName(interfaceName))
+        {
+            _logger.LogError("Invalid interface name: {Interface}", interfaceName);
             return false;
         }
 
@@ -163,7 +218,8 @@ public class NetworkManagementService : INetworkManagementService
                     currentInterface = new NetworkInterfaceInfo
                     {
                         Name = parts[1],
-                        IsUp = (trimmedLine.Contains("UP") && !trimmedLine.Contains("LOWER_UP")) || trimmedLine.Contains("state UP")
+                        // Interface is UP if it has the UP flag (LOWER_UP indicates physical link is up, which is also good)
+                        IsUp = trimmedLine.Contains("UP") || trimmedLine.Contains("state UP")
                     };
                 }
             }
