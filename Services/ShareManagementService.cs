@@ -252,18 +252,18 @@ public class ShareManagementService : IShareManagementService
             (type == ShareType.NFS && s.Path.Equals(name, StringComparison.OrdinalIgnoreCase)));
     }
     
-    public async Task<string> AddCifsShareAsync(ShareRequest request)
+    public async Task<OperationResult> AddCifsShareAsync(ShareRequest request)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "CIFS share management is only supported on Linux";
+            return new OperationResult { Success = false, Message = "CIFS share management is only supported on Linux" };
         }
         
         // Validate input
         var validation = ValidateShareRequest(request, ShareType.CIFS);
         if (!validation.isValid)
         {
-            return validation.message;
+            return new OperationResult { Success = false, Message = validation.message };
         }
         
         try
@@ -272,13 +272,13 @@ public class ShareManagementService : IShareManagementService
             var existingShares = await GetCifsSharesAsync();
             if (existingShares.Any(s => s.Name.Equals(request.Name, StringComparison.OrdinalIgnoreCase)))
             {
-                return $"A share with name '{request.Name}' already exists";
+                return new OperationResult { Success = false, Message = $"A share with name '{request.Name}' already exists" };
             }
             
             // Verify the path exists
             if (!Directory.Exists(request.Path))
             {
-                return $"Directory '{request.Path}' does not exist";
+                return new OperationResult { Success = false, Message = $"Directory '{request.Path}' does not exist" };
             }
             
             // Read existing configuration
@@ -334,36 +334,35 @@ public class ShareManagementService : IShareManagementService
             
             // Test configuration
             var testResult = await TestSambaConfigAsync();
-            if (testResult.Contains("failed", StringComparison.OrdinalIgnoreCase) || 
-                testResult.Contains("error", StringComparison.OrdinalIgnoreCase))
+            if (!testResult.Success)
             {
-                return $"Configuration syntax error: {testResult}. Please check the share settings.";
+                return new OperationResult { Success = false, Message = $"Configuration syntax error: {testResult.Message}. Please check the share settings." };
             }
             
-            return $"Successfully added CIFS share '{request.Name}'. Please restart Samba service to apply changes.";
+            return new OperationResult { Success = true, Message = $"Successfully added CIFS share '{request.Name}'. Please restart Samba service to apply changes." };
         }
         catch (UnauthorizedAccessException)
         {
-            return "Permission denied. The application needs root privileges to modify Samba configuration.";
+            return new OperationResult { Success = false, Message = "Permission denied. The application needs root privileges to modify Samba configuration." };
         }
         catch (Exception ex)
         {
-            return $"Error adding CIFS share: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error adding CIFS share: {ex.Message}" };
         }
     }
     
-    public async Task<string> AddNfsShareAsync(ShareRequest request)
+    public async Task<OperationResult> AddNfsShareAsync(ShareRequest request)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "NFS export management is only supported on Linux";
+            return new OperationResult { Success = false, Message = "NFS export management is only supported on Linux" };
         }
         
         // Validate input
         var validation = ValidateShareRequest(request, ShareType.NFS);
         if (!validation.isValid)
         {
-            return validation.message;
+            return new OperationResult { Success = false, Message = validation.message };
         }
         
         try
@@ -372,13 +371,13 @@ public class ShareManagementService : IShareManagementService
             var existingExports = await GetNfsSharesAsync();
             if (existingExports.Any(s => s.Path.Equals(request.Path, StringComparison.OrdinalIgnoreCase)))
             {
-                return $"An export for path '{request.Path}' already exists";
+                return new OperationResult { Success = false, Message = $"An export for path '{request.Path}' already exists" };
             }
             
             // Verify the path exists
             if (!Directory.Exists(request.Path))
             {
-                return $"Directory '{request.Path}' does not exist";
+                return new OperationResult { Success = false, Message = $"Directory '{request.Path}' does not exist" };
             }
             
             // Build export line
@@ -407,28 +406,28 @@ public class ShareManagementService : IShareManagementService
             
             // Reload exports
             var reloadResult = await ReloadNfsExportsAsync();
-            if (!reloadResult.Contains("Success", StringComparison.OrdinalIgnoreCase))
+            if (!reloadResult.Success)
             {
-                return $"Export added but failed to reload: {reloadResult}";
+                return new OperationResult { Success = false, Message = $"Export added but failed to reload: {reloadResult.Message}" };
             }
             
-            return $"Successfully added NFS export '{request.Path}' and reloaded exports.";
+            return new OperationResult { Success = true, Message = $"Successfully added NFS export '{request.Path}' and reloaded exports." };
         }
         catch (UnauthorizedAccessException)
         {
-            return "Permission denied. The application needs root privileges to modify NFS exports.";
+            return new OperationResult { Success = false, Message = "Permission denied. The application needs root privileges to modify NFS exports." };
         }
         catch (Exception ex)
         {
-            return $"Error adding NFS export: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error adding NFS export: {ex.Message}" };
         }
     }
     
-    public async Task<string> UpdateCifsShareAsync(string shareName, ShareRequest request)
+    public async Task<OperationResult> UpdateCifsShareAsync(string shareName, ShareRequest request)
     {
         // For CIFS, we need to remove the old share and add the new one
         var removeResult = await RemoveCifsShareAsync(shareName);
-        if (!removeResult.Contains("Successfully", StringComparison.OrdinalIgnoreCase))
+        if (!removeResult.Success)
         {
             return removeResult;
         }
@@ -436,11 +435,11 @@ public class ShareManagementService : IShareManagementService
         return await AddCifsShareAsync(request);
     }
     
-    public async Task<string> UpdateNfsShareAsync(string exportPath, ShareRequest request)
+    public async Task<OperationResult> UpdateNfsShareAsync(string exportPath, ShareRequest request)
     {
         // For NFS, we need to remove the old export and add the new one
         var removeResult = await RemoveNfsShareAsync(exportPath);
-        if (!removeResult.Contains("Successfully", StringComparison.OrdinalIgnoreCase))
+        if (!removeResult.Success)
         {
             return removeResult;
         }
@@ -448,23 +447,23 @@ public class ShareManagementService : IShareManagementService
         return await AddNfsShareAsync(request);
     }
     
-    public async Task<string> RemoveCifsShareAsync(string shareName)
+    public async Task<OperationResult> RemoveCifsShareAsync(string shareName)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "CIFS share management is only supported on Linux";
+            return new OperationResult { Success = false, Message = "CIFS share management is only supported on Linux" };
         }
         
         if (string.IsNullOrWhiteSpace(shareName) || InvalidChars.Any(c => shareName.Contains(c)))
         {
-            return "Invalid share name";
+            return new OperationResult { Success = false, Message = "Invalid share name" };
         }
         
         try
         {
             if (!File.Exists(SambaConfigPath))
             {
-                return "Samba configuration file not found";
+                return new OperationResult { Success = false, Message = "Samba configuration file not found" };
             }
             
             var lines = await File.ReadAllLinesAsync(SambaConfigPath);
@@ -505,41 +504,41 @@ public class ShareManagementService : IShareManagementService
             
             if (!shareFound)
             {
-                return $"Share '{shareName}' not found";
+                return new OperationResult { Success = false, Message = $"Share '{shareName}' not found" };
             }
             
             // Write configuration atomically
             await WriteConfigFileAsync(SambaConfigPath, newLines);
             
-            return $"Successfully removed CIFS share '{shareName}'. Please restart Samba service to apply changes.";
+            return new OperationResult { Success = true, Message = $"Successfully removed CIFS share '{shareName}'. Please restart Samba service to apply changes." };
         }
         catch (UnauthorizedAccessException)
         {
-            return "Permission denied. The application needs root privileges to modify Samba configuration.";
+            return new OperationResult { Success = false, Message = "Permission denied. The application needs root privileges to modify Samba configuration." };
         }
         catch (Exception ex)
         {
-            return $"Error removing CIFS share: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error removing CIFS share: {ex.Message}" };
         }
     }
     
-    public async Task<string> RemoveNfsShareAsync(string exportPath)
+    public async Task<OperationResult> RemoveNfsShareAsync(string exportPath)
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "NFS export management is only supported on Linux";
+            return new OperationResult { Success = false, Message = "NFS export management is only supported on Linux" };
         }
         
         if (string.IsNullOrWhiteSpace(exportPath) || InvalidChars.Any(c => exportPath.Contains(c)))
         {
-            return "Invalid export path";
+            return new OperationResult { Success = false, Message = "Invalid export path" };
         }
         
         try
         {
             if (!File.Exists(NfsExportsPath))
             {
-                return "NFS exports file not found";
+                return new OperationResult { Success = false, Message = "NFS exports file not found" };
             }
             
             var lines = await File.ReadAllLinesAsync(NfsExportsPath);
@@ -574,7 +573,7 @@ public class ShareManagementService : IShareManagementService
             
             if (!exportFound)
             {
-                return $"Export '{exportPath}' not found";
+                return new OperationResult { Success = false, Message = $"Export '{exportPath}' not found" };
             }
             
             // Write configuration atomically
@@ -582,28 +581,28 @@ public class ShareManagementService : IShareManagementService
             
             // Reload exports
             var reloadResult = await ReloadNfsExportsAsync();
-            if (!reloadResult.Contains("Success", StringComparison.OrdinalIgnoreCase))
+            if (!reloadResult.Success)
             {
-                return $"Export removed but failed to reload: {reloadResult}";
+                return new OperationResult { Success = false, Message = $"Export removed but failed to reload: {reloadResult.Message}" };
             }
             
-            return $"Successfully removed NFS export '{exportPath}' and reloaded exports.";
+            return new OperationResult { Success = true, Message = $"Successfully removed NFS export '{exportPath}' and reloaded exports." };
         }
         catch (UnauthorizedAccessException)
         {
-            return "Permission denied. The application needs root privileges to modify NFS exports.";
+            return new OperationResult { Success = false, Message = "Permission denied. The application needs root privileges to modify NFS exports." };
         }
         catch (Exception ex)
         {
-            return $"Error removing NFS export: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error removing NFS export: {ex.Message}" };
         }
     }
     
-    public async Task<string> RestartSambaServiceAsync()
+    public async Task<OperationResult> RestartSambaServiceAsync()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Samba service management is only supported on Linux";
+            return new OperationResult { Success = false, Message = "Samba service management is only supported on Linux" };
         }
         
         try
@@ -614,7 +613,7 @@ public class ShareManagementService : IShareManagementService
             
             if (resultSmbd.exitCode == 0 && resultNmbd.exitCode == 0)
             {
-                return "Successfully restarted Samba service";
+                return new OperationResult { Success = true, Message = "Successfully restarted Samba service" };
             }
             
             // Try service command as fallback
@@ -623,22 +622,22 @@ public class ShareManagementService : IShareManagementService
             
             if (resultSmbd.exitCode == 0 && resultNmbd.exitCode == 0)
             {
-                return "Successfully restarted Samba service";
+                return new OperationResult { Success = true, Message = "Successfully restarted Samba service" };
             }
             
-            return $"Failed to restart Samba service. smbd: {resultSmbd.error}, nmbd: {resultNmbd.error}";
+            return new OperationResult { Success = false, Message = $"Failed to restart Samba service. smbd: {resultSmbd.error}, nmbd: {resultNmbd.error}" };
         }
         catch (Exception ex)
         {
-            return $"Error restarting Samba service: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error restarting Samba service: {ex.Message}" };
         }
     }
     
-    public async Task<string> RestartNfsServiceAsync()
+    public async Task<OperationResult> RestartNfsServiceAsync()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "NFS service management is only supported on Linux";
+            return new OperationResult { Success = false, Message = "NFS service management is only supported on Linux" };
         }
         
         try
@@ -647,29 +646,29 @@ public class ShareManagementService : IShareManagementService
             var nfsServerResult = await ExecuteCommandAsync("systemctl", "restart nfs-server");
             if (nfsServerResult.exitCode == 0)
             {
-                return "Successfully restarted NFS service";
+                return new OperationResult { Success = true, Message = "Successfully restarted NFS service" };
             }
             
             // Try nfs-kernel-server for Debian/Ubuntu
             var nfsKernelServerResult = await ExecuteCommandAsync("systemctl", "restart nfs-kernel-server");
             if (nfsKernelServerResult.exitCode == 0)
             {
-                return "Successfully restarted NFS service";
+                return new OperationResult { Success = true, Message = "Successfully restarted NFS service" };
             }
             
-            return $"Failed to restart NFS service. nfs-server: {nfsServerResult.error}; nfs-kernel-server: {nfsKernelServerResult.error}";
+            return new OperationResult { Success = false, Message = $"Failed to restart NFS service. nfs-server: {nfsServerResult.error}; nfs-kernel-server: {nfsKernelServerResult.error}" };
         }
         catch (Exception ex)
         {
-            return $"Error restarting NFS service: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error restarting NFS service: {ex.Message}" };
         }
     }
     
-    public async Task<string> TestSambaConfigAsync()
+    public async Task<OperationResult> TestSambaConfigAsync()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            return "Samba configuration test is only supported on Linux";
+            return new OperationResult { Success = false, Message = "Samba configuration test is only supported on Linux" };
         }
         
         try
@@ -677,32 +676,32 @@ public class ShareManagementService : IShareManagementService
             var result = await ExecuteCommandAsync("testparm", "-s");
             if (result.exitCode == 0)
             {
-                return "Samba configuration is valid";
+                return new OperationResult { Success = true, Message = "Samba configuration is valid" };
             }
             
-            return $"Samba configuration test failed: {result.error}";
+            return new OperationResult { Success = false, Message = $"Samba configuration test failed: {result.error}" };
         }
         catch (Exception ex)
         {
-            return $"Error testing Samba configuration: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error testing Samba configuration: {ex.Message}" };
         }
     }
     
-    private async Task<string> ReloadNfsExportsAsync()
+    private async Task<OperationResult> ReloadNfsExportsAsync()
     {
         try
         {
             var result = await ExecuteCommandAsync("exportfs", "-ra");
             if (result.exitCode == 0)
             {
-                return "Successfully reloaded NFS exports";
+                return new OperationResult { Success = true, Message = "Successfully reloaded NFS exports" };
             }
             
-            return $"Failed to reload NFS exports: {result.error}";
+            return new OperationResult { Success = false, Message = $"Failed to reload NFS exports: {result.error}" };
         }
         catch (Exception ex)
         {
-            return $"Error reloading NFS exports: {ex.Message}";
+            return new OperationResult { Success = false, Message = $"Error reloading NFS exports: {ex.Message}" };
         }
     }
     
