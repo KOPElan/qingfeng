@@ -9,6 +9,7 @@ namespace QingFeng.Services;
 public class NetworkManagementService : INetworkManagementService
 {
     private readonly ILogger<NetworkManagementService> _logger;
+    private const int DefaultSubnetPrefix = 24; // Default to /24 (255.255.255.0)
 
     public NetworkManagementService(ILogger<NetworkManagementService> logger)
     {
@@ -162,7 +163,7 @@ public class NetworkManagementService : INetworkManagementService
                     currentInterface = new NetworkInterfaceInfo
                     {
                         Name = parts[1],
-                        IsUp = trimmedLine.Contains("UP") && !trimmedLine.Contains("LOWER_UP") || trimmedLine.Contains("state UP")
+                        IsUp = (trimmedLine.Contains("UP") && !trimmedLine.Contains("LOWER_UP")) || trimmedLine.Contains("state UP")
                     };
                 }
             }
@@ -475,7 +476,7 @@ public class NetworkManagementService : INetworkManagementService
     {
         var parts = netmask.Split('.');
         if (parts.Length != 4)
-            return 24; // Default to /24
+            return DefaultSubnetPrefix;
 
         var binary = "";
         foreach (var part in parts)

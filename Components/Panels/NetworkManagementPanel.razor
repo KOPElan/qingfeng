@@ -216,14 +216,14 @@
                 // Validate input
                 if (string.IsNullOrWhiteSpace(ipAddress))
                 {
-                    errorMessage = "IP address is required";
+                    errorMessage = LocalizationService.GetString("IPAddressRequired");
                     isSaving = false;
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(netmask))
                 {
-                    errorMessage = "Netmask is required";
+                    errorMessage = LocalizationService.GetString("NetmaskRequired");
                     isSaving = false;
                     return;
                 }

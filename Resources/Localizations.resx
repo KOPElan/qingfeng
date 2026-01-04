@@ -256,4 +256,10 @@
   <data name="NetworkConfigMode" xml:space="preserve">
     <value>配置模式</value>
   </data>
+  <data name="IPAddressRequired" xml:space="preserve">
+    <value>IP地址是必填项</value>
+  </data>
+  <data name="NetmaskRequired" xml:space="preserve">
+    <value>子网掩码是必填项</value>
+  </data>
 </root>

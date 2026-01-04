@@ -256,4 +256,10 @@
   <data name="NetworkConfigMode" xml:space="preserve">
     <value>Configuration Mode</value>
   </data>
+  <data name="IPAddressRequired" xml:space="preserve">
+    <value>IP address is required</value>
+  </data>
+  <data name="NetmaskRequired" xml:space="preserve">
+    <value>Netmask is required</value>
+  </data>
 </root>
