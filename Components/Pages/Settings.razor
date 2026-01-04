@@ -87,6 +87,11 @@
         </FluentStack>
     }
     
+    <!-- Network Management Section -->
+    <FluentCard Style="margin-bottom: 1.5rem;">
+        <NetworkManagementPanel />
+    </FluentCard>
+    
     <!-- Scheduled Tasks Section -->
     <FluentCard Style="margin-bottom: 1.5rem;">
         <ScheduledTasksPanel />
@@ -200,6 +205,7 @@
             "Appearance" => LocalizationService.GetString("Category_Appearance"),
             "Features" => LocalizationService.GetString("Category_Features"),
             "System" => LocalizationService.GetString("Category_System"),
+            "Network" => LocalizationService.GetString("Category_Network"),
             _ => category
         };
     }

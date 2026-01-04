@@ -1,0 +1,265 @@
+@using QingFeng.Services
+@using QingFeng.Models
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Icon = Microsoft.FluentUI.AspNetCore.Components.Icon
+@inject INetworkManagementService NetworkManagementService
+@inject ILocalizationService LocalizationService
+@inject ILogger<NetworkManagementPanel> Logger
+
+<FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center;">
+        <FluentLabel Typo="Typography.H5">@LocalizationService.GetString("NetworkManagement")</FluentLabel>
+        <FluentButton Appearance="Appearance.Accent" OnClick="RefreshNetworkInterfaces">
+            <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowSync())" />
+            @LocalizationService.GetString("Refresh")
+        </FluentButton>
+    </FluentStack>
+
+    @if (networkInterfaces == null)
+    {
+        <FluentStack HorizontalAlignment="HorizontalAlignment.Center" Style="padding: 2rem;">
+            <FluentProgressRing />
+            <FluentLabel>@LocalizationService.GetString("LoadingNetworkInterfaces")</FluentLabel>
+        </FluentStack>
+    }
+    else if (!networkInterfaces.Any())
+    {
+        <FluentMessageBar Intent="MessageIntent.Info">
+            @LocalizationService.GetString("NoNetworkInterfaces")
+        </FluentMessageBar>
+    }
+    else
+    {
+        <FluentDataGrid Items="@networkInterfaces.AsQueryable()" Style="width: 100%;">
+            <PropertyColumn Property="@(i => i.Name)" Title="@LocalizationService.GetString("InterfaceName")" />
+            <PropertyColumn Property="@(i => i.IpAddress)" Title="@LocalizationService.GetString("IPAddress")" />
+            <PropertyColumn Property="@(i => i.Netmask)" Title="@LocalizationService.GetString("Netmask")" />
+            <PropertyColumn Property="@(i => i.Gateway)" Title="@LocalizationService.GetString("Gateway")" />
+            <PropertyColumn Property="@(i => i.MacAddress)" Title="@LocalizationService.GetString("MACAddress")" />
+            <TemplateColumn Title="@LocalizationService.GetString("Status")">
+                <FluentBadge Appearance="@(context.IsUp ? Appearance.Accent : Appearance.Neutral)">
+                    @(context.IsUp ? LocalizationService.GetString("Connected") : LocalizationService.GetString("Disconnected"))
+                </FluentBadge>
+            </TemplateColumn>
+            <TemplateColumn Title="@LocalizationService.GetString("NetworkConfigMode")">
+                <FluentBadge Appearance="@(context.IsDhcp ? Appearance.Lightweight : Appearance.Neutral)">
+                    @(context.IsDhcp ? LocalizationService.GetString("DHCP") : LocalizationService.GetString("StaticIP"))
+                </FluentBadge>
+            </TemplateColumn>
+            <TemplateColumn Title="">
+                <FluentButton Appearance="Appearance.Lightweight" OnClick="@(() => ShowConfigureDialog(context))">
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Settings())" />
+                    @LocalizationService.GetString("ConfigureNetwork")
+                </FluentButton>
+            </TemplateColumn>
+        </FluentDataGrid>
+    }
+</FluentStack>
+
+@if (showConfigDialog && selectedInterface != null)
+{
+    <FluentDialog @bind-Hidden="@dialogHidden" Modal="true" Style="min-width: 500px;">
+        <FluentDialogHeader>
+            <FluentStack Orientation="Orientation.Horizontal">
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Globe())" />
+                <FluentLabel Typo="Typography.H4">
+                    @LocalizationService.GetString("ConfigureNetwork") - @selectedInterface.Name
+                </FluentLabel>
+            </FluentStack>
+        </FluentDialogHeader>
+        <FluentDialogBody>
+            <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentLabel>@LocalizationService.GetString("NetworkConfigMode")</FluentLabel>
+                    <FluentRadioGroup @bind-Value="@configMode">
+                        <FluentRadio Value="@("dhcp")">@LocalizationService.GetString("DHCP")</FluentRadio>
+                        <FluentRadio Value="@("static")">@LocalizationService.GetString("StaticIP")</FluentRadio>
+                    </FluentRadioGroup>
+                </FluentStack>
+
+                @if (configMode == "static")
+                {
+                    <FluentStack Orientation="Orientation.Vertical">
+                        <FluentLabel>@LocalizationService.GetString("IPAddress") *</FluentLabel>
+                        <FluentTextField @bind-Value="@ipAddress" Style="width: 100%;" Placeholder="192.168.1.100" />
+                    </FluentStack>
+
+                    <FluentStack Orientation="Orientation.Vertical">
+                        <FluentLabel>@LocalizationService.GetString("Netmask") *</FluentLabel>
+                        <FluentTextField @bind-Value="@netmask" Style="width: 100%;" Placeholder="255.255.255.0" />
+                    </FluentStack>
+
+                    <FluentStack Orientation="Orientation.Vertical">
+                        <FluentLabel>@LocalizationService.GetString("Gateway")</FluentLabel>
+                        <FluentTextField @bind-Value="@gateway" Style="width: 100%;" Placeholder="192.168.1.1" />
+                    </FluentStack>
+
+                    <FluentStack Orientation="Orientation.Vertical">
+                        <FluentLabel>@LocalizationService.GetString("DNSServers")</FluentLabel>
+                        <FluentTextField @bind-Value="@dnsServers" Style="width: 100%;" Placeholder="8.8.8.8,8.8.4.4" />
+                    </FluentStack>
+                }
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <FluentMessageBar Intent="MessageIntent.Error">
+                        @errorMessage
+                    </FluentMessageBar>
+                }
+
+                @if (!string.IsNullOrEmpty(successMessage))
+                {
+                    <FluentMessageBar Intent="MessageIntent.Success">
+                        @successMessage
+                    </FluentMessageBar>
+                }
+            </FluentStack>
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Accent" OnClick="ApplyNetworkConfiguration" Disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <FluentProgressRing Style="width: 16px; height: 16px;" />
+                }
+                else
+                {
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Checkmark())" />
+                }
+                @LocalizationService.GetString("Apply")
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Neutral" OnClick="CloseConfigDialog">
+                @LocalizationService.GetString("Cancel")
+            </FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code {
+    private List<NetworkInterfaceInfo>? networkInterfaces;
+    private NetworkInterfaceInfo? selectedInterface;
+    private bool showConfigDialog = false;
+    private bool dialogHidden = true;
+    private bool isSaving = false;
+    private string configMode = "dhcp";
+    private string ipAddress = "";
+    private string netmask = "255.255.255.0";
+    private string gateway = "";
+    private string dnsServers = "";
+    private string errorMessage = "";
+    private string successMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadNetworkInterfaces();
+    }
+
+    private async Task LoadNetworkInterfaces()
+    {
+        try
+        {
+            networkInterfaces = await NetworkManagementService.GetNetworkInterfacesAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading network interfaces");
+            networkInterfaces = new List<NetworkInterfaceInfo>();
+        }
+    }
+
+    private async Task RefreshNetworkInterfaces()
+    {
+        networkInterfaces = null;
+        StateHasChanged();
+        await LoadNetworkInterfaces();
+        StateHasChanged();
+    }
+
+    private void ShowConfigureDialog(NetworkInterfaceInfo networkInterface)
+    {
+        selectedInterface = networkInterface;
+        configMode = networkInterface.IsDhcp ? "dhcp" : "static";
+        ipAddress = networkInterface.IpAddress;
+        netmask = networkInterface.Netmask;
+        gateway = networkInterface.Gateway;
+        dnsServers = networkInterface.DnsServers;
+        errorMessage = "";
+        successMessage = "";
+        showConfigDialog = true;
+        dialogHidden = false;
+    }
+
+    private void CloseConfigDialog()
+    {
+        showConfigDialog = false;
+        dialogHidden = true;
+        selectedInterface = null;
+    }
+
+    private async Task ApplyNetworkConfiguration()
+    {
+        if (selectedInterface == null) return;
+
+        errorMessage = "";
+        successMessage = "";
+        isSaving = true;
+
+        try
+        {
+            bool success = false;
+
+            if (configMode == "dhcp")
+            {
+                success = await NetworkManagementService.SetDhcpAsync(selectedInterface.Name);
+            }
+            else
+            {
+                // Validate input
+                if (string.IsNullOrWhiteSpace(ipAddress))
+                {
+                    errorMessage = "IP address is required";
+                    isSaving = false;
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(netmask))
+                {
+                    errorMessage = "Netmask is required";
+                    isSaving = false;
+                    return;
+                }
+
+                success = await NetworkManagementService.SetStaticIpAsync(
+                    selectedInterface.Name,
+                    ipAddress,
+                    netmask,
+                    string.IsNullOrWhiteSpace(gateway) ? null : gateway,
+                    string.IsNullOrWhiteSpace(dnsServers) ? null : dnsServers
+                );
+            }
+
+            if (success)
+            {
+                successMessage = LocalizationService.GetString("NetworkConfigurationSaved");
+                
+                // Delay and refresh
+                await Task.Delay(1500);
+                CloseConfigDialog();
+                await RefreshNetworkInterfaces();
+            }
+            else
+            {
+                errorMessage = LocalizationService.GetString("NetworkConfigurationFailed");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error applying network configuration");
+            errorMessage = $"{LocalizationService.GetString("NetworkConfigurationFailed")}: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+}

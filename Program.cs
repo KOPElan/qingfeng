@@ -58,6 +58,7 @@ builder.Services.AddScoped<IFileManagerService, FileManagerService>();
 builder.Services.AddSingleton<IDiskManagementService, DiskManagementService>();
 builder.Services.AddSingleton<IShareManagementService, ShareManagementService>();
 builder.Services.AddSingleton<ITerminalService, TerminalService>();
+builder.Services.AddSingleton<INetworkManagementService, NetworkManagementService>();
 builder.Services.AddScoped<IDockItemService, DockItemService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
