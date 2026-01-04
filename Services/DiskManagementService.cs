@@ -664,22 +664,22 @@ public class DiskManagementService : IDiskManagementService
                             var colonIndex = trimmedLine.IndexOf(':');
                             if (colonIndex >= 0 && colonIndex + 1 < trimmedLine.Length)
                             {
-                                var statePart = trimmedLine[(colonIndex + 1)..].Trim().ToLowerInvariant();
+                                var statePart = trimmedLine[(colonIndex + 1)..].Trim();
                                 
-                                // Check for specific states in priority order
-                                if (statePart.Contains("standby"))
+                                // Check for specific states in priority order using OrdinalIgnoreCase
+                                if (statePart.Contains("standby", StringComparison.OrdinalIgnoreCase))
                                 {
                                     status = "standby";
                                 }
-                                else if (statePart.Contains("sleeping"))
+                                else if (statePart.Contains("sleeping", StringComparison.OrdinalIgnoreCase))
                                 {
                                     status = "sleeping";
                                 }
-                                else if (statePart.Contains("active"))
+                                else if (statePart.Contains("active", StringComparison.OrdinalIgnoreCase))
                                 {
                                     status = "active";
                                 }
-                                else if (statePart.Contains("idle"))
+                                else if (statePart.Contains("idle", StringComparison.OrdinalIgnoreCase))
                                 {
                                     status = "idle";
                                 }
