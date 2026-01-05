@@ -6,12 +6,12 @@ namespace QingFeng.Services;
 
 public class DockItemService : IDockItemService
 {
-    private readonly QingFengDbContext _context;
+    private readonly IDbContextFactory<QingFengDbContext> _dbFactory;
     private readonly ILogger<DockItemService> _logger;
 
-    public DockItemService(QingFengDbContext context, ILogger<DockItemService> logger)
+    public DockItemService(IDbContextFactory<QingFengDbContext> dbFactory, ILogger<DockItemService> logger)
     {
-        _context = context;
+        _dbFactory = dbFactory;
         _logger = logger;
     }
 
@@ -19,7 +19,8 @@ public class DockItemService : IDockItemService
     {
         try
         {
-            return await _context.DockItems
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            return await context.DockItems
                 .OrderBy(d => d.SortOrder)
                 .ThenBy(d => d.Title)
                 .ToListAsync();
@@ -35,7 +36,8 @@ public class DockItemService : IDockItemService
     {
         try
         {
-            return await _context.DockItems
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            return await context.DockItems
                 .FirstOrDefaultAsync(d => d.ItemId == itemId);
         }
         catch (Exception ex)
@@ -49,7 +51,8 @@ public class DockItemService : IDockItemService
     {
         try
         {
-            var existing = await _context.DockItems
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var existing = await context.DockItems
                 .FirstOrDefaultAsync(d => d.ItemId == item.ItemId);
 
             if (existing != null)
@@ -63,7 +66,7 @@ public class DockItemService : IDockItemService
                 existing.AssociatedAppId = item.AssociatedAppId;
                 existing.UpdatedAt = DateTime.UtcNow;
 
-                _context.DockItems.Update(existing);
+                context.DockItems.Update(existing);
             }
             else
             {
@@ -73,10 +76,10 @@ public class DockItemService : IDockItemService
                 }
                 item.CreatedAt = DateTime.UtcNow;
                 item.UpdatedAt = DateTime.UtcNow;
-                _context.DockItems.Add(item);
+                context.DockItems.Add(item);
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return existing ?? item;
         }
         catch (Exception ex)
@@ -90,7 +93,8 @@ public class DockItemService : IDockItemService
     {
         try
         {
-            var item = await _context.DockItems
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var item = await context.DockItems
                 .FirstOrDefaultAsync(d => d.ItemId == itemId);
 
             if (item == null)
@@ -103,8 +107,8 @@ public class DockItemService : IDockItemService
                 return false;
             }
 
-            _context.DockItems.Remove(item);
-            await _context.SaveChangesAsync();
+            context.DockItems.Remove(item);
+            await context.SaveChangesAsync();
             return true;
         }
         catch (Exception ex)
@@ -118,15 +122,16 @@ public class DockItemService : IDockItemService
     {
         try
         {
+            await using var context = await _dbFactory.CreateDbContextAsync();
             // Check if already exists
-            var existing = await _context.DockItems
+            var existing = await context.DockItems
                 .FirstOrDefaultAsync(d => d.AssociatedAppId == application.AppId);
 
             if (existing != null)
                 return; // Already in dock
 
             // Get the max sort order and add 1
-            var maxSortOrder = await _context.DockItems.MaxAsync(d => (int?)d.SortOrder) ?? 0;
+            var maxSortOrder = await context.DockItems.MaxAsync(d => (int?)d.SortOrder) ?? 0;
 
             var dockItem = new DockItem
             {
@@ -143,8 +148,8 @@ public class DockItemService : IDockItemService
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _context.DockItems.Add(dockItem);
-            await _context.SaveChangesAsync();
+            context.DockItems.Add(dockItem);
+            await context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -156,13 +161,14 @@ public class DockItemService : IDockItemService
     {
         try
         {
-            var item = await _context.DockItems
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var item = await context.DockItems
                 .FirstOrDefaultAsync(d => d.AssociatedAppId == appId);
 
             if (item != null && !item.IsSystemItem)
             {
-                _context.DockItems.Remove(item);
-                await _context.SaveChangesAsync();
+                context.DockItems.Remove(item);
+                await context.SaveChangesAsync();
             }
         }
         catch (Exception ex)
@@ -175,7 +181,8 @@ public class DockItemService : IDockItemService
     {
         try
         {
-            var count = await _context.DockItems.CountAsync();
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var count = await context.DockItems.CountAsync();
             if (count > 0)
                 return; // Already initialized
 
@@ -253,8 +260,8 @@ public class DockItemService : IDockItemService
                 }
             };
 
-            _context.DockItems.AddRange(defaultItems);
-            await _context.SaveChangesAsync();
+            context.DockItems.AddRange(defaultItems);
+            await context.SaveChangesAsync();
 
             _logger.LogInformation("Initialized {Count} default dock items", defaultItems.Count);
         }

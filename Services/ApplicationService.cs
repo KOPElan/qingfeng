@@ -6,16 +6,16 @@ namespace QingFeng.Services;
 
 public class ApplicationService : IApplicationService
 {
-    private readonly QingFengDbContext _context;
+    private readonly IDbContextFactory<QingFengDbContext> _dbFactory;
     private readonly ILogger<ApplicationService> _logger;
     private readonly IDockItemService _dockItemService;
 
     public ApplicationService(
-        QingFengDbContext context, 
+        IDbContextFactory<QingFengDbContext> dbFactory, 
         ILogger<ApplicationService> logger,
         IDockItemService dockItemService)
     {
-        _context = context;
+        _dbFactory = dbFactory;
         _logger = logger;
         _dockItemService = dockItemService;
     }
@@ -24,7 +24,8 @@ public class ApplicationService : IApplicationService
     {
         try
         {
-            return await _context.Applications
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            return await context.Applications
                 .OrderBy(a => a.SortOrder)
                 .ThenBy(a => a.Title)
                 .ToListAsync();
@@ -40,7 +41,8 @@ public class ApplicationService : IApplicationService
     {
         try
         {
-            return await _context.Applications
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            return await context.Applications
                 .FirstOrDefaultAsync(a => a.AppId == appId);
         }
         catch (Exception ex)
@@ -54,7 +56,8 @@ public class ApplicationService : IApplicationService
     {
         try
         {
-            var existing = await _context.Applications
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var existing = await context.Applications
                 .FirstOrDefaultAsync(a => a.AppId == application.AppId);
 
             if (existing != null)
@@ -71,7 +74,7 @@ public class ApplicationService : IApplicationService
                 existing.IsPinnedToDock = application.IsPinnedToDock;
                 existing.UpdatedAt = DateTime.UtcNow;
 
-                _context.Applications.Update(existing);
+                context.Applications.Update(existing);
             }
             else
             {
@@ -82,10 +85,10 @@ public class ApplicationService : IApplicationService
                 }
                 application.CreatedAt = DateTime.UtcNow;
                 application.UpdatedAt = DateTime.UtcNow;
-                _context.Applications.Add(application);
+                context.Applications.Add(application);
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return existing ?? application;
         }
         catch (Exception ex)
@@ -99,7 +102,8 @@ public class ApplicationService : IApplicationService
     {
         try
         {
-            var application = await _context.Applications
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var application = await context.Applications
                 .FirstOrDefaultAsync(a => a.AppId == appId);
 
             if (application == null)
@@ -111,8 +115,8 @@ public class ApplicationService : IApplicationService
                 await _dockItemService.RemoveDockItemByAppIdAsync(appId);
             }
 
-            _context.Applications.Remove(application);
-            await _context.SaveChangesAsync();
+            context.Applications.Remove(application);
+            await context.SaveChangesAsync();
             return true;
         }
         catch (Exception ex)
@@ -126,7 +130,8 @@ public class ApplicationService : IApplicationService
     {
         try
         {
-            var application = await _context.Applications
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var application = await context.Applications
                 .FirstOrDefaultAsync(a => a.AppId == appId);
 
             if (application == null)
@@ -146,8 +151,8 @@ public class ApplicationService : IApplicationService
                 await _dockItemService.RemoveDockItemByAppIdAsync(appId);
             }
 
-            _context.Applications.Update(application);
-            await _context.SaveChangesAsync();
+            context.Applications.Update(application);
+            await context.SaveChangesAsync();
             return true;
         }
         catch (Exception ex)
@@ -161,7 +166,8 @@ public class ApplicationService : IApplicationService
     {
         try
         {
-            var count = await _context.Applications.CountAsync();
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var count = await context.Applications.CountAsync();
             if (count > 0)
                 return; // Already initialized
 
@@ -301,8 +307,8 @@ public class ApplicationService : IApplicationService
                 }
             };
 
-            _context.Applications.AddRange(defaultApps);
-            await _context.SaveChangesAsync();
+            context.Applications.AddRange(defaultApps);
+            await context.SaveChangesAsync();
 
             _logger.LogInformation("Initialized {Count} default applications", defaultApps.Count);
         }

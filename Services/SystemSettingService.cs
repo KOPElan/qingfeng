@@ -7,12 +7,12 @@ namespace QingFeng.Services;
 
 public class SystemSettingService : ISystemSettingService
 {
-    private readonly QingFengDbContext _context;
+    private readonly IDbContextFactory<QingFengDbContext> _dbFactory;
     private readonly ILogger<SystemSettingService> _logger;
 
-    public SystemSettingService(QingFengDbContext context, ILogger<SystemSettingService> logger)
+    public SystemSettingService(IDbContextFactory<QingFengDbContext> dbFactory, ILogger<SystemSettingService> logger)
     {
-        _context = context;
+        _dbFactory = dbFactory;
         _logger = logger;
     }
 
@@ -20,7 +20,8 @@ public class SystemSettingService : ISystemSettingService
     {
         try
         {
-            var setting = await _context.SystemSettings
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var setting = await context.SystemSettings
                 .FirstOrDefaultAsync(s => s.Key == key);
 
             return setting?.Value;
@@ -56,7 +57,8 @@ public class SystemSettingService : ISystemSettingService
     {
         try
         {
-            var existing = await _context.SystemSettings
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var existing = await context.SystemSettings
                 .FirstOrDefaultAsync(s => s.Key == key);
 
             if (existing != null)
@@ -68,7 +70,7 @@ public class SystemSettingService : ISystemSettingService
                 if (!string.IsNullOrEmpty(description))
                     existing.Description = description;
 
-                _context.SystemSettings.Update(existing);
+                context.SystemSettings.Update(existing);
             }
             else
             {
@@ -82,10 +84,10 @@ public class SystemSettingService : ISystemSettingService
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                _context.SystemSettings.Add(newSetting);
+                context.SystemSettings.Add(newSetting);
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -98,7 +100,8 @@ public class SystemSettingService : ISystemSettingService
     {
         try
         {
-            return await _context.SystemSettings
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            return await context.SystemSettings
                 .OrderBy(s => s.Category)
                 .ThenBy(s => s.Key)
                 .ToListAsync();
@@ -114,7 +117,8 @@ public class SystemSettingService : ISystemSettingService
     {
         try
         {
-            return await _context.SystemSettings
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            return await context.SystemSettings
                 .Where(s => s.Category == category)
                 .OrderBy(s => s.Key)
                 .ToListAsync();
@@ -130,7 +134,8 @@ public class SystemSettingService : ISystemSettingService
     {
         try
         {
-            var count = await _context.SystemSettings.CountAsync();
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            var count = await context.SystemSettings.CountAsync();
             if (count > 0)
                 return; // Already initialized
 
@@ -187,8 +192,8 @@ public class SystemSettingService : ISystemSettingService
                 }
             };
 
-            _context.SystemSettings.AddRange(defaultSettings);
-            await _context.SaveChangesAsync();
+            context.SystemSettings.AddRange(defaultSettings);
+            await context.SaveChangesAsync();
 
             _logger.LogInformation("Initialized {Count} default settings", defaultSettings.Count);
         }
