@@ -87,6 +87,7 @@
 
 ### 前置要求
 
+- 本项目仅支持Linux系统，并以linux系统为基础进行测试
 - .NET SDK 10.0 或更高版本
 - （可选）Docker（用于容器管理功能）
 - （Linux）磁盘管理功能需要以下系统工具：
@@ -206,14 +207,12 @@ qingfeng/
 
 默认情况下，应用会尝试连接到以下Docker socket：
 - Linux: `unix:///var/run/docker.sock`
-- Windows: `npipe://./pipe/docker_engine`
 
 可以通过设置环境变量 `DOCKER_HOST` 来指定自定义Docker连接地址。
 
 ### 文件管理器权限
 
 出于安全考虑，文件管理器默认只允许访问：
-- Windows: 用户目录及其子目录
 - Linux: 根目录及其子目录
 
 ### 磁盘管理功能说明
