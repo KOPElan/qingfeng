@@ -218,3 +218,4 @@ public class PowerStatusResult
     public static PowerStatusResult Failed(string message) =>
         new() { Success = false, Message = message, Status = StatusValues.Unknown };
 }
+}
