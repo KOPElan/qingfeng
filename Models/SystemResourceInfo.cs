@@ -161,6 +161,19 @@ public class DiskOperationResult
 public class PowerStatusResult
 {
     /// <summary>
+    /// Power status constants for hdparm output
+    /// </summary>
+    public static class StatusValues
+    {
+        public const string Active = "active";
+        public const string Idle = "idle";
+        public const string Standby = "standby";
+        public const string Sleeping = "sleeping";
+        public const string ActiveIdle = "active/idle";
+        public const string Unknown = "unknown";
+    }
+    
+    /// <summary>
     /// Whether the query was successful
     /// </summary>
     public bool Success { get; set; }
@@ -171,9 +184,10 @@ public class PowerStatusResult
     public string Message { get; set; } = string.Empty;
     
     /// <summary>
-    /// Power status: "active", "standby", "sleeping", "idle", or "unknown"
+    /// Power status: "active", "standby", "sleeping", "idle", "active/idle", or "unknown"
+    /// Use StatusValues constants for comparisons.
     /// </summary>
-    public string Status { get; set; } = "unknown";
+    public string Status { get; set; } = StatusValues.Unknown;
     
     /// <summary>
     /// Raw output from the power status command
@@ -190,5 +204,5 @@ public class PowerStatusResult
     /// Creates a failed result
     /// </summary>
     public static PowerStatusResult Failed(string message) =>
-        new() { Success = false, Message = message, Status = "unknown" };
+        new() { Success = false, Message = message, Status = StatusValues.Unknown };
 }

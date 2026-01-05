@@ -650,41 +650,52 @@ public class DiskManagementService : IDiskManagementService
                 {
                     // Parse the output to extract status
                     // Output format: "/dev/sda:\n drive state is:  active/idle\n"
-                    var status = "unknown";
-                    var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    var status = PowerStatusResult.StatusValues.Unknown;
                     
                     // Look for the line containing "drive state is:" or "drive state:"
-                    foreach (var line in lines)
+                    var statusLine = output
+                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(line => line.Trim())
+                        .FirstOrDefault(line => 
+                            line.Contains("drive state is:", StringComparison.OrdinalIgnoreCase) ||
+                            line.Contains("drive state:", StringComparison.OrdinalIgnoreCase));
+                    
+                    if (statusLine != null)
                     {
-                        var trimmedLine = line.Trim();
-                        if (trimmedLine.Contains("drive state is:", StringComparison.OrdinalIgnoreCase) ||
-                            trimmedLine.Contains("drive state:", StringComparison.OrdinalIgnoreCase))
+                        // Extract the part after the colon
+                        var colonIndex = statusLine.IndexOf(':');
+                        if (colonIndex >= 0 && colonIndex + 1 < statusLine.Length)
                         {
-                            // Extract the part after the colon
-                            var colonIndex = trimmedLine.IndexOf(':');
-                            if (colonIndex >= 0 && colonIndex + 1 < trimmedLine.Length)
+                            var statePart = statusLine[(colonIndex + 1)..].Trim();
+                            
+                            // Check for specific states in priority order
+                            // Check combined states first, then individual states
+                            if (statePart.Equals(PowerStatusResult.StatusValues.ActiveIdle, StringComparison.OrdinalIgnoreCase))
                             {
-                                var statePart = trimmedLine[(colonIndex + 1)..].Trim();
-                                
-                                // Check for specific states in priority order using OrdinalIgnoreCase
-                                if (statePart.Contains("standby", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    status = "standby";
-                                }
-                                else if (statePart.Contains("sleeping", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    status = "sleeping";
-                                }
-                                else if (statePart.Contains("active", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    status = "active";
-                                }
-                                else if (statePart.Contains("idle", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    status = "idle";
-                                }
+                                status = PowerStatusResult.StatusValues.ActiveIdle;
                             }
-                            break;
+                            else if (statePart.Contains(PowerStatusResult.StatusValues.Standby, StringComparison.OrdinalIgnoreCase))
+                            {
+                                status = PowerStatusResult.StatusValues.Standby;
+                            }
+                            else if (statePart.Contains(PowerStatusResult.StatusValues.Sleeping, StringComparison.OrdinalIgnoreCase))
+                            {
+                                status = PowerStatusResult.StatusValues.Sleeping;
+                            }
+                            else if (statePart.Contains(PowerStatusResult.StatusValues.Active, StringComparison.OrdinalIgnoreCase))
+                            {
+                                status = PowerStatusResult.StatusValues.Active;
+                            }
+                            else if (statePart.Contains(PowerStatusResult.StatusValues.Idle, StringComparison.OrdinalIgnoreCase))
+                            {
+                                status = PowerStatusResult.StatusValues.Idle;
+                            }
+                            else if (!string.IsNullOrWhiteSpace(statePart))
+                            {
+                                // If we got a non-empty state that doesn't match known values,
+                                // preserve it as-is instead of defaulting to "unknown"
+                                status = statePart.ToLowerInvariant();
+                            }
                         }
                     }
                     
