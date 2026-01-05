@@ -115,6 +115,18 @@ public class DiskPowerSettings
     public int? ApmLevel { get; set; }
 }
 
+public class NetworkInterfaceInfo
+{
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string IpAddress { get; set; } = string.Empty;
+    public string Netmask { get; set; } = string.Empty;
+    public string Gateway { get; set; } = string.Empty;
+    public string DnsServers { get; set; } = string.Empty;
+    public string MacAddress { get; set; } = string.Empty;
+    public bool IsDhcp { get; set; }
+    public bool IsUp { get; set; }
 /// <summary>
 /// Result of a disk operation (mount, unmount, power management, etc.)
 /// </summary>
@@ -205,4 +217,5 @@ public class PowerStatusResult
     /// </summary>
     public static PowerStatusResult Failed(string message) =>
         new() { Success = false, Message = message, Status = StatusValues.Unknown };
+}
 }

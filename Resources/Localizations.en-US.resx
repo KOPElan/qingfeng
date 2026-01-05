@@ -188,4 +188,78 @@
   <data name="Language_English" xml:space="preserve">
     <value>English</value>
   </data>
+  
+  <!-- Network Management -->
+  <data name="Category_Network" xml:space="preserve">
+    <value>Network Management</value>
+  </data>
+  <data name="NetworkManagement" xml:space="preserve">
+    <value>Network Management</value>
+  </data>
+  <data name="NetworkInterface" xml:space="preserve">
+    <value>Network Interface</value>
+  </data>
+  <data name="InterfaceName" xml:space="preserve">
+    <value>Interface Name</value>
+  </data>
+  <data name="IPAddress" xml:space="preserve">
+    <value>IP Address</value>
+  </data>
+  <data name="Netmask" xml:space="preserve">
+    <value>Netmask</value>
+  </data>
+  <data name="Gateway" xml:space="preserve">
+    <value>Gateway</value>
+  </data>
+  <data name="DNSServers" xml:space="preserve">
+    <value>DNS Servers</value>
+  </data>
+  <data name="MACAddress" xml:space="preserve">
+    <value>MAC Address</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="Disconnected" xml:space="preserve">
+    <value>Disconnected</value>
+  </data>
+  <data name="ConfigureNetwork" xml:space="preserve">
+    <value>Configure Network</value>
+  </data>
+  <data name="StaticIP" xml:space="preserve">
+    <value>Static IP</value>
+  </data>
+  <data name="DHCP" xml:space="preserve">
+    <value>DHCP</value>
+  </data>
+  <data name="Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="NetworkConfigurationSaved" xml:space="preserve">
+    <value>Network configuration saved</value>
+  </data>
+  <data name="NetworkConfigurationFailed" xml:space="preserve">
+    <value>Network configuration failed</value>
+  </data>
+  <data name="LoadingNetworkInterfaces" xml:space="preserve">
+    <value>Loading network interfaces...</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="NoNetworkInterfaces" xml:space="preserve">
+    <value>No network interfaces found</value>
+  </data>
+  <data name="NetworkConfigMode" xml:space="preserve">
+    <value>Configuration Mode</value>
+  </data>
+  <data name="IPAddressRequired" xml:space="preserve">
+    <value>IP address is required</value>
+  </data>
+  <data name="NetmaskRequired" xml:space="preserve">
+    <value>Netmask is required</value>
+  </data>
 </root>
