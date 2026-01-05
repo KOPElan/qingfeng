@@ -21,7 +21,7 @@ public class MemoryInfo
     public long UsedBytes { get; set; }
     public long AvailableBytes { get; set; }
     public double UsagePercent { get; set; }
-    
+
     public string TotalGB => $"{TotalBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string UsedGB => $"{UsedBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string AvailableGB => $"{AvailableBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
@@ -37,7 +37,7 @@ public class DiskInfo
     public long AvailableBytes { get; set; }
     public double UsagePercent { get; set; }
     public bool IsReady { get; set; }
-    
+
     // Enhanced properties for advanced disk management
     public string DevicePath { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty; // disk, part, loop, etc.
@@ -48,11 +48,11 @@ public class DiskInfo
     public string Model { get; set; } = string.Empty;
     public string Serial { get; set; } = string.Empty;
     public List<DiskInfo> Children { get; set; } = new();
-    
+
     // Power management
     public bool? IsSpinningDown { get; set; }
     public int? ApmLevel { get; set; }
-    
+
     public string TotalGB => $"{TotalBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string UsedGB => $"{UsedBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string AvailableGB => $"{AvailableBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
@@ -67,7 +67,7 @@ public class NetworkInfo
     public long BytesReceived { get; set; }
     public string Status { get; set; } = string.Empty;
     public List<string> IpAddresses { get; set; } = new();
-    
+
     public string SentMB => $"{BytesSent / 1024.0 / 1024.0:F2} MB";
     public string ReceivedMB => $"{BytesReceived / 1024.0 / 1024.0:F2} MB";
 }
@@ -91,7 +91,7 @@ public class NetworkDiskInfo
     public double UsagePercent { get; set; }
     public bool IsReady { get; set; }
     public string Options { get; set; } = string.Empty;
-    
+
     public string TotalGB => $"{TotalBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string UsedGB => $"{UsedBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
     public string AvailableGB => $"{AvailableBytes / 1024.0 / 1024.0 / 1024.0:F2} GB";
@@ -107,7 +107,7 @@ public class DiskPowerSettings
     /// Spindown timeout in minutes. 0 means disabled.
     /// </summary>
     public int SpinDownTimeoutMinutes { get; set; }
-    
+
     /// <summary>
     /// APM (Advanced Power Management) level. 1-255, where 1 = minimum power, 255 = maximum performance.
     /// null if not set.
@@ -127,6 +127,7 @@ public class NetworkInterfaceInfo
     public string MacAddress { get; set; } = string.Empty;
     public bool IsDhcp { get; set; }
     public bool IsUp { get; set; }
+}
 /// <summary>
 /// Result of a disk operation (mount, unmount, power management, etc.)
 /// </summary>
@@ -136,30 +137,30 @@ public class DiskOperationResult
     /// Whether the operation was successful
     /// </summary>
     public bool Success { get; set; }
-    
+
     /// <summary>
     /// Human-readable message describing the result
     /// </summary>
     public string Message { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Optional error details if the operation failed
     /// </summary>
     public string? ErrorDetails { get; set; }
-    
+
     /// <summary>
     /// Optional data associated with the operation result.
     /// This can contain operation-specific information such as disk information, mount details, etc.
     /// Common types: DiskInfo, string (device paths), null (for simple success/failure)
     /// </summary>
     public object? Data { get; set; }
-    
+
     /// <summary>
     /// Creates a successful result
     /// </summary>
     public static DiskOperationResult Successful(string message, object? data = null) =>
         new() { Success = true, Message = message, Data = data };
-    
+
     /// <summary>
     /// Creates a failed result
     /// </summary>
@@ -184,38 +185,37 @@ public class PowerStatusResult
         public const string ActiveIdle = "active/idle";
         public const string Unknown = "unknown";
     }
-    
+
     /// <summary>
     /// Whether the query was successful
     /// </summary>
     public bool Success { get; set; }
-    
+
     /// <summary>
     /// Human-readable message
     /// </summary>
     public string Message { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Power status: "active", "standby", "sleeping", "idle", "active/idle", or "unknown"
     /// Use StatusValues constants for comparisons.
     /// </summary>
     public string Status { get; set; } = StatusValues.Unknown;
-    
+
     /// <summary>
     /// Raw output from the power status command
     /// </summary>
     public string RawOutput { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Creates a successful result
     /// </summary>
     public static PowerStatusResult Successful(string status, string rawOutput) =>
         new() { Success = true, Status = status, RawOutput = rawOutput, Message = $"磁盘电源状态: {status}" };
-    
+
     /// <summary>
     /// Creates a failed result
     /// </summary>
     public static PowerStatusResult Failed(string message) =>
         new() { Success = false, Message = message, Status = StatusValues.Unknown };
-}
 }
