@@ -43,6 +43,16 @@ public class AnydropAttachment
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
     
     /// <summary>
+    /// Upload status: Pending, Uploading, Completed, Failed
+    /// </summary>
+    public string UploadStatus { get; set; } = "Pending";
+    
+    /// <summary>
+    /// Error message if upload failed
+    /// </summary>
+    public string? UploadErrorMessage { get; set; }
+    
+    /// <summary>
     /// Navigation property to parent message
     /// </summary>
     public AnydropMessage Message { get; set; } = null!;

@@ -226,12 +226,43 @@
         cursor: pointer;
         transition: all 0.2s;
         max-width: 100%;
+        position: relative;
     }
 
     .attachment-item:hover {
         border-color: var(--accent-fill-rest);
         transform: translateY(-2px);
         box-shadow: var(--elevation-shadow-card-hover);
+    }
+    
+    .attachment-item.uploading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+    
+    .attachment-item.failed {
+        border-color: var(--error-fill-rest);
+        background: var(--error-fill-subtle);
+    }
+
+    .attachment-upload-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        border-radius: 8px;
+        z-index: 10;
+    }
+    
+    .attachment-upload-overlay.attachment-failed {
+        background: rgba(220, 38, 38, 0.1);
     }
 
     .attachment-preview {
@@ -682,20 +713,54 @@
                         <div class="attachments-grid">
                             @foreach (var attachment in message.Attachments)
                             {
-                                <div class="attachment-item" @onclick="@(() => DownloadAttachment(attachment.Id))">
-                                    @if (attachment.AttachmentType == "Image")
+                                <div class="attachment-item @GetAttachmentStatusClass(attachment)" @onclick="@(() => HandleAttachmentClick(attachment))">
+                                    @if (attachment.UploadStatus == "Pending" || attachment.UploadStatus == "Uploading")
                                     {
-                                        <img src="/api/anydrop/attachment/@attachment.Id/preview" 
-                                             alt="@attachment.FileName" 
-                                             class="attachment-preview" 
-                                             loading="lazy" />
+                                        <div class="attachment-upload-overlay">
+                                            <FluentProgressRing Style="width: 32px; height: 32px;" />
+                                            <div style="margin-top: 8px; font-size: 12px; color: var(--neutral-foreground-rest);">
+                                                @(attachment.UploadStatus == "Pending" ? "等待上传..." : "上传中...")
+                                            </div>
+                                        </div>
                                     }
-                                    else if (attachment.AttachmentType == "Video")
+                                    else if (attachment.UploadStatus == "Failed")
                                     {
-                                        <video class="attachment-video" controls>
-                                            <source src="/api/anydrop/attachment/@attachment.Id/preview" 
-                                                   type="@attachment.ContentType">
-                                        </video>
+                                        <div class="attachment-upload-overlay attachment-failed">
+                                            <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size32.DismissCircle())" Color="Color.Error" />
+                                            <div style="margin-top: 8px; font-size: 12px; color: var(--error-foreground-rest);">
+                                                上传失败
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(attachment.UploadErrorMessage))
+                                            {
+                                                <div style="font-size: 10px; color: var(--neutral-foreground-hint); margin-top: 4px;">
+                                                    @attachment.UploadErrorMessage
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    
+                                    @if (attachment.UploadStatus == "Completed")
+                                    {
+                                        @if (attachment.AttachmentType == "Image")
+                                        {
+                                            <img src="/api/anydrop/attachment/@attachment.Id/preview" 
+                                                 alt="@attachment.FileName" 
+                                                 class="attachment-preview" 
+                                                 loading="lazy" />
+                                        }
+                                        else if (attachment.AttachmentType == "Video")
+                                        {
+                                            <video class="attachment-video" controls>
+                                                <source src="/api/anydrop/attachment/@attachment.Id/preview" 
+                                                       type="@attachment.ContentType">
+                                            </video>
+                                        }
+                                        else
+                                        {
+                                            <div class="attachment-icon">
+                                                <FluentIcon Value="@GetIconForAttachment(attachment)" Size="@IconSize.Size48" />
+                                            </div>
+                                        }
                                     }
                                     else
                                     {
@@ -703,6 +768,7 @@
                                             <FluentIcon Value="@GetIconForAttachment(attachment)" Size="@IconSize.Size48" />
                                         </div>
                                     }
+                                    
                                     <div class="attachment-info">
                                         <div class="attachment-name" title="@attachment.FileName">
                                             @attachment.FileName
@@ -1080,7 +1146,9 @@
                 }
             }
 
-            // Send each file as a separate message
+            // Create messages with placeholder attachments for each file (non-blocking)
+            var fileUploadTasks = new List<(AnydropMessage Message, IBrowserFile File, int AttachmentId)>();
+            
             foreach (var file in selectedFiles)
             {
                 try
@@ -1088,29 +1156,27 @@
                     // Create empty message for the file
                     var fileMessage = await AnydropService.CreateMessageAsync(string.Empty, "File");
                     
-                    // Upload the file attachment
-                    using var stream = file.OpenReadStream(maxAllowedSize: 2147483648); // 2GB max
-                    await AnydropService.AddAttachmentAsync(
+                    // Create placeholder attachment (doesn't upload file yet)
+                    var placeholderAttachment = await AnydropService.CreatePlaceholderAttachmentAsync(
                         fileMessage.Id, 
                         file.Name, 
-                        stream, 
                         file.Size, 
                         file.ContentType);
                     
-                    // Refresh to get the updated message with attachment
-                    var refreshedFileMessage = await AnydropService.GetMessageByIdAsync(fileMessage.Id);
-                    if (refreshedFileMessage != null)
-                    {
-                        createdMessages.Add(refreshedFileMessage);
-                    }
+                    // Add attachment to message for display
+                    fileMessage.Attachments = new List<AnydropAttachment> { placeholderAttachment };
+                    createdMessages.Add(fileMessage);
+                    
+                    // Queue for async upload
+                    fileUploadTasks.Add((fileMessage, file, placeholderAttachment.Id));
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Error uploading file: {FileName}", file.Name);
+                    Logger.LogError(ex, "Error creating placeholder for file: {FileName}", file.Name);
                 }
             }
 
-            // Add all created messages to the top of the list
+            // Add all created messages to the top of the list immediately
             foreach (var msg in createdMessages)
             {
                 messages.Insert(0, msg);
@@ -1123,22 +1189,97 @@
                 }
             }
 
-            // Clear input
+            // Clear input and allow user to continue
             messageContent = string.Empty;
             selectedFiles.Clear();
             
             // Scroll to bottom (which is top in reverse flex)
             await JSRuntime.InvokeVoidAsync("eval", 
                 "document.querySelector('.messages-container').scrollTop = 0");
+            
+            // Release UI immediately
+            isSending = false;
+            StateHasChanged();
+            
+            // Upload files asynchronously in the background
+            foreach (var (message, file, attachmentId) in fileUploadTasks)
+            {
+                _ = UploadFileAsync(message.Id, file, attachmentId);
+            }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error sending message");
-        }
-        finally
-        {
             isSending = false;
             StateHasChanged();
+        }
+    }
+    
+    private async Task UploadFileAsync(int messageId, IBrowserFile file, int attachmentId)
+    {
+        try
+        {
+            // Update status to "Uploading"
+            await AnydropService.UpdateAttachmentStatusAsync(attachmentId, "Uploading");
+            
+            // Refresh message to show uploading status
+            var updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
+            if (updatedMessage != null)
+            {
+                var index = messages.FindIndex(m => m.Id == messageId);
+                if (index >= 0)
+                {
+                    messages[index] = updatedMessage;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            
+            // Upload the file
+            using var stream = file.OpenReadStream(maxAllowedSize: 2147483648); // 2GB max
+            await AnydropService.UploadAttachmentFileAsync(attachmentId, stream);
+            
+            // Update status to "Completed"
+            await AnydropService.UpdateAttachmentStatusAsync(attachmentId, "Completed");
+            
+            // Refresh message to show completed status
+            updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
+            if (updatedMessage != null)
+            {
+                var index = messages.FindIndex(m => m.Id == messageId);
+                if (index >= 0)
+                {
+                    messages[index] = updatedMessage;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            
+            Logger.LogInformation("Successfully uploaded file: {FileName}", file.Name);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error uploading file: {FileName}", file.Name);
+            
+            // Update status to "Failed"
+            try
+            {
+                await AnydropService.UpdateAttachmentStatusAsync(attachmentId, "Failed", ex.Message);
+                
+                // Refresh message to show failed status
+                var updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
+                if (updatedMessage != null)
+                {
+                    var index = messages.FindIndex(m => m.Id == messageId);
+                    if (index >= 0)
+                    {
+                        messages[index] = updatedMessage;
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
+            }
+            catch (Exception updateEx)
+            {
+                Logger.LogError(updateEx, "Error updating attachment status to Failed");
+            }
         }
     }
 
@@ -1381,6 +1522,26 @@
             Logger.LogError(ex, "Error fetching metadata for message {MessageId}", messageId);
             loadingMetadataMessageIds.Remove(messageId);
             await InvokeAsync(StateHasChanged);
+        }
+    }
+    
+    private string GetAttachmentStatusClass(AnydropAttachment attachment)
+    {
+        return attachment.UploadStatus switch
+        {
+            "Uploading" => "uploading",
+            "Pending" => "uploading",
+            "Failed" => "failed",
+            _ => string.Empty
+        };
+    }
+    
+    private async Task HandleAttachmentClick(AnydropAttachment attachment)
+    {
+        // Only allow download/preview for completed uploads
+        if (attachment.UploadStatus == "Completed")
+        {
+            await DownloadAttachment(attachment.Id);
         }
     }
 

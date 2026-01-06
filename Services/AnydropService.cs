@@ -369,4 +369,96 @@ public class AnydropService : IAnydropService
             return (null, null);
         }
     }
+
+    public async Task<AnydropAttachment> CreatePlaceholderAttachmentAsync(int messageId, string fileName, long fileSize, string contentType)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        // Verify message exists
+        var message = await context.AnydropMessages.FindAsync(messageId);
+        if (message == null)
+        {
+            throw new InvalidOperationException($"Message with ID {messageId} not found");
+        }
+        
+        // Determine attachment type from content type
+        var attachmentType = DetermineAttachmentType(contentType);
+        
+        var attachment = new AnydropAttachment
+        {
+            MessageId = messageId,
+            FileName = fileName,
+            FilePath = string.Empty, // Will be set when file is uploaded
+            FileSize = fileSize,
+            ContentType = contentType,
+            AttachmentType = attachmentType,
+            UploadedAt = DateTime.UtcNow,
+            UploadStatus = "Pending"
+        };
+        
+        context.AnydropAttachments.Add(attachment);
+        
+        // Update message type to match attachment type
+        if (attachmentType != "Other")
+        {
+            message.MessageType = attachmentType;
+        }
+        else
+        {
+            message.MessageType = "File";
+        }
+        
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("Created placeholder attachment for message {MessageId}: {FileName}", messageId, fileName);
+        return attachment;
+    }
+
+    public async Task UpdateAttachmentStatusAsync(int attachmentId, string status, string? errorMessage = null)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+        if (attachment == null)
+        {
+            throw new InvalidOperationException($"Attachment with ID {attachmentId} not found");
+        }
+        
+        attachment.UploadStatus = status;
+        attachment.UploadErrorMessage = errorMessage;
+        
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("Updated attachment {AttachmentId} status to {Status}", attachmentId, status);
+    }
+
+    public async Task UploadAttachmentFileAsync(int attachmentId, Stream fileStream)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+        if (attachment == null)
+        {
+            throw new InvalidOperationException($"Attachment with ID {attachmentId} not found");
+        }
+        
+        // Generate unique file name
+        var fileExtension = Path.GetExtension(attachment.FileName);
+        var uniqueFileName = $"{attachment.MessageId}_{Guid.NewGuid()}{fileExtension}";
+        var filePath = Path.Combine(_anydropStoragePath, uniqueFileName);
+        
+        // Save file to disk
+        using (var fileStreamWriter = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            await fileStream.CopyToAsync(fileStreamWriter);
+        }
+        
+        // Update attachment with file path and status
+        attachment.FilePath = filePath;
+        attachment.UploadStatus = "Completed";
+        
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("Uploaded file for attachment {AttachmentId}: {FileName}", attachmentId, attachment.FileName);
+    }
 }

@@ -51,4 +51,19 @@ public interface IAnydropService
     /// Update link metadata for a message asynchronously (non-blocking)
     /// </summary>
     Task UpdateLinkMetadataAsync(int messageId, string url);
+    
+    /// <summary>
+    /// Create a placeholder attachment for a message (before file upload)
+    /// </summary>
+    Task<AnydropAttachment> CreatePlaceholderAttachmentAsync(int messageId, string fileName, long fileSize, string contentType);
+    
+    /// <summary>
+    /// Update attachment upload status
+    /// </summary>
+    Task UpdateAttachmentStatusAsync(int attachmentId, string status, string? errorMessage = null);
+    
+    /// <summary>
+    /// Upload file content to an existing attachment placeholder
+    /// </summary>
+    Task UploadAttachmentFileAsync(int attachmentId, Stream fileStream);
 }
