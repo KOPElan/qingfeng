@@ -45,7 +45,7 @@ public class AnydropAttachment
     /// <summary>
     /// Upload status: Pending, Uploading, Completed, Failed
     /// </summary>
-    public string UploadStatus { get; set; } = "Pending";
+    public string UploadStatus { get; set; } = Models.UploadStatus.Pending;
     
     /// <summary>
     /// Error message if upload failed

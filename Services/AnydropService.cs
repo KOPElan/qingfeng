@@ -132,7 +132,7 @@ public class AnydropService : IAnydropService
             ContentType = contentType,
             AttachmentType = attachmentType,
             UploadedAt = DateTime.UtcNow,
-            UploadStatus = "Completed" // Mark as completed since file is uploaded
+            UploadStatus = Models.UploadStatus.Completed // Mark as completed since file is uploaded
         };
         
         context.AnydropAttachments.Add(attachment);
@@ -394,7 +394,7 @@ public class AnydropService : IAnydropService
             ContentType = contentType,
             AttachmentType = attachmentType,
             UploadedAt = DateTime.UtcNow,
-            UploadStatus = "Pending"
+            UploadStatus = Models.UploadStatus.Pending
         };
         
         context.AnydropAttachments.Add(attachment);
@@ -417,6 +417,12 @@ public class AnydropService : IAnydropService
 
     public async Task UpdateAttachmentStatusAsync(int attachmentId, string status, string? errorMessage = null)
     {
+        // Validate status
+        if (!Models.UploadStatus.IsValid(status))
+        {
+            throw new ArgumentException($"Invalid upload status: {status}", nameof(status));
+        }
+        
         using var context = await _dbContextFactory.CreateDbContextAsync();
         
         var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
@@ -456,7 +462,7 @@ public class AnydropService : IAnydropService
         
         // Update attachment with file path and status
         attachment.FilePath = filePath;
-        attachment.UploadStatus = "Completed";
+        attachment.UploadStatus = Models.UploadStatus.Completed;
         
         await context.SaveChangesAsync();
         

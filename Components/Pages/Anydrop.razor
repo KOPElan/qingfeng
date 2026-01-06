@@ -4,6 +4,7 @@
 @using QingFeng.Utilities
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
+@using static QingFeng.Models.UploadStatus
 @inject IAnydropService AnydropService
 @inject IJSRuntime JSRuntime
 @inject ILogger<Anydrop> Logger
@@ -607,7 +608,7 @@
                     var groupedByDate = FilteredMessages
                         .Where(m => m.Attachments != null && m.Attachments.Any())
                         .SelectMany(m => m.Attachments
-                            .Where(a => a.UploadStatus == "Completed")
+                            .Where(a => a.UploadStatus == Completed)
                             .Select(a => new { Message = m, Attachment = a }))
                         .GroupBy(x => x.Message.CreatedAt.ToLocalTime().Date)
                         .OrderByDescending(g => g.Key);
@@ -716,16 +717,16 @@
                             @foreach (var attachment in message.Attachments)
                             {
                                 <div class="attachment-item @GetAttachmentStatusClass(attachment)" @onclick="@(() => HandleAttachmentClick(attachment))">
-                                    @if (attachment.UploadStatus == "Pending" || attachment.UploadStatus == "Uploading")
+                                    @if (attachment.UploadStatus == Pending || attachment.UploadStatus == Uploading)
                                     {
                                         <div class="attachment-upload-overlay">
                                             <FluentProgressRing Style="width: 32px; height: 32px;" />
                                             <div style="margin-top: 8px; font-size: 12px; color: var(--neutral-foreground-rest);">
-                                                @(attachment.UploadStatus == "Pending" ? "等待上传..." : "上传中...")
+                                                @(attachment.UploadStatus == Pending ? "等待上传..." : "上传中...")
                                             </div>
                                         </div>
                                     }
-                                    else if (attachment.UploadStatus == "Failed")
+                                    else if (attachment.UploadStatus == Failed)
                                     {
                                         <div class="attachment-upload-overlay attachment-failed">
                                             <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size32.DismissCircle())" Color="Color.Error" />
@@ -741,7 +742,7 @@
                                         </div>
                                     }
                                     
-                                    @if (attachment.UploadStatus == "Completed")
+                                    @if (attachment.UploadStatus == Completed)
                                     {
                                         @if (attachment.AttachmentType == "Image")
                                         {
@@ -1206,7 +1207,17 @@
             // Upload files asynchronously in the background
             foreach (var (message, file, attachmentId) in fileUploadTasks)
             {
-                _ = UploadFileAsync(message.Id, file, attachmentId);
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await UploadFileAsync(message.Id, file, attachmentId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "Unhandled exception in background upload task for file: {FileName}", file.Name);
+                    }
+                });
             }
         }
         catch (Exception ex)
@@ -1222,7 +1233,7 @@
         try
         {
             // Update status to "Uploading"
-            await AnydropService.UpdateAttachmentStatusAsync(attachmentId, "Uploading");
+            await AnydropService.UpdateAttachmentStatusAsync(attachmentId, Uploading);
             
             // Refresh message to show uploading status
             var updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
@@ -1241,7 +1252,7 @@
             await AnydropService.UploadAttachmentFileAsync(attachmentId, stream);
             
             // Update status to "Completed"
-            await AnydropService.UpdateAttachmentStatusAsync(attachmentId, "Completed");
+            await AnydropService.UpdateAttachmentStatusAsync(attachmentId, Completed);
             
             // Refresh message to show completed status
             updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
@@ -1264,7 +1275,7 @@
             // Update status to "Failed"
             try
             {
-                await AnydropService.UpdateAttachmentStatusAsync(attachmentId, "Failed", ex.Message);
+                await AnydropService.UpdateAttachmentStatusAsync(attachmentId, Failed, ex.Message);
                 
                 // Refresh message to show failed status
                 var updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
@@ -1531,9 +1542,9 @@
     {
         return attachment.UploadStatus switch
         {
-            "Uploading" => "uploading",
-            "Pending" => "uploading",
-            "Failed" => "failed",
+            Uploading => "uploading",
+            Pending => "uploading",
+            Failed => "failed",
             _ => string.Empty
         };
     }
@@ -1541,7 +1552,7 @@
     private async Task HandleAttachmentClick(AnydropAttachment attachment)
     {
         // Only allow download/preview for completed uploads
-        if (attachment.UploadStatus == "Completed")
+        if (attachment.UploadStatus == Completed)
         {
             await DownloadAttachment(attachment.Id);
         }
