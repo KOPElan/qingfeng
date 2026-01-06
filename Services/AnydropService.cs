@@ -298,6 +298,19 @@ public class AnydropService : IAnydropService
     {
         try
         {
+            // Basic SSRF protection: validate URL scheme and reject localhost/private IPs
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                (uri.Scheme != "http" && uri.Scheme != "https") ||
+                uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                uri.Host.StartsWith("127.") ||
+                uri.Host.StartsWith("192.168.") ||
+                uri.Host.StartsWith("10.") ||
+                uri.Host.StartsWith("172."))
+            {
+                _logger.LogWarning("Rejected URL for security reasons: {Url}", url);
+                return (null, null);
+            }
+            
             var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromSeconds(10); // Timeout after 10 seconds
             
