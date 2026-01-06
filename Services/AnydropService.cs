@@ -78,22 +78,12 @@ public class AnydropService : IAnydropService
             CreatedAt = DateTime.UtcNow
         };
         
-        // Detect and extract URL metadata if content contains a hyperlink
+        // Detect URL but don't fetch metadata yet (to avoid blocking)
         var url = ExtractUrl(content ?? string.Empty);
         if (!string.IsNullOrEmpty(url))
         {
-            try
-            {
-                var (title, description) = await FetchLinkMetadataAsync(url);
-                message.LinkUrl = url;
-                message.LinkTitle = title;
-                message.LinkDescription = description;
-                _logger.LogInformation("Extracted link metadata from URL: {Url}", url);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch metadata for URL: {Url}", url);
-            }
+            message.LinkUrl = url;
+            // Metadata will be fetched asynchronously after message is created
         }
         
         context.AnydropMessages.Add(message);
@@ -246,6 +236,32 @@ public class AnydropService : IAnydropService
     {
         using var context = await _dbContextFactory.CreateDbContextAsync();
         return await context.AnydropMessages.CountAsync();
+    }
+
+    public async Task UpdateLinkMetadataAsync(int messageId, string url)
+    {
+        try
+        {
+            // Fetch metadata
+            var (title, description) = await FetchLinkMetadataAsync(url);
+            
+            // Update message in database
+            using var context = await _dbContextFactory.CreateDbContextAsync();
+            var message = await context.AnydropMessages.FindAsync(messageId);
+            
+            if (message != null)
+            {
+                message.LinkTitle = title;
+                message.LinkDescription = description;
+                await context.SaveChangesAsync();
+                
+                _logger.LogInformation("Updated link metadata for message {MessageId}, URL: {Url}", messageId, url);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update link metadata for message {MessageId}, URL: {Url}", messageId, url);
+        }
     }
 
     private static string DetermineAttachmentType(string contentType)

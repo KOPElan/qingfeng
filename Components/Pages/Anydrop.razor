@@ -200,6 +200,14 @@
         white-space: nowrap;
     }
 
+    .link-metadata-loading {
+        display: flex;
+        align-items: center;
+        font-size: 12px;
+        color: var(--neutral-foreground-hint);
+        font-style: italic;
+    }
+
     .attachments-grid {
         display: flex;
         flex-direction: column;
@@ -653,6 +661,13 @@
                                 {
                                     <div class="link-metadata-title">@message.LinkTitle</div>
                                 }
+                                else if (loadingMetadataMessageIds.Contains(message.Id))
+                                {
+                                    <div class="link-metadata-loading">
+                                        <FluentProgressRing Style="width: 16px; height: 16px;" />
+                                        <span style="margin-left: 8px;">正在获取链接信息...</span>
+                                    </div>
+                                }
                                 @if (!string.IsNullOrEmpty(message.LinkDescription))
                                 {
                                     <div class="link-metadata-description">@message.LinkDescription</div>
@@ -909,6 +924,7 @@
     private bool showSearchModal = false;
     private AnydropAttachment? selectedAttachment = null;
     private List<AnydropMessage> searchResults = new();
+    private HashSet<int> loadingMetadataMessageIds = new();
 
     private IEnumerable<AnydropMessage> FilteredMessages
     {
@@ -1098,6 +1114,13 @@
             foreach (var msg in createdMessages)
             {
                 messages.Insert(0, msg);
+                
+                // If message has a LinkUrl but no title/description, fetch metadata asynchronously
+                if (!string.IsNullOrEmpty(msg.LinkUrl) && string.IsNullOrEmpty(msg.LinkTitle))
+                {
+                    loadingMetadataMessageIds.Add(msg.Id);
+                    _ = FetchAndUpdateMetadataAsync(msg.Id, msg.LinkUrl);
+                }
             }
 
             // Clear input
@@ -1325,6 +1348,39 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error opening link: {Url}", url);
+        }
+    }
+
+    private async Task FetchAndUpdateMetadataAsync(int messageId, string url)
+    {
+        try
+        {
+            // Trigger background metadata fetch
+            await AnydropService.UpdateLinkMetadataAsync(messageId, url);
+            
+            // Refresh the message from database to get updated metadata
+            var updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
+            if (updatedMessage != null)
+            {
+                // Find and update the message in the list
+                var index = messages.FindIndex(m => m.Id == messageId);
+                if (index >= 0)
+                {
+                    messages[index] = updatedMessage;
+                }
+            }
+            
+            // Remove from loading set
+            loadingMetadataMessageIds.Remove(messageId);
+            
+            // Update UI
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error fetching metadata for message {MessageId}", messageId);
+            loadingMetadataMessageIds.Remove(messageId);
+            await InvokeAsync(StateHasChanged);
         }
     }
 
