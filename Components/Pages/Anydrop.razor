@@ -969,6 +969,9 @@
 }
 
 @code {
+    // Constants
+    private const long MaxFileSize = 2147483648; // 2GB max upload size
+    
     private List<AnydropMessage> messages = new();
     private string messageContent = string.Empty;
     private string searchTerm = string.Empty;
@@ -1248,7 +1251,7 @@
             }
             
             // Upload the file
-            using var stream = file.OpenReadStream(maxAllowedSize: 2147483648); // 2GB max
+            using var stream = file.OpenReadStream(maxAllowedSize: MaxFileSize);
             await AnydropService.UploadAttachmentFileAsync(attachmentId, stream);
             
             // Update status to "Completed"

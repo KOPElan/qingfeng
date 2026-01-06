@@ -28,8 +28,9 @@ public static class UploadStatus
     /// <summary>
     /// Validates if a status string is valid
     /// </summary>
-    public static bool IsValid(string status)
+    public static bool IsValid(string? status)
     {
-        return status == Pending || status == Uploading || status == Completed || status == Failed;
+        return !string.IsNullOrEmpty(status) && 
+               (status == Pending || status == Uploading || status == Completed || status == Failed);
     }
 }

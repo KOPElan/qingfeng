@@ -389,7 +389,7 @@ public class AnydropService : IAnydropService
         {
             MessageId = messageId,
             FileName = fileName,
-            FilePath = string.Empty, // Will be set when file is uploaded
+            FilePath = string.Empty, // Will be set when file is actually uploaded
             FileSize = fileSize,
             ContentType = contentType,
             AttachmentType = attachmentType,
@@ -454,10 +454,44 @@ public class AnydropService : IAnydropService
         var uniqueFileName = $"{attachment.MessageId}_{Guid.NewGuid()}{fileExtension}";
         var filePath = Path.Combine(_anydropStoragePath, uniqueFileName);
         
-        // Save file to disk
-        using (var fileStreamWriter = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        // Save file to disk with error handling
+        try
         {
-            await fileStream.CopyToAsync(fileStreamWriter);
+            using (var fileStreamWriter = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await fileStream.CopyToAsync(fileStreamWriter);
+                await fileStreamWriter.FlushAsync();
+            }
+            
+            // Verify file was written successfully
+            if (!File.Exists(filePath))
+            {
+                throw new IOException($"File was not written successfully: {filePath}");
+            }
+            
+            var fileInfo = new FileInfo(filePath);
+            if (fileInfo.Length == 0)
+            {
+                File.Delete(filePath);
+                throw new IOException("File was written but has zero length");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Clean up file if it was partially written
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+            }
+            catch (Exception cleanupEx)
+            {
+                _logger.LogWarning(cleanupEx, "Failed to clean up partially written file: {FilePath}", filePath);
+            }
+            
+            throw new IOException($"Failed to save file: {ex.Message}", ex);
         }
         
         // Update attachment with file path and status
