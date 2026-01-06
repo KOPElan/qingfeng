@@ -38,6 +38,9 @@ builder.Services.AddSignalR();
 
 builder.Services.AddHttpContextAccessor();
 
+// Add HttpClient factory for services that need to make HTTP requests
+builder.Services.AddHttpClient();
+
 // Add SQLite database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=qingfeng.db";

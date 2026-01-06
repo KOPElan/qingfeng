@@ -104,6 +104,9 @@ public class QingFengDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.CreatedAt);
             entity.Property(e => e.MessageType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.LinkUrl).HasMaxLength(2000);
+            entity.Property(e => e.LinkTitle).HasMaxLength(500);
+            entity.Property(e => e.LinkDescription).HasMaxLength(2000);
         });
 
         // Configure AnydropAttachment

@@ -23,6 +23,21 @@ public class AnydropMessage
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     /// <summary>
+    /// Extracted URL if message contains a hyperlink
+    /// </summary>
+    public string? LinkUrl { get; set; }
+    
+    /// <summary>
+    /// Title extracted from the hyperlink's HTML head
+    /// </summary>
+    public string? LinkTitle { get; set; }
+    
+    /// <summary>
+    /// Description extracted from the hyperlink's HTML meta tags
+    /// </summary>
+    public string? LinkDescription { get; set; }
+    
+    /// <summary>
     /// Related attachments for this message
     /// </summary>
     public ICollection<AnydropAttachment> Attachments { get; set; } = new List<AnydropAttachment>();
