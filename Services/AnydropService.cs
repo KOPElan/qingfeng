@@ -131,7 +131,8 @@ public class AnydropService : IAnydropService
             FileSize = fileSize,
             ContentType = contentType,
             AttachmentType = attachmentType,
-            UploadedAt = DateTime.UtcNow
+            UploadedAt = DateTime.UtcNow,
+            UploadStatus = "Completed" // Mark as completed since file is uploaded
         };
         
         context.AnydropAttachments.Add(attachment);

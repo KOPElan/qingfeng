@@ -606,7 +606,9 @@
                 @{
                     var groupedByDate = FilteredMessages
                         .Where(m => m.Attachments != null && m.Attachments.Any())
-                        .SelectMany(m => m.Attachments.Select(a => new { Message = m, Attachment = a }))
+                        .SelectMany(m => m.Attachments
+                            .Where(a => a.UploadStatus == "Completed")
+                            .Select(a => new { Message = m, Attachment = a }))
                         .GroupBy(x => x.Message.CreatedAt.ToLocalTime().Date)
                         .OrderByDescending(g => g.Key);
                 }
