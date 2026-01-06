@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.FluentUI.AspNetCore.Components;
 using QingFeng.Data;
 using QingFeng.Models;
+using System.Text.RegularExpressions;
 
 namespace QingFeng.Services;
 
@@ -12,15 +13,18 @@ public class AnydropService : IAnydropService
 {
     private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
     private readonly ILogger<AnydropService> _logger;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly string _anydropStoragePath;
 
     public AnydropService(
         IDbContextFactory<QingFengDbContext> dbContextFactory,
         ILogger<AnydropService> logger,
+        IHttpClientFactory httpClientFactory,
         IConfiguration configuration)
     {
         _dbContextFactory = dbContextFactory;
         _logger = logger;
+        _httpClientFactory = httpClientFactory;
         
         // Get Anydrop storage path from configuration or use default
         _anydropStoragePath = configuration["AnydropStoragePath"] ?? Path.Combine(Directory.GetCurrentDirectory(), "AnydropFiles");
@@ -73,6 +77,14 @@ public class AnydropService : IAnydropService
             MessageType = messageType,
             CreatedAt = DateTime.UtcNow
         };
+        
+        // Detect URL but don't fetch metadata yet (to avoid blocking)
+        var url = ExtractUrl(content ?? string.Empty);
+        if (!string.IsNullOrEmpty(url))
+        {
+            message.LinkUrl = url;
+            // Metadata will be fetched asynchronously after message is created
+        }
         
         context.AnydropMessages.Add(message);
         await context.SaveChangesAsync();
@@ -156,7 +168,10 @@ public class AnydropService : IAnydropService
             .Include(m => m.Attachments)
             .Where(m => 
                 m.Content.ToLower().Contains(lowerSearchTerm) ||
-                m.Attachments.Any(a => a.FileName.ToLower().Contains(lowerSearchTerm)))
+                m.Attachments.Any(a => a.FileName.ToLower().Contains(lowerSearchTerm)) ||
+                (m.LinkTitle != null && m.LinkTitle.ToLower().Contains(lowerSearchTerm)) ||
+                (m.LinkDescription != null && m.LinkDescription.ToLower().Contains(lowerSearchTerm)) ||
+                (m.LinkUrl != null && m.LinkUrl.ToLower().Contains(lowerSearchTerm)))
             .OrderByDescending(m => m.CreatedAt)
             .ThenByDescending(m => m.Id)
             .Take(50) // Limit search results
@@ -223,6 +238,32 @@ public class AnydropService : IAnydropService
         return await context.AnydropMessages.CountAsync();
     }
 
+    public async Task UpdateLinkMetadataAsync(int messageId, string url)
+    {
+        try
+        {
+            // Fetch metadata
+            var (title, description) = await FetchLinkMetadataAsync(url);
+            
+            // Update message in database
+            using var context = await _dbContextFactory.CreateDbContextAsync();
+            var message = await context.AnydropMessages.FindAsync(messageId);
+            
+            if (message != null)
+            {
+                message.LinkTitle = title;
+                message.LinkDescription = description;
+                await context.SaveChangesAsync();
+                
+                _logger.LogInformation("Updated link metadata for message {MessageId}, URL: {Url}", messageId, url);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to update link metadata for message {MessageId}, URL: {Url}", messageId, url);
+        }
+    }
+
     private static string DetermineAttachmentType(string contentType)
     {
         if (contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
@@ -248,6 +289,84 @@ public class AnydropService : IAnydropService
         else
         {
             return "Other";
+        }
+    }
+    
+    /// <summary>
+    /// Extract the first URL from content
+    /// </summary>
+    private static string? ExtractUrl(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return null;
+        
+        // Regex pattern to match URLs
+        var urlPattern = @"https?://[^\s<>""']+";
+        var match = Regex.Match(content, urlPattern, RegexOptions.IgnoreCase);
+        
+        return match.Success ? match.Value : null;
+    }
+    
+    /// <summary>
+    /// Fetch title and description metadata from a URL
+    /// </summary>
+    private async Task<(string? Title, string? Description)> FetchLinkMetadataAsync(string url)
+    {
+        try
+        {
+            // Basic SSRF protection: validate URL scheme and reject localhost/private IPs
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                (uri.Scheme != "http" && uri.Scheme != "https") ||
+                uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                uri.Host.StartsWith("127.") ||
+                uri.Host.StartsWith("192.168.") ||
+                uri.Host.StartsWith("10.") ||
+                uri.Host.StartsWith("172."))
+            {
+                _logger.LogWarning("Rejected URL for security reasons: {Url}", url);
+                return (null, null);
+            }
+            
+            var httpClient = _httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(10); // Timeout after 10 seconds
+            
+            // Add user agent to avoid being blocked by some servers
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (compatible; QingFeng/1.0)");
+            
+            var response = await httpClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            
+            var html = await response.Content.ReadAsStringAsync();
+            
+            // Extract title from <title> tag
+            var titleMatch = Regex.Match(html, @"<title[^>]*>([^<]+)</title>", RegexOptions.IgnoreCase);
+            var title = titleMatch.Success ? titleMatch.Groups[1].Value.Trim() : null;
+            
+            // Extract description from meta tags
+            // Try og:description first (Open Graph)
+            var ogDescMatch = Regex.Match(html, @"<meta\s+property=[""']og:description[""']\s+content=[""']([^""']+)[""']", RegexOptions.IgnoreCase);
+            var description = ogDescMatch.Success ? ogDescMatch.Groups[1].Value.Trim() : null;
+            
+            // If no og:description, try standard meta description
+            if (string.IsNullOrEmpty(description))
+            {
+                var metaDescMatch = Regex.Match(html, @"<meta\s+name=[""']description[""']\s+content=[""']([^""']+)[""']", RegexOptions.IgnoreCase);
+                description = metaDescMatch.Success ? metaDescMatch.Groups[1].Value.Trim() : null;
+            }
+            
+            // If still no description, try reverse order (content before name/property)
+            if (string.IsNullOrEmpty(description))
+            {
+                var reverseDescMatch = Regex.Match(html, @"<meta\s+content=[""']([^""']+)[""']\s+(?:name|property)=[""'](?:description|og:description)[""']", RegexOptions.IgnoreCase);
+                description = reverseDescMatch.Success ? reverseDescMatch.Groups[1].Value.Trim() : null;
+            }
+            
+            return (title, description);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch metadata from URL: {Url}", url);
+            return (null, null);
         }
     }
 }

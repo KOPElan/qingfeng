@@ -46,4 +46,9 @@ public interface IAnydropService
     /// Get total message count
     /// </summary>
     Task<int> GetTotalMessageCountAsync();
+    
+    /// <summary>
+    /// Update link metadata for a message asynchronously (non-blocking)
+    /// </summary>
+    Task UpdateLinkMetadataAsync(int messageId, string url);
 }
