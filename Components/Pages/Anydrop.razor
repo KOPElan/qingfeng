@@ -241,6 +241,11 @@
         pointer-events: none;
     }
     
+    .attachment-item.pending {
+        opacity: 0.8;
+        pointer-events: none;
+    }
+    
     .attachment-item.failed {
         border-color: var(--error-fill-rest);
         background: var(--error-fill-subtle);
@@ -990,6 +995,8 @@
     private System.Threading.Timer? searchDebounceTimer;
     private System.Threading.Timer? modalSearchDebounceTimer;
     private string currentTab = "all";
+    private CancellationTokenSource? _uploadCancellationTokenSource;
+    private List<Task> _activeUploadTasks = new();
     
     // Modal states
     private bool showPreviewModal = false;
@@ -1197,7 +1204,6 @@
 
             // Clear input and allow user to continue
             messageContent = string.Empty;
-            selectedFiles.Clear();
             
             // Scroll to bottom (which is top in reverse flex)
             await JSRuntime.InvokeVoidAsync("eval", 
@@ -1207,20 +1213,20 @@
             isSending = false;
             StateHasChanged();
             
-            // Upload files asynchronously in the background
+            // Clear file selection AFTER capturing file upload tasks to avoid disposal issues
+            selectedFiles.Clear();
+            
+            // Cancel any existing uploads
+            _uploadCancellationTokenSource?.Cancel();
+            _uploadCancellationTokenSource?.Dispose();
+            _uploadCancellationTokenSource = new CancellationTokenSource();
+            
+            // Upload files asynchronously with proper task tracking
+            _activeUploadTasks.Clear();
             foreach (var (message, file, attachmentId) in fileUploadTasks)
             {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await UploadFileAsync(message.Id, file, attachmentId);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError(ex, "Unhandled exception in background upload task for file: {FileName}", file.Name);
-                    }
-                });
+                var uploadTask = UploadFileAsync(message.Id, file, attachmentId, _uploadCancellationTokenSource.Token);
+                _activeUploadTasks.Add(uploadTask);
             }
         }
         catch (Exception ex)
@@ -1231,63 +1237,82 @@
         }
     }
     
-    private async Task UploadFileAsync(int messageId, IBrowserFile file, int attachmentId)
+    private async Task UploadFileAsync(int messageId, IBrowserFile file, int attachmentId, CancellationToken cancellationToken = default)
     {
         try
         {
             // Update status to "Uploading"
             await AnydropService.UpdateAttachmentStatusAsync(attachmentId, Uploading);
             
-            // Refresh message to show uploading status
-            var updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
-            if (updatedMessage != null)
+            // Update the in-memory message object directly to avoid extra DB query
+            var messageIndex = messages.FindIndex(m => m.Id == messageId);
+            if (messageIndex >= 0 && messages[messageIndex].Attachments != null)
             {
-                var index = messages.FindIndex(m => m.Id == messageId);
-                if (index >= 0)
+                var attachment = messages[messageIndex].Attachments.FirstOrDefault(a => a.Id == attachmentId);
+                if (attachment != null)
                 {
-                    messages[index] = updatedMessage;
+                    attachment.UploadStatus = Uploading;
                     await InvokeAsync(StateHasChanged);
                 }
             }
+            
+            // Check for cancellation
+            cancellationToken.ThrowIfCancellationRequested();
             
             // Upload the file
             using var stream = file.OpenReadStream(maxAllowedSize: MaxFileSize);
             await AnydropService.UploadAttachmentFileAsync(attachmentId, stream);
             
-            // Update status to "Completed"
+            // Check for cancellation
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            // Update status to "Completed" - single DB query at the end
             await AnydropService.UpdateAttachmentStatusAsync(attachmentId, Completed);
             
-            // Refresh message to show completed status
-            updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
-            if (updatedMessage != null)
+            // Update in-memory message object
+            if (messageIndex >= 0 && messages[messageIndex].Attachments != null)
             {
-                var index = messages.FindIndex(m => m.Id == messageId);
-                if (index >= 0)
+                var attachment = messages[messageIndex].Attachments.FirstOrDefault(a => a.Id == attachmentId);
+                if (attachment != null)
                 {
-                    messages[index] = updatedMessage;
+                    attachment.UploadStatus = Completed;
+                    // Refresh from database to get the FilePath that was set during upload
+                    var updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
+                    if (updatedMessage != null)
+                    {
+                        messages[messageIndex] = updatedMessage;
+                    }
                     await InvokeAsync(StateHasChanged);
                 }
             }
             
             Logger.LogInformation("Successfully uploaded file: {FileName}", file.Name);
         }
+        catch (OperationCanceledException)
+        {
+            Logger.LogInformation("Upload cancelled for file: {FileName}", file.Name);
+            // Don't update status if cancelled - leave it as is
+        }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error uploading file: {FileName}", file.Name);
             
-            // Update status to "Failed"
+            // Update status to "Failed" with sanitized error message
             try
             {
-                await AnydropService.UpdateAttachmentStatusAsync(attachmentId, Failed, ex.Message);
+                // Sanitize error message - don't expose internal details
+                var userFriendlyMessage = "文件上传失败，请重试。如果问题持续存在，请联系管理员。";
+                await AnydropService.UpdateAttachmentStatusAsync(attachmentId, Failed, userFriendlyMessage);
                 
-                // Refresh message to show failed status
-                var updatedMessage = await AnydropService.GetMessageByIdAsync(messageId);
-                if (updatedMessage != null)
+                // Update in-memory message object
+                var messageIndex = messages.FindIndex(m => m.Id == messageId);
+                if (messageIndex >= 0 && messages[messageIndex].Attachments != null)
                 {
-                    var index = messages.FindIndex(m => m.Id == messageId);
-                    if (index >= 0)
+                    var attachment = messages[messageIndex].Attachments.FirstOrDefault(a => a.Id == attachmentId);
+                    if (attachment != null)
                     {
-                        messages[index] = updatedMessage;
+                        attachment.UploadStatus = Failed;
+                        attachment.UploadErrorMessage = userFriendlyMessage;
                         await InvokeAsync(StateHasChanged);
                     }
                 }
@@ -1546,7 +1571,7 @@
         return attachment.UploadStatus switch
         {
             Uploading => "uploading",
-            Pending => "uploading",
+            Pending => "pending",
             Failed => "failed",
             _ => string.Empty
         };
@@ -1565,5 +1590,22 @@
     {
         searchDebounceTimer?.Dispose();
         modalSearchDebounceTimer?.Dispose();
+        
+        // Cancel any ongoing uploads
+        _uploadCancellationTokenSource?.Cancel();
+        _uploadCancellationTokenSource?.Dispose();
+        
+        // Wait for active uploads to complete (with timeout)
+        if (_activeUploadTasks.Count > 0)
+        {
+            try
+            {
+                Task.WaitAll(_activeUploadTasks.ToArray(), TimeSpan.FromSeconds(5));
+            }
+            catch (AggregateException)
+            {
+                // Swallow exceptions during disposal
+            }
+        }
     }
 }

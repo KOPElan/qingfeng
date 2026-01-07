@@ -400,14 +400,7 @@ public class AnydropService : IAnydropService
         context.AnydropAttachments.Add(attachment);
         
         // Update message type to match attachment type
-        if (attachmentType != "Other")
-        {
-            message.MessageType = attachmentType;
-        }
-        else
-        {
-            message.MessageType = "File";
-        }
+        message.MessageType = attachmentType != "Other" ? attachmentType : "File";
         
         await context.SaveChangesAsync();
         
@@ -441,20 +434,29 @@ public class AnydropService : IAnydropService
 
     public async Task UploadAttachmentFileAsync(int attachmentId, Stream fileStream)
     {
-        using var context = await _dbContextFactory.CreateDbContextAsync();
+        // First context: Fetch attachment details
+        string filePath;
+        int messageId;
+        string fileName;
         
-        var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
-        if (attachment == null)
+        using (var context = await _dbContextFactory.CreateDbContextAsync())
         {
-            throw new InvalidOperationException($"Attachment with ID {attachmentId} not found");
+            var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+            if (attachment == null)
+            {
+                throw new InvalidOperationException($"Attachment with ID {attachmentId} not found");
+            }
+            
+            messageId = attachment.MessageId;
+            fileName = attachment.FileName;
+            
+            // Generate unique file name
+            var fileExtension = Path.GetExtension(fileName);
+            var uniqueFileName = $"{messageId}_{Guid.NewGuid()}{fileExtension}";
+            filePath = Path.Combine(_anydropStoragePath, uniqueFileName);
         }
         
-        // Generate unique file name
-        var fileExtension = Path.GetExtension(attachment.FileName);
-        var uniqueFileName = $"{attachment.MessageId}_{Guid.NewGuid()}{fileExtension}";
-        var filePath = Path.Combine(_anydropStoragePath, uniqueFileName);
-        
-        // Save file to disk with error handling
+        // Save file to disk with error handling (outside DbContext)
         try
         {
             using (var fileStreamWriter = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -494,12 +496,30 @@ public class AnydropService : IAnydropService
             throw new IOException($"Failed to save file: {ex.Message}", ex);
         }
         
-        // Update attachment with file path and status
-        attachment.FilePath = filePath;
-        attachment.UploadStatus = Models.UploadStatus.Completed;
+        // Second context: Update attachment status after file is written
+        using (var context = await _dbContextFactory.CreateDbContextAsync())
+        {
+            var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+            if (attachment == null)
+            {
+                // File was written but attachment no longer exists - clean up
+                try
+                {
+                    File.Delete(filePath);
+                }
+                catch (Exception cleanupEx)
+                {
+                    _logger.LogWarning(cleanupEx, "Failed to clean up orphaned file: {FilePath}", filePath);
+                }
+                throw new InvalidOperationException($"Attachment with ID {attachmentId} not found");
+            }
+            
+            attachment.FilePath = filePath;
+            attachment.UploadStatus = Models.UploadStatus.Completed;
+            
+            await context.SaveChangesAsync();
+        }
         
-        await context.SaveChangesAsync();
-        
-        _logger.LogInformation("Uploaded file for attachment {AttachmentId}: {FileName}", attachmentId, attachment.FileName);
+        _logger.LogInformation("Uploaded file for attachment {AttachmentId}: {FileName}", attachmentId, fileName);
     }
 }

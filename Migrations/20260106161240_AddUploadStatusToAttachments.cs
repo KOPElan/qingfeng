@@ -22,10 +22,6 @@ namespace QingFeng.Migrations
                 type: "TEXT",
                 nullable: false,
                 defaultValue: "Completed");
-                
-            // Update existing records to have "Completed" status since they were already uploaded
-            migrationBuilder.Sql(
-                "UPDATE AnydropAttachments SET UploadStatus = 'Completed' WHERE UploadStatus IS NULL OR UploadStatus = '';");
         }
 
         /// <inheritdoc />
