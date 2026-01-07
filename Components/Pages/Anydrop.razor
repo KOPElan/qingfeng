@@ -1591,21 +1591,8 @@
         searchDebounceTimer?.Dispose();
         modalSearchDebounceTimer?.Dispose();
         
-        // Cancel any ongoing uploads
+        // Cancel any ongoing uploads - cancellation tokens will handle cleanup
         _uploadCancellationTokenSource?.Cancel();
         _uploadCancellationTokenSource?.Dispose();
-        
-        // Wait for active uploads to complete (with timeout)
-        if (_activeUploadTasks.Count > 0)
-        {
-            try
-            {
-                Task.WaitAll(_activeUploadTasks.ToArray(), TimeSpan.FromSeconds(5));
-            }
-            catch (AggregateException)
-            {
-                // Swallow exceptions during disposal
-            }
-        }
     }
 }
