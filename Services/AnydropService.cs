@@ -131,7 +131,8 @@ public class AnydropService : IAnydropService
             FileSize = fileSize,
             ContentType = contentType,
             AttachmentType = attachmentType,
-            UploadedAt = DateTime.UtcNow
+            UploadedAt = DateTime.UtcNow,
+            UploadStatus = Models.UploadStatus.Completed // Mark as completed since file is uploaded
         };
         
         context.AnydropAttachments.Add(attachment);
@@ -368,5 +369,157 @@ public class AnydropService : IAnydropService
             _logger.LogWarning(ex, "Failed to fetch metadata from URL: {Url}", url);
             return (null, null);
         }
+    }
+
+    public async Task<AnydropAttachment> CreatePlaceholderAttachmentAsync(int messageId, string fileName, long fileSize, string contentType)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        // Verify message exists
+        var message = await context.AnydropMessages.FindAsync(messageId);
+        if (message == null)
+        {
+            throw new InvalidOperationException($"Message with ID {messageId} not found");
+        }
+        
+        // Determine attachment type from content type
+        var attachmentType = DetermineAttachmentType(contentType);
+        
+        var attachment = new AnydropAttachment
+        {
+            MessageId = messageId,
+            FileName = fileName,
+            FilePath = string.Empty, // Will be set when file is actually uploaded
+            FileSize = fileSize,
+            ContentType = contentType,
+            AttachmentType = attachmentType,
+            UploadedAt = DateTime.UtcNow,
+            UploadStatus = Models.UploadStatus.Pending
+        };
+        
+        context.AnydropAttachments.Add(attachment);
+        
+        // Update message type to match attachment type
+        message.MessageType = attachmentType != "Other" ? attachmentType : "File";
+        
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("Created placeholder attachment for message {MessageId}: {FileName}", messageId, fileName);
+        return attachment;
+    }
+
+    public async Task UpdateAttachmentStatusAsync(int attachmentId, string status, string? errorMessage = null)
+    {
+        // Validate status
+        if (!Models.UploadStatus.IsValid(status))
+        {
+            throw new ArgumentException($"Invalid upload status: {status}", nameof(status));
+        }
+        
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+        if (attachment == null)
+        {
+            throw new InvalidOperationException($"Attachment with ID {attachmentId} not found");
+        }
+        
+        attachment.UploadStatus = status;
+        attachment.UploadErrorMessage = errorMessage;
+        
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("Updated attachment {AttachmentId} status to {Status}", attachmentId, status);
+    }
+
+    public async Task UploadAttachmentFileAsync(int attachmentId, Stream fileStream)
+    {
+        // First context: Fetch attachment details
+        string filePath;
+        int messageId;
+        string fileName;
+        
+        using (var context = await _dbContextFactory.CreateDbContextAsync())
+        {
+            var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+            if (attachment == null)
+            {
+                throw new InvalidOperationException($"Attachment with ID {attachmentId} not found");
+            }
+            
+            messageId = attachment.MessageId;
+            fileName = attachment.FileName;
+            
+            // Generate unique file name
+            var fileExtension = Path.GetExtension(fileName);
+            var uniqueFileName = $"{messageId}_{Guid.NewGuid()}{fileExtension}";
+            filePath = Path.Combine(_anydropStoragePath, uniqueFileName);
+        }
+        
+        // Save file to disk with error handling (outside DbContext)
+        try
+        {
+            using (var fileStreamWriter = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                await fileStream.CopyToAsync(fileStreamWriter);
+                await fileStreamWriter.FlushAsync();
+            }
+            
+            // Verify file was written successfully
+            if (!File.Exists(filePath))
+            {
+                throw new IOException($"File was not written successfully: {filePath}");
+            }
+            
+            var fileInfo = new FileInfo(filePath);
+            if (fileInfo.Length == 0)
+            {
+                File.Delete(filePath);
+                throw new IOException("File was written but has zero length");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Clean up file if it was partially written
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+            }
+            catch (Exception cleanupEx)
+            {
+                _logger.LogWarning(cleanupEx, "Failed to clean up partially written file: {FilePath}", filePath);
+            }
+            
+            throw new IOException($"Failed to save file: {ex.Message}", ex);
+        }
+        
+        // Second context: Update attachment status after file is written
+        using (var context = await _dbContextFactory.CreateDbContextAsync())
+        {
+            var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+            if (attachment == null)
+            {
+                // File was written but attachment no longer exists - clean up
+                try
+                {
+                    File.Delete(filePath);
+                }
+                catch (Exception cleanupEx)
+                {
+                    _logger.LogWarning(cleanupEx, "Failed to clean up orphaned file: {FilePath}", filePath);
+                }
+                throw new InvalidOperationException($"Attachment with ID {attachmentId} not found");
+            }
+            
+            attachment.FilePath = filePath;
+            attachment.UploadStatus = Models.UploadStatus.Completed;
+            
+            await context.SaveChangesAsync();
+        }
+        
+        _logger.LogInformation("Uploaded file for attachment {AttachmentId}: {FileName}", attachmentId, fileName);
     }
 }
