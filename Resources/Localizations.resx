@@ -152,6 +152,9 @@
   <data name="Setting_EnableNotifications" xml:space="preserve">
     <value>启用通知</value>
   </data>
+  <data name="Setting_AnydropStoragePath" xml:space="preserve">
+    <value>云笈存储位置</value>
+  </data>
   
   <!-- NavMenu -->
   <data name="ManageDock" xml:space="preserve">
