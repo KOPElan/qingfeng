@@ -10,6 +10,8 @@ public class ScheduledTaskExecutorService : BackgroundService
     private readonly ILogger<ScheduledTaskExecutorService> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
+    private readonly Dictionary<int, CancellationTokenSource> _runningTasks = new();
+    private readonly object _runningTasksLock = new();
 
     public ScheduledTaskExecutorService(
         ILogger<ScheduledTaskExecutorService> logger,
@@ -45,6 +47,20 @@ public class ScheduledTaskExecutorService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var taskService = scope.ServiceProvider.GetRequiredService<IScheduledTaskService>();
         
+        // Check for tasks that were marked as "Stopped" and cancel them
+        var allTasks = await taskService.GetAllTasksAsync();
+        foreach (var task in allTasks.Where(t => t.Status == "Stopped"))
+        {
+            lock (_runningTasksLock)
+            {
+                if (_runningTasks.TryGetValue(task.Id, out var cts))
+                {
+                    cts.Cancel();
+                    _logger.LogInformation("取消正在运行的任务: TaskId={TaskId}", task.Id);
+                }
+            }
+        }
+        
         var pendingTasks = await taskService.GetPendingTasksAsync();
         
         if (pendingTasks.Count > 0)
@@ -58,21 +74,35 @@ public class ScheduledTaskExecutorService : BackgroundService
                 break;
             
             // Execute task in background (don't wait)
+            var taskCts = new CancellationTokenSource();
+            lock (_runningTasksLock)
+            {
+                _runningTasks[task.Id] = taskCts;
+            }
+            
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await ExecuteTaskAsync(task.Id, task.TaskType, task.Configuration);
+                    await ExecuteTaskAsync(task.Id, task.TaskType, task.Configuration, taskCts.Token);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "执行定时任务时发生未处理的异常: TaskId={TaskId}", task.Id);
                 }
+                finally
+                {
+                    lock (_runningTasksLock)
+                    {
+                        _runningTasks.Remove(task.Id);
+                    }
+                    taskCts.Dispose();
+                }
             }, cancellationToken);
         }
     }
 
-    private async Task ExecuteTaskAsync(int taskId, string taskType, string configuration)
+    private async Task ExecuteTaskAsync(int taskId, string taskType, string configuration, CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var taskService = scope.ServiceProvider.GetRequiredService<IScheduledTaskService>();
@@ -88,15 +118,23 @@ public class ScheduledTaskExecutorService : BackgroundService
             switch (taskType)
             {
                 case "FileIndexing":
-                    await ExecuteFileIndexingTaskAsync(configuration);
+                    await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
                     break;
                 default:
                     _logger.LogWarning("未知的任务类型: {TaskType}", taskType);
                     break;
             }
             
-            // Get the task again to calculate next run time
+            // Check if task was stopped during execution
             var task = await taskService.GetTaskAsync(taskId);
+            if (task?.Status == "Stopped")
+            {
+                _logger.LogInformation("定时任务已被停止: ID={TaskId}", taskId);
+                await taskService.UpdateTaskStatusAsync(taskId, "Idle", null);
+                return;
+            }
+            
+            // Get the task again to calculate next run time
             if (task != null && task.IsEnabled && task.IntervalMinutes > 0)
             {
                 var nextRunTime = DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
@@ -108,6 +146,11 @@ public class ScheduledTaskExecutorService : BackgroundService
                 await taskService.UpdateTaskStatusAsync(taskId, "Completed", null);
                 _logger.LogInformation("定时任务执行成功: ID={TaskId}", taskId);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("定时任务被取消: ID={TaskId}", taskId);
+            await taskService.UpdateTaskStatusAsync(taskId, "Idle", null, "任务被取消");
         }
         catch (Exception ex)
         {
@@ -123,9 +166,16 @@ public class ScheduledTaskExecutorService : BackgroundService
             
             await taskService.UpdateTaskStatusAsync(taskId, "Failed", nextRunTime, ex.Message);
         }
+        finally
+        {
+            lock (_runningTasksLock)
+            {
+                _runningTasks.Remove(taskId);
+            }
+        }
     }
 
-    private async Task ExecuteFileIndexingTaskAsync(string configuration)
+    private async Task ExecuteFileIndexingTaskAsync(string configuration, CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var fileIndexService = scope.ServiceProvider.GetRequiredService<IFileIndexService>();

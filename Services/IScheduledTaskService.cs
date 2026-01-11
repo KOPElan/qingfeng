@@ -40,6 +40,11 @@ public interface IScheduledTaskService
     Task RunTaskNowAsync(int id);
     
     /// <summary>
+    /// Stop a running task
+    /// </summary>
+    Task StopTaskAsync(int id);
+    
+    /// <summary>
     /// Get tasks that need to run
     /// </summary>
     Task<List<ScheduledTask>> GetPendingTasksAsync();

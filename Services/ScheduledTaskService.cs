@@ -140,6 +140,28 @@ public class ScheduledTaskService : IScheduledTaskService
         _logger.LogInformation("立即运行定时任务: {TaskName}", task.Name);
     }
 
+    public async Task StopTaskAsync(int id)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var task = await context.ScheduledTasks.FindAsync(id);
+        if (task == null)
+            throw new InvalidOperationException($"任务不存在: {id}");
+        
+        if (task.Status != "Running")
+        {
+            _logger.LogWarning("任务不在运行状态，无法停止: {TaskName} (当前状态: {Status})", task.Name, task.Status);
+            return;
+        }
+        
+        // Mark task as stopped - the executor service will check this
+        task.Status = "Stopped";
+        task.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("标记定时任务为停止: {TaskName}", task.Name);
+    }
+
     public async Task<List<ScheduledTask>> GetPendingTasksAsync()
     {
         using var context = await _dbContextFactory.CreateDbContextAsync();
