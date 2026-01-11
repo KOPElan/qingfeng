@@ -14,8 +14,7 @@ public class AnydropService : IAnydropService
     private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
     private readonly ILogger<AnydropService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IConfiguration _configuration;
-    private string _anydropStoragePath;
+    private readonly string _anydropStoragePath;
 
     public AnydropService(
         IDbContextFactory<QingFengDbContext> dbContextFactory,
@@ -26,10 +25,9 @@ public class AnydropService : IAnydropService
         _dbContextFactory = dbContextFactory;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
-        _configuration = configuration;
         
-        // Initialize storage path synchronously
-        _anydropStoragePath = InitializeStoragePathAsync().GetAwaiter().GetResult();
+        // Initialize storage path - try to read from settings synchronously
+        _anydropStoragePath = GetStoragePathFromSettings(configuration);
         
         // Ensure storage directory exists
         if (!Directory.Exists(_anydropStoragePath))
@@ -39,14 +37,14 @@ public class AnydropService : IAnydropService
         }
     }
 
-    private async Task<string> InitializeStoragePathAsync()
+    private string GetStoragePathFromSettings(IConfiguration configuration)
     {
         try
         {
-            // Try to get from system settings first
-            using var context = await _dbContextFactory.CreateDbContextAsync();
-            var setting = await context.SystemSettings
-                .FirstOrDefaultAsync(s => s.Key == "anydropStoragePath");
+            // Try to get from system settings using synchronous API
+            using var context = _dbContextFactory.CreateDbContext();
+            var setting = context.SystemSettings
+                .FirstOrDefault(s => s.Key == "anydropStoragePath");
             
             if (setting != null && !string.IsNullOrWhiteSpace(setting.Value))
             {
@@ -59,7 +57,7 @@ public class AnydropService : IAnydropService
         }
         
         // Fallback to configuration or default
-        return _configuration["AnydropStoragePath"] ?? Path.Combine(Directory.GetCurrentDirectory(), "AnydropFiles");
+        return configuration["AnydropStoragePath"] ?? Path.Combine(Directory.GetCurrentDirectory(), "AnydropFiles");
     }
 
     public async Task<List<AnydropMessage>> GetMessagesAsync(int pageSize = 20, int? beforeMessageId = null)
