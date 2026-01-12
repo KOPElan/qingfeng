@@ -153,7 +153,7 @@ public class ScheduledTaskExecutorService : BackgroundService
                     await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
                     break;
                 case "ShellCommand":
-                    await ExecuteShellCommandTaskAsync(taskId, configuration, cancellationToken, historyService);
+                    await ExecuteShellCommandTaskAsync(taskId, configuration, cancellationToken);
                     break;
                 default:
                     _logger.LogWarning("未知的任务类型: {TaskType}", taskType);
@@ -262,7 +262,7 @@ public class ScheduledTaskExecutorService : BackgroundService
         _logger.LogInformation("文件索引重建完成: {RootPath}", config.RootPath);
     }
 
-    private async Task ExecuteShellCommandTaskAsync(int taskId, string configuration, CancellationToken cancellationToken, IScheduledTaskExecutionHistoryService historyService)
+    private async Task ExecuteShellCommandTaskAsync(int taskId, string configuration, CancellationToken cancellationToken)
     {
         // Parse configuration
         var config = JsonSerializer.Deserialize<ShellCommandConfig>(configuration);
@@ -270,16 +270,34 @@ public class ScheduledTaskExecutorService : BackgroundService
         {
             throw new InvalidOperationException("Shell命令任务配置无效");
         }
+        
+        // Validate working directory path if specified
+        if (!string.IsNullOrEmpty(config.WorkingDirectory))
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var fileManagerService = scope.ServiceProvider.GetRequiredService<IFileManagerService>();
+            
+            if (!fileManagerService.IsPathAllowed(config.WorkingDirectory))
+            {
+                throw new UnauthorizedAccessException($"不允许访问工作目录: {config.WorkingDirectory}");
+            }
+            
+            if (!Directory.Exists(config.WorkingDirectory))
+            {
+                throw new InvalidOperationException($"工作目录不存在: {config.WorkingDirectory}");
+            }
+        }
 
         _logger.LogInformation("开始执行Shell命令: {Command}", config.Command);
 
         var outputBuilder = new System.Text.StringBuilder();
         var errorBuilder = new System.Text.StringBuilder();
-        var startTime = DateTime.UtcNow;
 
         try
         {
             // Create a process to execute the command
+            // Note: Using ProcessStartInfo with Arguments array would be safer, but bash -c requires a single string
+            // The command is passed as-is to bash, so caller must ensure command safety
             var processStartInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "/bin/bash",

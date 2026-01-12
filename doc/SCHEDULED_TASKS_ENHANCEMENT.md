@@ -152,13 +152,43 @@ When `CaptureOutput` is enabled:
 
 ### Security Considerations
 
-⚠️ **Important Security Notes:**
+⚠️ **CRITICAL SECURITY WARNINGS:**
 
-1. **Permissions**: Commands run with the same permissions as the application
-2. **Input Validation**: No input sanitization is performed - use with caution
-3. **Access Control**: Ensure only authorized users can create tasks
-4. **Sensitive Data**: Avoid including passwords or secrets in command strings
-5. **Path Validation**: Consider restricting accessible paths
+1. **Command Injection Risk**: Commands are executed via `/bin/bash -c` and are **NOT sanitized**. 
+   - Only allow trusted users to create shell command tasks
+   - Do not accept user input directly in command strings
+   - Consider implementing an allowlist of permitted commands
+   - Review all commands before enabling tasks
+
+2. **Permissions**: Commands run with the same permissions as the application
+   - Ensure the application runs with minimal necessary privileges
+   - Avoid running the application as root
+
+3. **Path Validation**: Working directories are validated against `FileManagerService.IsPathAllowed()`
+   - Only accessible paths can be used as working directories
+   - Invalid or unauthorized paths will cause task failure
+
+4. **Access Control**: 
+   - Implement proper authentication and authorization
+   - Restrict task creation to administrator users only
+   - Consider adding audit logging for task creation/execution
+
+5. **Sensitive Data**: 
+   - Never include passwords or secrets in command strings
+   - Use environment variables or configuration files for sensitive data
+   - Commands and output are logged - avoid exposing secrets
+
+6. **Resource Limits**: 
+   - Set appropriate timeout values to prevent resource exhaustion
+   - Monitor task execution for unusual behavior
+   - Consider implementing additional resource limits (CPU, memory)
+
+**Recommended Security Practices:**
+- Implement a command allowlist or validation layer
+- Use dedicated service accounts with minimal privileges
+- Enable comprehensive audit logging
+- Regularly review executed commands and their outputs
+- Consider sandboxing or containerization for untrusted commands
 
 ## UI Features
 
