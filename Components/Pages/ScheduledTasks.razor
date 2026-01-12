@@ -7,6 +7,7 @@
 @inherits AuthorizedPageBase
 @implements IDisposable
 @inject IScheduledTaskService ScheduledTaskService
+@inject IScheduledTaskExecutionHistoryService ExecutionHistoryService
 @inject ILocalizationService LocalizationService
 @inject IFileManagerService FileManagerService
 @inject ILogger<ScheduledTasks> Logger
@@ -278,6 +279,13 @@
                         
                         <FluentButton Appearance="Appearance.Stealth" 
                                       IconOnly="true"
+                                      OnClick="@(() => ShowExecutionHistory(context.Id))" 
+                                      Title="执行历史">
+                            <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.History())" />
+                        </FluentButton>
+                        
+                        <FluentButton Appearance="Appearance.Stealth" 
+                                      IconOnly="true"
                                       OnClick="@(() => ShowEditTaskDialog(context))" 
                                       Title="编辑">
                             <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Edit())" />
@@ -334,12 +342,47 @@
             }
             
             <FluentStack Orientation="Orientation.Vertical">
-                <FluentLabel>执行频率（分钟）*</FluentLabel>
-                <FluentNumberField TValue="int" @bind-Value="taskInterval" Min="1" Style="width: 100%;" />
-                <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
-                    提示：60分钟 = 1小时，1440分钟 = 1天
-                </FluentLabel>
+                <FluentLabel>调度方式 *</FluentLabel>
+                <FluentSelect TOption="string"
+                              Items="@(new[] { "Interval", "Cron", "OneTime" })"
+                              OptionText="@GetScheduleTypeDisplay"
+                              OptionValue="@(item => item)"
+                              @bind-Value="scheduleType"
+                              Style="width: 100%;" />
             </FluentStack>
+            
+            @if (scheduleType == "Cron")
+            {
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentLabel>Cron 表达式 *</FluentLabel>
+                    <FluentTextField @bind-Value="taskCronExpression" Placeholder="例如: 0 0 * * * * (每小时)" Style="width: 100%;" />
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
+                        格式：秒 分 时 日 月 星期 | 示例：0 */30 * * * * (每30分钟)
+                    </FluentLabel>
+                    @if (!string.IsNullOrEmpty(cronValidationMessage))
+                    {
+                        <FluentLabel Typo="Typography.Body" Style="color: var(--error); font-size: 12px;">
+                            @cronValidationMessage
+                        </FluentLabel>
+                    }
+                </FluentStack>
+            }
+            else if (scheduleType == "Interval")
+            {
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentLabel>执行频率（分钟）*</FluentLabel>
+                    <FluentNumberField TValue="int" @bind-Value="taskInterval" Min="1" Style="width: 100%;" />
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
+                        提示：60分钟 = 1小时，1440分钟 = 1天
+                    </FluentLabel>
+                </FluentStack>
+            }
+            else
+            {
+                <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">
+                    此任务将只执行一次，执行后自动禁用
+                </FluentLabel>
+            }
             
             <FluentCheckbox @bind-Value="taskEnabled">@(editingTask == null ? "创建后立即启用" : "启用任务")</FluentCheckbox>
             
@@ -373,6 +416,58 @@
     </FluentDialogFooter>
 </FluentDialog>
 
+<!-- Execution History Dialog -->
+<FluentDialog Hidden="@(!showHistoryDialog)" Modal="true" OnDismiss="CloseHistoryDialog" Style="min-width: 800px; max-width: 90vw;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">执行历史</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (executionHistory == null)
+        {
+            <FluentProgressRing />
+        }
+        else if (executionHistory.Count == 0)
+        {
+            <FluentLabel>暂无执行记录</FluentLabel>
+        }
+        else
+        {
+            <FluentDataGrid Items="@executionHistory.AsQueryable()" Style="width: 100%; overflow-x: auto;">
+                <TemplateColumn Title="开始时间" Sortable="true" SortBy="@(GridSort<ScheduledTaskExecutionHistory>.ByAscending(h => h.StartTime))">
+                    @context.StartTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                </TemplateColumn>
+                <TemplateColumn Title="状态" Sortable="true" SortBy="@(GridSort<ScheduledTaskExecutionHistory>.ByAscending(h => h.Status))">
+                    <FluentBadge Appearance="@GetHistoryStatusAppearance(context.Status)" 
+                                 BackgroundColor="@GetHistoryStatusColor(context.Status)">
+                        @GetHistoryStatusDisplay(context.Status)
+                    </FluentBadge>
+                </TemplateColumn>
+                <TemplateColumn Title="执行时长" Sortable="true" SortBy="@(GridSort<ScheduledTaskExecutionHistory>.ByAscending(h => h.DurationMs))">
+                    @if (context.DurationMs.HasValue)
+                    {
+                        @(context.DurationMs.Value < 1000 ? $"{context.DurationMs.Value}ms" : $"{context.DurationMs.Value / 1000.0:F1}秒")
+                    }
+                    else
+                    {
+                        <span>-</span>
+                    }
+                </TemplateColumn>
+                <TemplateColumn Title="错误信息">
+                    @if (!string.IsNullOrEmpty(context.ErrorMessage))
+                    {
+                        <span title="@context.ErrorMessage" style="color: var(--error); max-width: 300px; overflow: hidden; text-overflow: ellipsis; display: block;">
+                            @(context.ErrorMessage.Length > 50 ? context.ErrorMessage.Substring(0, 50) + "..." : context.ErrorMessage)
+                        </span>
+                    }
+                </TemplateColumn>
+            </FluentDataGrid>
+        }
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseHistoryDialog">关闭</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
 @code {
     private const int TaskDialogAutoCloseDelayMs = 1000;
     private const int AutoRefreshIntervalMs = 5000;
@@ -381,11 +476,13 @@
     private Timer? refreshTimer;
     private bool showTaskDialog = false;
     private bool showDeleteDialog = false;
+    private bool showHistoryDialog = false;
     private ScheduledTask? editingTask = null;
     private ScheduledTask? deletingTask = null;
     private string statusFilter = "All";
     private string nameFilter = string.Empty;
     private bool _disposed = false;
+    private List<ScheduledTaskExecutionHistory>? executionHistory;
     
     // Task dialog state
     private string taskName = string.Empty;
@@ -396,6 +493,9 @@
     private bool taskEnabled = true;
     private string taskDialogMessage = string.Empty;
     private bool taskDialogSuccess = false;
+    private string scheduleType = "Interval"; // "Interval", "Cron", "OneTime"
+    private string taskCronExpression = string.Empty;
+    private string cronValidationMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -488,9 +588,12 @@
         taskName = string.Empty;
         taskDescription = string.Empty;
         taskType = "FileIndexing";
-        taskConfigRootPath = string.Empty; // Let user specify the path
+        taskConfigRootPath = string.Empty;
         taskInterval = 1440;
         taskEnabled = true;
+        scheduleType = "Interval";
+        taskCronExpression = string.Empty;
+        cronValidationMessage = string.Empty;
         taskDialogMessage = string.Empty;
         taskDialogSuccess = false;
         showTaskDialog = true;
@@ -504,6 +607,23 @@
         taskType = task.TaskType;
         taskInterval = task.IntervalMinutes;
         taskEnabled = task.IsEnabled;
+        taskCronExpression = task.CronExpression ?? string.Empty;
+        cronValidationMessage = string.Empty;
+        
+        // Determine schedule type
+        if (task.IsOneTime)
+        {
+            scheduleType = "OneTime";
+        }
+        else if (!string.IsNullOrEmpty(task.CronExpression))
+        {
+            scheduleType = "Cron";
+        }
+        else
+        {
+            scheduleType = "Interval";
+        }
+        
         taskDialogMessage = string.Empty;
         taskDialogSuccess = false;
         
@@ -544,11 +664,34 @@
                 return;
             }
 
-            if (taskInterval < 1)
+            // Validate schedule settings
+            if (scheduleType == "Interval")
             {
-                taskDialogMessage = "执行频率必须大于0";
-                taskDialogSuccess = false;
-                return;
+                if (taskInterval < 1)
+                {
+                    taskDialogMessage = "执行频率必须大于0";
+                    taskDialogSuccess = false;
+                    return;
+                }
+            }
+            else if (scheduleType == "Cron")
+            {
+                if (string.IsNullOrWhiteSpace(taskCronExpression))
+                {
+                    taskDialogMessage = "请输入Cron表达式";
+                    taskDialogSuccess = false;
+                    return;
+                }
+                
+                if (!ScheduledTaskService.ValidateCronExpression(taskCronExpression))
+                {
+                    cronValidationMessage = "Cron表达式格式无效";
+                    taskDialogMessage = "Cron表达式格式无效";
+                    taskDialogSuccess = false;
+                    return;
+                }
+                
+                cronValidationMessage = string.Empty;
             }
 
             // Build configuration
@@ -584,6 +727,8 @@
                     TaskType = taskType,
                     Configuration = configuration,
                     IntervalMinutes = taskInterval,
+                    CronExpression = scheduleType == "Cron" ? taskCronExpression : null,
+                    IsOneTime = scheduleType == "OneTime",
                     IsEnabled = taskEnabled
                 };
                 
@@ -598,6 +743,8 @@
                 editingTask.TaskType = taskType;
                 editingTask.Configuration = configuration;
                 editingTask.IntervalMinutes = taskInterval;
+                editingTask.CronExpression = scheduleType == "Cron" ? taskCronExpression : null;
+                editingTask.IsOneTime = scheduleType == "OneTime";
                 editingTask.IsEnabled = taskEnabled;
                 
                 await ScheduledTaskService.UpdateTaskAsync(editingTask);
@@ -747,6 +894,70 @@
             _ => "circle"
         };
     }
+    
+    private async Task ShowExecutionHistory(int taskId)
+    {
+        try
+        {
+            executionHistory = await ExecutionHistoryService.GetHistoryByTaskIdAsync(taskId, 50);
+            showHistoryDialog = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load execution history for task {TaskId}", taskId);
+        }
+    }
+    
+    private void CloseHistoryDialog()
+    {
+        showHistoryDialog = false;
+        executionHistory = null;
+    }
+    
+    private string GetScheduleTypeDisplay(string type)
+    {
+        return type switch
+        {
+            "Interval" => "固定间隔",
+            "Cron" => "Cron表达式",
+            "OneTime" => "一次性任务",
+            _ => type
+        };
+    }
+    
+    private string GetHistoryStatusDisplay(string status)
+    {
+        return status switch
+        {
+            "Success" => "成功",
+            "Failed" => "失败",
+            "Cancelled" => "已取消",
+            "Running" => "运行中",
+            _ => status
+        };
+    }
+    
+    private Appearance GetHistoryStatusAppearance(string status)
+    {
+        return status switch
+        {
+            "Success" => Appearance.Accent,
+            "Running" => Appearance.Accent,
+            _ => Appearance.Neutral
+        };
+    }
+    
+    private string GetHistoryStatusColor(string status)
+    {
+        return status switch
+        {
+            "Success" => "#43e97b",
+            "Failed" => "#fa709a",
+            "Cancelled" => "#ffa726",
+            "Running" => "#4facfe",
+            _ => "#a8a8a8"
+        };
+    }
 
     public void Dispose()
     {
@@ -754,3 +965,4 @@
         refreshTimer?.Dispose();
     }
 }
+
