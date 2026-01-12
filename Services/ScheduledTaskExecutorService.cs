@@ -155,6 +155,9 @@ public class ScheduledTaskExecutorService : BackgroundService
                 case "ShellCommand":
                     await ExecuteShellCommandTaskAsync(taskId, configuration, cancellationToken);
                     break;
+                case "AnydropMigration":
+                    await ExecuteAnydropMigrationTaskAsync(configuration, cancellationToken);
+                    break;
                 default:
                     _logger.LogWarning("未知的任务类型: {TaskType}", taskType);
                     break;
@@ -395,5 +398,122 @@ public class ScheduledTaskExecutorService : BackgroundService
             _logger.LogError(ex, "执行Shell命令失败: {Command}", config.Command);
             throw;
         }
+    }
+
+    private async Task ExecuteAnydropMigrationTaskAsync(string configuration, CancellationToken cancellationToken)
+    {
+        // Parse configuration
+        var config = JsonSerializer.Deserialize<AnydropMigrationConfig>(configuration);
+        if (config == null || string.IsNullOrEmpty(config.SourceDirectory) || string.IsNullOrEmpty(config.DestinationDirectory))
+        {
+            throw new InvalidOperationException("Anydrop迁移任务配置无效");
+        }
+
+        _logger.LogInformation("开始Anydrop文件迁移: {Source} -> {Destination}", config.SourceDirectory, config.DestinationDirectory);
+
+        if (!Directory.Exists(config.SourceDirectory))
+        {
+            _logger.LogWarning("源目录不存在: {Source}，无需迁移", config.SourceDirectory);
+            return;
+        }
+
+        // Create destination directory if it doesn't exist
+        if (!Directory.Exists(config.DestinationDirectory))
+        {
+            Directory.CreateDirectory(config.DestinationDirectory);
+            _logger.LogInformation("创建目标目录: {Destination}", config.DestinationDirectory);
+        }
+
+        // Get all files in the source directory
+        var files = Directory.GetFiles(config.SourceDirectory, "*", SearchOption.AllDirectories);
+        var totalFiles = files.Length;
+        var movedFiles = 0;
+        var failedFiles = 0;
+
+        _logger.LogInformation("准备迁移 {TotalFiles} 个文件", totalFiles);
+
+        foreach (var sourceFile in files)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("Anydrop迁移任务被取消");
+                throw new OperationCanceledException();
+            }
+
+            try
+            {
+                // Calculate relative path
+                var relativePath = Path.GetRelativePath(config.SourceDirectory, sourceFile);
+                var destinationFile = Path.Combine(config.DestinationDirectory, relativePath);
+
+                // Create subdirectories if needed
+                var destinationDir = Path.GetDirectoryName(destinationFile);
+                if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
+                {
+                    Directory.CreateDirectory(destinationDir);
+                }
+
+                // Move the file
+                if (File.Exists(destinationFile))
+                {
+                    _logger.LogWarning("目标文件已存在，跳过: {File}", relativePath);
+                    failedFiles++;
+                }
+                else
+                {
+                    File.Move(sourceFile, destinationFile);
+                    movedFiles++;
+                    
+                    if (movedFiles % 100 == 0)
+                    {
+                        _logger.LogInformation("已迁移 {MovedFiles}/{TotalFiles} 个文件", movedFiles, totalFiles);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "迁移文件失败: {File}", sourceFile);
+                failedFiles++;
+            }
+        }
+
+        // Try to remove empty directories in source
+        try
+        {
+            var directories = Directory.GetDirectories(config.SourceDirectory, "*", SearchOption.AllDirectories)
+                .OrderByDescending(d => d.Length); // Process deepest directories first
+
+            foreach (var dir in directories)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+
+                try
+                {
+                    if (!Directory.EnumerateFileSystemEntries(dir).Any())
+                    {
+                        Directory.Delete(dir);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "无法删除空目录: {Directory}", dir);
+                }
+            }
+
+            // Try to remove the root source directory if empty
+            if (!Directory.EnumerateFileSystemEntries(config.SourceDirectory).Any())
+            {
+                Directory.Delete(config.SourceDirectory);
+                _logger.LogInformation("源目录已清空并删除: {Source}", config.SourceDirectory);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "清理源目录时发生错误");
+        }
+
+        _logger.LogInformation("Anydrop文件迁移完成: 成功 {MovedFiles} 个, 失败 {FailedFiles} 个, 总计 {TotalFiles} 个", 
+            movedFiles, failedFiles, totalFiles);
     }
 }
