@@ -152,6 +152,9 @@ public class ScheduledTaskExecutorService : BackgroundService
                 case "FileIndexing":
                     await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
                     break;
+                case "ShellCommand":
+                    await ExecuteShellCommandTaskAsync(taskId, configuration, cancellationToken, historyService);
+                    break;
                 default:
                     _logger.LogWarning("未知的任务类型: {TaskType}", taskType);
                     break;
@@ -257,5 +260,113 @@ public class ScheduledTaskExecutorService : BackgroundService
         _logger.LogInformation("开始重建文件索引: {RootPath}", config.RootPath);
         await fileIndexService.RebuildIndexAsync(config.RootPath);
         _logger.LogInformation("文件索引重建完成: {RootPath}", config.RootPath);
+    }
+
+    private async Task ExecuteShellCommandTaskAsync(int taskId, string configuration, CancellationToken cancellationToken, IScheduledTaskExecutionHistoryService historyService)
+    {
+        // Parse configuration
+        var config = JsonSerializer.Deserialize<ShellCommandConfig>(configuration);
+        if (config == null || string.IsNullOrEmpty(config.Command))
+        {
+            throw new InvalidOperationException("Shell命令任务配置无效");
+        }
+
+        _logger.LogInformation("开始执行Shell命令: {Command}", config.Command);
+
+        var outputBuilder = new System.Text.StringBuilder();
+        var errorBuilder = new System.Text.StringBuilder();
+        var startTime = DateTime.UtcNow;
+
+        try
+        {
+            // Create a process to execute the command
+            var processStartInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "/bin/bash",
+                Arguments = $"-c \"{config.Command.Replace("\"", "\\\"")}\"",
+                RedirectStandardOutput = config.CaptureOutput,
+                RedirectStandardError = config.CaptureOutput,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = string.IsNullOrEmpty(config.WorkingDirectory) ? Environment.CurrentDirectory : config.WorkingDirectory
+            };
+
+            using var process = new System.Diagnostics.Process { StartInfo = processStartInfo };
+            
+            if (config.CaptureOutput)
+            {
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        outputBuilder.AppendLine(e.Data);
+                        _logger.LogInformation("[TaskId={TaskId}] {Output}", taskId, e.Data);
+                    }
+                };
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        errorBuilder.AppendLine(e.Data);
+                        _logger.LogWarning("[TaskId={TaskId}] {Error}", taskId, e.Data);
+                    }
+                };
+            }
+
+            process.Start();
+
+            if (config.CaptureOutput)
+            {
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+            }
+
+            // Wait for the process to exit with timeout
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(config.TimeoutSeconds), cancellationToken);
+            var processTask = process.WaitForExitAsync(cancellationToken);
+            
+            var completedTask = await Task.WhenAny(processTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                // Timeout occurred
+                try
+                {
+                    process.Kill(true);
+                }
+                catch { }
+                throw new TimeoutException($"命令执行超时（超过 {config.TimeoutSeconds} 秒）");
+            }
+
+            // Process completed
+            var exitCode = process.ExitCode;
+            var output = outputBuilder.ToString();
+            var errorOutput = errorBuilder.ToString();
+
+            if (exitCode != 0)
+            {
+                var errorMessage = $"命令执行失败，退出码: {exitCode}";
+                if (!string.IsNullOrEmpty(errorOutput))
+                {
+                    errorMessage += $"\n错误输出:\n{errorOutput}";
+                }
+                throw new InvalidOperationException(errorMessage);
+            }
+
+            _logger.LogInformation("Shell命令执行成功: {Command}, 退出码: {ExitCode}", config.Command, exitCode);
+
+            // Update history with output if we have one to update
+            // Note: history is created in ExecuteTaskAsync, we just need to update the result
+            // We'll let the caller handle that, but we can log it here
+            if (!string.IsNullOrEmpty(output))
+            {
+                _logger.LogInformation("命令输出:\n{Output}", output);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "执行Shell命令失败: {Command}", config.Command);
+            throw;
+        }
     }
 }

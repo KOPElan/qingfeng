@@ -325,7 +325,7 @@
             <FluentStack Orientation="Orientation.Vertical">
                 <FluentLabel>任务类型 *</FluentLabel>
                 <FluentSelect TOption="string"
-                              Items="@(new[] { "FileIndexing" })"
+                              Items="@(new[] { "FileIndexing", "ShellCommand" })"
                               OptionText="@GetTaskTypeDisplay"
                               OptionValue="@(item => item)"
                               @bind-Value="taskType"
@@ -339,6 +339,36 @@
                     <FluentLabel>索引目录 *</FluentLabel>
                     <FluentTextField @bind-Value="taskConfigRootPath" Placeholder="输入要索引的目录路径" Style="width: 100%;" />
                 </FluentStack>
+            }
+            else if (taskType == "ShellCommand")
+            {
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentLabel>Shell命令 *</FluentLabel>
+                    <FluentTextArea @bind-Value="taskShellCommand" 
+                                    Placeholder="输入要执行的Shell命令，例如: ls -la /home" 
+                                    Style="width: 100%;" 
+                                    Rows="3" />
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
+                        ⚠️ 命令将以应用程序权限执行，请谨慎使用
+                    </FluentLabel>
+                </FluentStack>
+                
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentLabel>工作目录（可选）</FluentLabel>
+                    <FluentTextField @bind-Value="taskWorkingDirectory" 
+                                     Placeholder="留空使用当前目录" 
+                                     Style="width: 100%;" />
+                </FluentStack>
+                
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentLabel>超时时间（秒）</FluentLabel>
+                    <FluentNumberField TValue="int" @bind-Value="taskTimeoutSeconds" Min="1" Max="86400" Style="width: 100%;" />
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
+                        默认: 3600秒 (1小时)，最大: 86400秒 (24小时)
+                    </FluentLabel>
+                </FluentStack>
+                
+                <FluentCheckbox @bind-Value="taskCaptureOutput">捕获命令输出</FluentCheckbox>
             }
             
             <FluentStack Orientation="Orientation.Vertical">
@@ -496,6 +526,12 @@
     private string scheduleType = "Interval"; // "Interval", "Cron", "OneTime"
     private string taskCronExpression = string.Empty;
     private string cronValidationMessage = string.Empty;
+    
+    // Shell command task state
+    private string taskShellCommand = string.Empty;
+    private string taskWorkingDirectory = string.Empty;
+    private int taskTimeoutSeconds = 3600;
+    private bool taskCaptureOutput = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -596,6 +632,10 @@
         cronValidationMessage = string.Empty;
         taskDialogMessage = string.Empty;
         taskDialogSuccess = false;
+        taskShellCommand = string.Empty;
+        taskWorkingDirectory = string.Empty;
+        taskTimeoutSeconds = 3600;
+        taskCaptureOutput = true;
         showTaskDialog = true;
     }
 
@@ -627,6 +667,12 @@
         taskDialogMessage = string.Empty;
         taskDialogSuccess = false;
         
+        // Reset shell command fields
+        taskShellCommand = string.Empty;
+        taskWorkingDirectory = string.Empty;
+        taskTimeoutSeconds = 3600;
+        taskCaptureOutput = true;
+        
         // Parse configuration
         if (task.TaskType == "FileIndexing" && !string.IsNullOrEmpty(task.Configuration))
         {
@@ -639,6 +685,24 @@
             {
                 Logger.LogWarning(ex, "Failed to deserialize FileIndexing configuration for scheduled task '{TaskName}' (ID: {TaskId}). Falling back to empty path.", task.Name, task.Id);
                 taskConfigRootPath = string.Empty;
+            }
+        }
+        else if (task.TaskType == "ShellCommand" && !string.IsNullOrEmpty(task.Configuration))
+        {
+            try
+            {
+                var config = JsonSerializer.Deserialize<ShellCommandConfig>(task.Configuration);
+                if (config != null)
+                {
+                    taskShellCommand = config.Command;
+                    taskWorkingDirectory = config.WorkingDirectory ?? string.Empty;
+                    taskTimeoutSeconds = config.TimeoutSeconds;
+                    taskCaptureOutput = config.CaptureOutput;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to deserialize ShellCommand configuration for scheduled task '{TaskName}' (ID: {TaskId}). Falling back to defaults.", task.Name, task.Id);
             }
         }
         
@@ -714,6 +778,24 @@
                 }
                 
                 var config = new FileIndexingConfig { RootPath = taskConfigRootPath };
+                configuration = JsonSerializer.Serialize(config);
+            }
+            else if (taskType == "ShellCommand")
+            {
+                if (string.IsNullOrWhiteSpace(taskShellCommand))
+                {
+                    taskDialogMessage = "请输入Shell命令";
+                    taskDialogSuccess = false;
+                    return;
+                }
+                
+                var config = new ShellCommandConfig 
+                { 
+                    Command = taskShellCommand,
+                    WorkingDirectory = taskWorkingDirectory,
+                    TimeoutSeconds = taskTimeoutSeconds,
+                    CaptureOutput = taskCaptureOutput
+                };
                 configuration = JsonSerializer.Serialize(config);
             }
 
@@ -840,6 +922,7 @@
         return taskTypeCode switch
         {
             "FileIndexing" => "文件索引",
+            "ShellCommand" => "Shell命令",
             _ => taskTypeCode
         };
     }
