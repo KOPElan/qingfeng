@@ -348,9 +348,15 @@
                                     Placeholder="输入要执行的Shell命令，例如: ls -la /home" 
                                     Style="width: 100%;" 
                                     Rows="3" />
-                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
-                        ⚠️ 命令将以应用程序权限执行，请谨慎使用
-                    </FluentLabel>
+                    <FluentMessageBar Intent="MessageIntent.Warning">
+                        <strong>⚠️ 安全警告:</strong>
+                        <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                            <li>命令将直接执行，无输入清理</li>
+                            <li>请勿在命令中包含用户输入或敏感数据</li>
+                            <li>命令以应用程序权限运行，请谨慎使用</li>
+                            <li>详见 <code>doc/SECURITY_SHELL_COMMANDS.md</code> 安全指南</li>
+                        </ul>
+                    </FluentMessageBar>
                 </FluentStack>
                 
                 <FluentStack Orientation="Orientation.Vertical">

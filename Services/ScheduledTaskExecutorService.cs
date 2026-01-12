@@ -295,9 +295,17 @@ public class ScheduledTaskExecutorService : BackgroundService
 
         try
         {
-            // Create a process to execute the command
-            // Note: Using ProcessStartInfo with Arguments array would be safer, but bash -c requires a single string
-            // The command is passed as-is to bash, so caller must ensure command safety
+            // ⚠️ SECURITY NOTE: Commands are executed via /bin/bash -c with only basic quote escaping.
+            // This approach is chosen for maximum flexibility but requires strict access control.
+            // REQUIREMENTS for callers:
+            // 1. Only allow trusted administrators to create shell command tasks
+            // 2. Never include unsanitized user input in command strings
+            // 3. Implement command allowlist or approval workflow in production
+            // 4. See doc/SECURITY_SHELL_COMMANDS.md for complete security guidelines
+            //
+            // Alternative considered: ProcessStartInfo with argument arrays would be safer but
+            // doesn't support complex shell commands (pipes, redirects, etc.) which is the
+            // primary use case for this feature.
             var processStartInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "/bin/bash",
@@ -373,9 +381,10 @@ public class ScheduledTaskExecutorService : BackgroundService
 
             _logger.LogInformation("Shell命令执行成功: {Command}, 退出码: {ExitCode}", config.Command, exitCode);
 
-            // Update history with output if we have one to update
-            // Note: history is created in ExecuteTaskAsync, we just need to update the result
-            // We'll let the caller handle that, but we can log it here
+            // Output capture note: Command output is logged in real-time above (via OutputDataReceived).
+            // The execution history is updated by the calling method (ExecuteTaskAsync) which handles
+            // the overall task lifecycle including success/failure status and duration.
+            // Individual command outputs are visible in server logs with [TaskId=X] prefix.
             if (!string.IsNullOrEmpty(output))
             {
                 _logger.LogInformation("命令输出:\n{Output}", output);
