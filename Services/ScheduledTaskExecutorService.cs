@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
+using QingFeng.Models;
 
 namespace QingFeng.Services;
 
@@ -10,6 +11,8 @@ public class ScheduledTaskExecutorService : BackgroundService
     private readonly ILogger<ScheduledTaskExecutorService> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
+    private readonly Dictionary<int, CancellationTokenSource> _runningTasks = new();
+    private readonly object _runningTasksLock = new();
 
     public ScheduledTaskExecutorService(
         ILogger<ScheduledTaskExecutorService> logger,
@@ -45,6 +48,28 @@ public class ScheduledTaskExecutorService : BackgroundService
         using var scope = _serviceProvider.CreateScope();
         var taskService = scope.ServiceProvider.GetRequiredService<IScheduledTaskService>();
         
+        // Check for tasks that were marked as "Stopped" and cancel them
+        var allTasks = await taskService.GetAllTasksAsync();
+        foreach (var task in allTasks.Where(t => t.Status == "Stopped"))
+        {
+            CancellationTokenSource? cts = null;
+            lock (_runningTasksLock)
+            {
+                if (_runningTasks.TryGetValue(task.Id, out var existingCts))
+                {
+                    cts = existingCts;
+                    _runningTasks.Remove(task.Id);
+                }
+            }
+
+            if (cts != null)
+            {
+                cts.Cancel();
+                cts.Dispose();
+                _logger.LogInformation("取消正在运行的任务: TaskId={TaskId}", task.Id);
+            }
+        }
+        
         var pendingTasks = await taskService.GetPendingTasksAsync();
         
         if (pendingTasks.Count > 0)
@@ -57,28 +82,65 @@ public class ScheduledTaskExecutorService : BackgroundService
             if (cancellationToken.IsCancellationRequested)
                 break;
             
+            // Check if task is already running to avoid resource leak
+            lock (_runningTasksLock)
+            {
+                if (_runningTasks.ContainsKey(task.Id))
+                {
+                    _logger.LogWarning("任务已在运行中，跳过: TaskId={TaskId}", task.Id);
+                    continue;
+                }
+            }
+            
             // Execute task in background (don't wait)
+            // Link the task CancellationTokenSource with the service's cancellation token
+            var taskCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            lock (_runningTasksLock)
+            {
+                _runningTasks[task.Id] = taskCts;
+            }
+            
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await ExecuteTaskAsync(task.Id, task.TaskType, task.Configuration);
+                    await ExecuteTaskAsync(task.Id, task.TaskType, task.Configuration, taskCts.Token);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "执行定时任务时发生未处理的异常: TaskId={TaskId}", task.Id);
                 }
-            }, cancellationToken);
+                finally
+                {
+                    lock (_runningTasksLock)
+                    {
+                        _runningTasks.Remove(task.Id);
+                    }
+                    taskCts.Dispose();
+                }
+            }, CancellationToken.None); // Don't pass cancellation token here to avoid immediate cancellation
         }
     }
 
-    private async Task ExecuteTaskAsync(int taskId, string taskType, string configuration)
+    private async Task ExecuteTaskAsync(int taskId, string taskType, string configuration, CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var taskService = scope.ServiceProvider.GetRequiredService<IScheduledTaskService>();
+        var historyService = scope.ServiceProvider.GetRequiredService<IScheduledTaskExecutionHistoryService>();
+        
+        var startTime = DateTime.UtcNow;
+        var history = new ScheduledTaskExecutionHistory
+        {
+            ScheduledTaskId = taskId,
+            StartTime = startTime,
+            Status = "Running"
+        };
         
         try
         {
+            // Create history record
+            history = await historyService.CreateHistoryAsync(history);
+            
             _logger.LogInformation("开始执行定时任务: ID={TaskId}, Type={TaskType}", taskId, taskType);
             
             // Update status to Running
@@ -88,26 +150,66 @@ public class ScheduledTaskExecutorService : BackgroundService
             switch (taskType)
             {
                 case "FileIndexing":
-                    await ExecuteFileIndexingTaskAsync(configuration);
+                    await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
                     break;
                 default:
                     _logger.LogWarning("未知的任务类型: {TaskType}", taskType);
                     break;
             }
             
-            // Get the task again to calculate next run time
+            // Check if task was stopped during execution
             var task = await taskService.GetTaskAsync(taskId);
-            if (task != null && task.IsEnabled && task.IntervalMinutes > 0)
+            if (task?.Status == "Stopped")
             {
-                var nextRunTime = DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
-                await taskService.UpdateTaskStatusAsync(taskId, "Completed", nextRunTime);
-                _logger.LogInformation("定时任务执行成功: ID={TaskId}, 下次执行时间: {NextRunTime}", taskId, nextRunTime);
+                _logger.LogInformation("定时任务已被停止: ID={TaskId}", taskId);
+                await taskService.UpdateTaskStatusAsync(taskId, "Idle", null);
+                
+                // Update history
+                history.Status = "Cancelled";
+                history.EndTime = DateTime.UtcNow;
+                history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+                await historyService.UpdateHistoryAsync(history);
+                return;
             }
-            else
+            
+            // Calculate next run time
+            DateTime? nextRunTime = null;
+            if (task != null && task.IsEnabled)
             {
-                await taskService.UpdateTaskStatusAsync(taskId, "Completed", null);
-                _logger.LogInformation("定时任务执行成功: ID={TaskId}", taskId);
+                // If it's a one-time task, disable it after execution
+                if (task.IsOneTime)
+                {
+                    await taskService.SetTaskEnabledAsync(taskId, false);
+                    _logger.LogInformation("一次性任务已执行完成并禁用: ID={TaskId}", taskId);
+                }
+                else
+                {
+                    // Calculate next run time for recurring tasks
+                    nextRunTime = taskService.CalculateNextRunTime(task);
+                }
             }
+            
+            await taskService.UpdateTaskStatusAsync(taskId, "Completed", nextRunTime);
+            _logger.LogInformation("定时任务执行成功: ID={TaskId}, 下次执行时间: {NextRunTime}", taskId, nextRunTime);
+            
+            // Update history
+            history.Status = "Success";
+            history.EndTime = DateTime.UtcNow;
+            history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+            history.Result = "任务执行成功";
+            await historyService.UpdateHistoryAsync(history);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("定时任务被取消: ID={TaskId}", taskId);
+            await taskService.UpdateTaskStatusAsync(taskId, "Idle", null, "任务被取消");
+            
+            // Update history
+            history.Status = "Cancelled";
+            history.EndTime = DateTime.UtcNow;
+            history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+            history.ErrorMessage = "任务被取消";
+            await historyService.UpdateHistoryAsync(history);
         }
         catch (Exception ex)
         {
@@ -116,19 +218,28 @@ public class ScheduledTaskExecutorService : BackgroundService
             // Get the task again to calculate next run time even on failure
             var task = await taskService.GetTaskAsync(taskId);
             DateTime? nextRunTime = null;
-            if (task != null && task.IsEnabled && task.IntervalMinutes > 0)
+            if (task != null && task.IsEnabled)
             {
-                nextRunTime = DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
+                nextRunTime = taskService.CalculateNextRunTime(task);
             }
             
             await taskService.UpdateTaskStatusAsync(taskId, "Failed", nextRunTime, ex.Message);
+            
+            // Update history
+            history.Status = "Failed";
+            history.EndTime = DateTime.UtcNow;
+            history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+            history.ErrorMessage = ex.Message;
+            history.Result = ex.StackTrace;
+            await historyService.UpdateHistoryAsync(history);
         }
     }
 
-    private async Task ExecuteFileIndexingTaskAsync(string configuration)
+    private async Task ExecuteFileIndexingTaskAsync(string configuration, CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var fileIndexService = scope.ServiceProvider.GetRequiredService<IFileIndexService>();
+        var fileManagerService = scope.ServiceProvider.GetRequiredService<IFileManagerService>();
         
         // Parse configuration to get root path
         var config = JsonSerializer.Deserialize<FileIndexingConfig>(configuration);
@@ -137,13 +248,14 @@ public class ScheduledTaskExecutorService : BackgroundService
             throw new InvalidOperationException("文件索引任务配置无效");
         }
         
+        // Validate path is allowed for security
+        if (!fileManagerService.IsPathAllowed(config.RootPath))
+        {
+            throw new UnauthorizedAccessException($"不允许访问路径: {config.RootPath}");
+        }
+        
         _logger.LogInformation("开始重建文件索引: {RootPath}", config.RootPath);
         await fileIndexService.RebuildIndexAsync(config.RootPath);
         _logger.LogInformation("文件索引重建完成: {RootPath}", config.RootPath);
-    }
-
-    private class FileIndexingConfig
-    {
-        public string RootPath { get; set; } = string.Empty;
     }
 }

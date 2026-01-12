@@ -40,6 +40,11 @@ public interface IScheduledTaskService
     Task RunTaskNowAsync(int id);
     
     /// <summary>
+    /// Stop a running task
+    /// </summary>
+    Task StopTaskAsync(int id);
+    
+    /// <summary>
     /// Get tasks that need to run
     /// </summary>
     Task<List<ScheduledTask>> GetPendingTasksAsync();
@@ -48,4 +53,14 @@ public interface IScheduledTaskService
     /// Update task status and next run time
     /// </summary>
     Task UpdateTaskStatusAsync(int id, string status, DateTime? nextRunTime, string? error = null);
+    
+    /// <summary>
+    /// Validate a cron expression
+    /// </summary>
+    bool ValidateCronExpression(string cronExpression);
+    
+    /// <summary>
+    /// Calculate next run time from cron expression or interval
+    /// </summary>
+    DateTime? CalculateNextRunTime(ScheduledTask task);
 }

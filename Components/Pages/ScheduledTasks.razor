@@ -1,0 +1,968 @@
+@page "/scheduled-tasks"
+@using QingFeng.Services
+@using QingFeng.Models
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Icon = Microsoft.FluentUI.AspNetCore.Components.Icon
+@using System.Text.Json
+@inherits AuthorizedPageBase
+@implements IDisposable
+@inject IScheduledTaskService ScheduledTaskService
+@inject IScheduledTaskExecutionHistoryService ExecutionHistoryService
+@inject ILocalizationService LocalizationService
+@inject IFileManagerService FileManagerService
+@inject ILogger<ScheduledTasks> Logger
+@rendermode InteractiveServer
+
+<PageTitle>定时任务管理 - @LocalizationService.GetString("AppTitle")</PageTitle>
+
+@if (!IsAuthorized)
+{
+    <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="min-height: 200px;">
+        <FluentProgressRing />
+    </FluentStack>
+    return;
+}
+
+<FluentStack Orientation="Orientation.Vertical" Style="max-width: 1400px; margin: 0 auto; padding: 2rem; gap: 1.5rem;">
+    <!-- Header -->
+    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center;">
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.5rem;">
+            <FluentLabel Typo="Typography.H3">
+                ⏰ 定时任务管理
+            </FluentLabel>
+            <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">
+                管理和监控系统定时任务
+            </FluentLabel>
+        </FluentStack>
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 1rem;">
+            <FluentButton Appearance="Appearance.Stealth" 
+                          IconStart="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ArrowClockwise())"
+                          OnClick="RefreshTasksAsync">
+                刷新
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Accent" 
+                          IconStart="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Add())"
+                          OnClick="ShowCreateTaskDialog">
+                新建任务
+            </FluentButton>
+        </FluentStack>
+    </FluentStack>
+
+    <!-- Statistics Cards -->
+    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 1rem; flex-wrap: wrap;">
+        <FluentCard Style="flex: 1; min-width: 200px; padding: 1.5rem;">
+            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center;">
+                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.5rem;">
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">总任务数</FluentLabel>
+                    <FluentLabel Typo="Typography.H4">@(tasks?.Count ?? 0)</FluentLabel>
+                </FluentStack>
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;">
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Clock())" Color="@Color.Custom" CustomColor="#fff" />
+                </div>
+            </FluentStack>
+        </FluentCard>
+
+        <FluentCard Style="flex: 1; min-width: 200px; padding: 1.5rem;">
+            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center;">
+                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.5rem;">
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">运行中</FluentLabel>
+                    <FluentLabel Typo="Typography.H4">@GetTaskCountByStatus("Running")</FluentLabel>
+                </FluentStack>
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); display: flex; align-items: center; justify-content: center;">
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Play())" Color="@Color.Custom" CustomColor="#fff" />
+                </div>
+            </FluentStack>
+        </FluentCard>
+
+        <FluentCard Style="flex: 1; min-width: 200px; padding: 1.5rem;">
+            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center;">
+                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.5rem;">
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">已启用</FluentLabel>
+                    <FluentLabel Typo="Typography.H4">@(tasks?.Count(t => t.IsEnabled) ?? 0)</FluentLabel>
+                </FluentStack>
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); display: flex; align-items: center; justify-content: center;">
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.CheckmarkCircle())" Color="@Color.Custom" CustomColor="#fff" />
+                </div>
+            </FluentStack>
+        </FluentCard>
+
+        <FluentCard Style="flex: 1; min-width: 200px; padding: 1.5rem;">
+            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center;">
+                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.5rem;">
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">失败任务</FluentLabel>
+                    <FluentLabel Typo="Typography.H4">@GetTaskCountByStatus("Failed")</FluentLabel>
+                </FluentStack>
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); display: flex; align-items: center; justify-content: center;">
+                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ErrorCircle())" Color="@Color.Custom" CustomColor="#fff" />
+                </div>
+            </FluentStack>
+        </FluentCard>
+    </FluentStack>
+
+    <!-- Filter Tabs -->
+    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
+        <FluentButton Appearance="@(statusFilter == "All" ? Appearance.Accent : Appearance.Neutral)"
+                      OnClick="@(() => SetStatusFilter("All"))">
+            全部 (@(tasks?.Count ?? 0))
+        </FluentButton>
+        <FluentButton Appearance="@(statusFilter == "Running" ? Appearance.Accent : Appearance.Neutral)"
+                      OnClick="@(() => SetStatusFilter("Running"))">
+            运行中 (@GetTaskCountByStatus("Running"))
+        </FluentButton>
+        <FluentButton Appearance="@(statusFilter == "Completed" ? Appearance.Accent : Appearance.Neutral)"
+                      OnClick="@(() => SetStatusFilter("Completed"))">
+            已完成 (@GetTaskCountByStatus("Completed"))
+        </FluentButton>
+        <FluentButton Appearance="@(statusFilter == "Failed" ? Appearance.Accent : Appearance.Neutral)"
+                      OnClick="@(() => SetStatusFilter("Failed"))">
+            失败 (@GetTaskCountByStatus("Failed"))
+        </FluentButton>
+        <FluentButton Appearance="@(statusFilter == "Idle" ? Appearance.Accent : Appearance.Neutral)"
+                      OnClick="@(() => SetStatusFilter("Idle"))">
+            等待中 (@GetTaskCountByStatus("Idle"))
+        </FluentButton>
+        <FluentButton Appearance="@(statusFilter == "Disabled" ? Appearance.Accent : Appearance.Neutral)"
+                      OnClick="@(() => SetStatusFilter("Disabled"))">
+            已禁用 (@(tasks?.Count(t => !t.IsEnabled) ?? 0))
+        </FluentButton>
+    </FluentStack>
+
+    <!-- Tasks Table -->
+    <FluentCard Style="padding: 0;">
+        @if (tasks == null)
+        {
+            <FluentStack HorizontalAlignment="HorizontalAlignment.Center" Style="padding: 3rem;">
+                <FluentProgressRing />
+            </FluentStack>
+        }
+        else if (!GetFilteredTasks().Any())
+        {
+            <FluentStack HorizontalAlignment="HorizontalAlignment.Center" VerticalAlignment="VerticalAlignment.Center" Style="padding: 3rem;">
+                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Clock())" Color="@Color.Neutral" />
+                <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); margin-top: 1rem;">
+                    @(statusFilter == "All" ? "暂无任务，点击新建任务创建第一个任务" : $"没有{GetStatusFilterDisplayName()}的任务")
+                </FluentLabel>
+            </FluentStack>
+        }
+        else
+        {
+            <FluentDataGrid Items="@GetFilteredTasks().AsQueryable()" Style="width: 100%;">
+                <PropertyColumn Property="@(t => t.Name)" Title="任务名称" Sortable="true">
+                    <ColumnOptions>
+                        <div style="width: 250px;">
+                            <FluentSearch @bind-Value="nameFilter" 
+                                          @bind-Value:after="StateHasChanged"
+                                          Placeholder="搜索任务名称..." 
+                                          Style="width: 100%;" />
+                        </div>
+                    </ColumnOptions>
+                </PropertyColumn>
+                
+                <TemplateColumn Title="任务类型" Sortable="true" SortBy="@(GridSort<ScheduledTask>.ByAscending(t => t.TaskType))">
+                    <FluentBadge Appearance="Appearance.Neutral">
+                        @GetTaskTypeDisplay(context.TaskType)
+                    </FluentBadge>
+                </TemplateColumn>
+                
+                <TemplateColumn Title="执行频率" Sortable="true" SortBy="@(GridSort<ScheduledTask>.ByAscending(t => t.IntervalMinutes))">
+                    @if (context.IntervalMinutes >= 1440)
+                    {
+                        <span>@(context.IntervalMinutes / 1440) 天</span>
+                    }
+                    else if (context.IntervalMinutes >= 60)
+                    {
+                        <span>@(context.IntervalMinutes / 60) 小时</span>
+                    }
+                    else
+                    {
+                        <span>@context.IntervalMinutes 分钟</span>
+                    }
+                </TemplateColumn>
+                
+                <TemplateColumn Title="状态" Sortable="true" SortBy="@(GridSort<ScheduledTask>.ByAscending(t => t.Status))">
+                    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; align-items: center;">
+                        @{
+                            var statusColor = GetStatusColor(context.Status);
+                        }
+                        <div style="width: 8px; height: 8px; border-radius: 50%; background: @statusColor;"></div>
+                        <FluentBadge Appearance="@GetStatusAppearance(context.Status)" 
+                                     BackgroundColor="@statusColor"
+                                     Color="@statusColor">
+                            @GetStatusDisplay(context.Status)
+                        </FluentBadge>
+                    </FluentStack>
+                </TemplateColumn>
+                
+                <TemplateColumn Title="最后运行" Sortable="true" SortBy="@(GridSort<ScheduledTask>.ByDescending(t => t.LastRunTime))">
+                    @if (context.LastRunTime.HasValue)
+                    {
+                        <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.25rem;">
+                            <span>@context.LastRunTime.Value.ToLocalTime().ToString("MM-dd HH:mm")</span>
+                            @if (!string.IsNullOrEmpty(context.LastError) && context.Status == "Failed")
+                            {
+                                <FluentLabel Typo="Typography.Body" 
+                                             Style="color: var(--error); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" 
+                                             Title="@context.LastError">
+                                    ⚠️ @context.LastError
+                                </FluentLabel>
+                            }
+                        </FluentStack>
+                    }
+                    else
+                    {
+                        <span style="color: var(--neutral-foreground-hint);">未运行</span>
+                    }
+                </TemplateColumn>
+                
+                <TemplateColumn Title="下次运行" Sortable="true" SortBy="@(GridSort<ScheduledTask>.ByAscending(t => t.NextRunTime))">
+                    @if (context.NextRunTime.HasValue && context.IsEnabled)
+                    {
+                        var timeUntilRun = context.NextRunTime.Value - DateTime.UtcNow;
+                        if (timeUntilRun.TotalMinutes < 0)
+                        {
+                            <span style="color: var(--accent-fill-rest);">即将执行</span>
+                        }
+                        else
+                        {
+                            <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.25rem;">
+                                <span>@context.NextRunTime.Value.ToLocalTime().ToString("MM-dd HH:mm")</span>
+                                <span style="font-size: 12px; color: var(--neutral-foreground-hint);">
+                                    @if (timeUntilRun.TotalDays >= 1)
+                                    {
+                                        @($"{(int)timeUntilRun.TotalDays} 天后")
+                                    }
+                                    else if (timeUntilRun.TotalHours >= 1)
+                                    {
+                                        @($"{(int)timeUntilRun.TotalHours} 小时后")
+                                    }
+                                    else
+                                    {
+                                        @($"{(int)timeUntilRun.TotalMinutes} 分钟后")
+                                    }
+                                </span>
+                            </FluentStack>
+                        }
+                    }
+                    else
+                    {
+                        <span style="color: var(--neutral-foreground-hint);">-</span>
+                    }
+                </TemplateColumn>
+                
+                <TemplateColumn Title="启用状态">
+                    <FluentSwitch Value="@context.IsEnabled"
+                                  ValueChanged="@(value => ToggleTaskEnabled(context.Id, value))"
+                                  Title="@(context.IsEnabled ? "点击禁用" : "点击启用")" />
+                </TemplateColumn>
+                
+                <TemplateColumn Title="操作">
+                    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.25rem;">
+                        @if (context.Status == "Running")
+                        {
+                            <FluentButton Appearance="Appearance.Stealth" 
+                                          IconOnly="true"
+                                          OnClick="@(() => StopTask(context.Id))" 
+                                          Title="立即停止"
+                                          Style="color: var(--error);">
+                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Stop())" />
+                            </FluentButton>
+                        }
+                        else
+                        {
+                            <FluentButton Appearance="Appearance.Stealth" 
+                                          IconOnly="true"
+                                          OnClick="@(() => RunTaskNow(context.Id))" 
+                                          Title="立即运行">
+                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Play())" />
+                            </FluentButton>
+                        }
+                        
+                        <FluentButton Appearance="Appearance.Stealth" 
+                                      IconOnly="true"
+                                      OnClick="@(() => ShowExecutionHistory(context.Id))" 
+                                      Title="执行历史">
+                            <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.History())" />
+                        </FluentButton>
+                        
+                        <FluentButton Appearance="Appearance.Stealth" 
+                                      IconOnly="true"
+                                      OnClick="@(() => ShowEditTaskDialog(context))" 
+                                      Title="编辑">
+                            <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Edit())" />
+                        </FluentButton>
+                        
+                        <FluentButton Appearance="Appearance.Stealth" 
+                                      IconOnly="true"
+                                      OnClick="@(() => ShowDeleteConfirmDialog(context))" 
+                                      Title="删除"
+                                      Style="color: var(--error);">
+                            <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Delete())" />
+                        </FluentButton>
+                    </FluentStack>
+                </TemplateColumn>
+            </FluentDataGrid>
+        }
+    </FluentCard>
+</FluentStack>
+
+<!-- Create/Edit Task Dialog -->
+<FluentDialog Hidden="@(!showTaskDialog)" Modal="true" OnDismiss="CloseTaskDialog" Style="min-width: 500px; max-width: 600px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">@(editingTask == null ? "新建定时任务" : "编辑定时任务")</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentLabel>任务名称 *</FluentLabel>
+                <FluentTextField @bind-Value="taskName" Placeholder="输入任务名称" Style="width: 100%;" />
+            </FluentStack>
+            
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentLabel>任务描述</FluentLabel>
+                <FluentTextArea @bind-Value="taskDescription" Placeholder="输入任务描述（可选）" Style="width: 100%;" Rows="2" />
+            </FluentStack>
+            
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentLabel>任务类型 *</FluentLabel>
+                <FluentSelect TOption="string"
+                              Items="@(new[] { "FileIndexing" })"
+                              OptionText="@GetTaskTypeDisplay"
+                              OptionValue="@(item => item)"
+                              @bind-Value="taskType"
+                              Style="width: 100%;"
+                              Disabled="@(editingTask != null)" />
+            </FluentStack>
+            
+            @if (taskType == "FileIndexing")
+            {
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentLabel>索引目录 *</FluentLabel>
+                    <FluentTextField @bind-Value="taskConfigRootPath" Placeholder="输入要索引的目录路径" Style="width: 100%;" />
+                </FluentStack>
+            }
+            
+            <FluentStack Orientation="Orientation.Vertical">
+                <FluentLabel>调度方式 *</FluentLabel>
+                <FluentSelect TOption="string"
+                              Items="@(new[] { "Interval", "Cron", "OneTime" })"
+                              OptionText="@GetScheduleTypeDisplay"
+                              OptionValue="@(item => item)"
+                              @bind-Value="scheduleType"
+                              Style="width: 100%;" />
+            </FluentStack>
+            
+            @if (scheduleType == "Cron")
+            {
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentLabel>Cron 表达式 *</FluentLabel>
+                    <FluentTextField @bind-Value="taskCronExpression" Placeholder="例如: 0 0 * * * * (每小时)" Style="width: 100%;" />
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
+                        格式：秒 分 时 日 月 星期 | 示例：0 */30 * * * * (每30分钟)
+                    </FluentLabel>
+                    @if (!string.IsNullOrEmpty(cronValidationMessage))
+                    {
+                        <FluentLabel Typo="Typography.Body" Style="color: var(--error); font-size: 12px;">
+                            @cronValidationMessage
+                        </FluentLabel>
+                    }
+                </FluentStack>
+            }
+            else if (scheduleType == "Interval")
+            {
+                <FluentStack Orientation="Orientation.Vertical">
+                    <FluentLabel>执行频率（分钟）*</FluentLabel>
+                    <FluentNumberField TValue="int" @bind-Value="taskInterval" Min="1" Style="width: 100%;" />
+                    <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint); font-size: 12px;">
+                        提示：60分钟 = 1小时，1440分钟 = 1天
+                    </FluentLabel>
+                </FluentStack>
+            }
+            else
+            {
+                <FluentLabel Typo="Typography.Body" Style="color: var(--neutral-foreground-hint);">
+                    此任务将只执行一次，执行后自动禁用
+                </FluentLabel>
+            }
+            
+            <FluentCheckbox @bind-Value="taskEnabled">@(editingTask == null ? "创建后立即启用" : "启用任务")</FluentCheckbox>
+            
+            @if (!string.IsNullOrEmpty(taskDialogMessage))
+            {
+                <FluentMessageBar Intent="@(taskDialogSuccess ? MessageIntent.Success : MessageIntent.Error)">
+                    @taskDialogMessage
+                </FluentMessageBar>
+            }
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseTaskDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="SaveTask">保存</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<!-- Delete Confirmation Dialog -->
+<FluentDialog Hidden="@(!showDeleteDialog)" Modal="true" OnDismiss="CloseDeleteDialog" Style="max-width: 400px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">确认删除</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentLabel>
+            确定要删除任务 "@deletingTask?.Name" 吗？此操作无法撤销。
+        </FluentLabel>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseDeleteDialog">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="ConfirmDeleteTask" Style="background: var(--error);">删除</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+<!-- Execution History Dialog -->
+<FluentDialog Hidden="@(!showHistoryDialog)" Modal="true" OnDismiss="CloseHistoryDialog" Style="min-width: 800px; max-width: 90vw;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">执行历史</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        @if (executionHistory == null)
+        {
+            <FluentProgressRing />
+        }
+        else if (executionHistory.Count == 0)
+        {
+            <FluentLabel>暂无执行记录</FluentLabel>
+        }
+        else
+        {
+            <FluentDataGrid Items="@executionHistory.AsQueryable()" Style="width: 100%; overflow-x: auto;">
+                <TemplateColumn Title="开始时间" Sortable="true" SortBy="@(GridSort<ScheduledTaskExecutionHistory>.ByAscending(h => h.StartTime))">
+                    @context.StartTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                </TemplateColumn>
+                <TemplateColumn Title="状态" Sortable="true" SortBy="@(GridSort<ScheduledTaskExecutionHistory>.ByAscending(h => h.Status))">
+                    <FluentBadge Appearance="@GetHistoryStatusAppearance(context.Status)" 
+                                 BackgroundColor="@GetHistoryStatusColor(context.Status)">
+                        @GetHistoryStatusDisplay(context.Status)
+                    </FluentBadge>
+                </TemplateColumn>
+                <TemplateColumn Title="执行时长" Sortable="true" SortBy="@(GridSort<ScheduledTaskExecutionHistory>.ByAscending(h => h.DurationMs))">
+                    @if (context.DurationMs.HasValue)
+                    {
+                        @(context.DurationMs.Value < 1000 ? $"{context.DurationMs.Value}ms" : $"{context.DurationMs.Value / 1000.0:F1}秒")
+                    }
+                    else
+                    {
+                        <span>-</span>
+                    }
+                </TemplateColumn>
+                <TemplateColumn Title="错误信息">
+                    @if (!string.IsNullOrEmpty(context.ErrorMessage))
+                    {
+                        <span title="@context.ErrorMessage" style="color: var(--error); max-width: 300px; overflow: hidden; text-overflow: ellipsis; display: block;">
+                            @(context.ErrorMessage.Length > 50 ? context.ErrorMessage.Substring(0, 50) + "..." : context.ErrorMessage)
+                        </span>
+                    }
+                </TemplateColumn>
+            </FluentDataGrid>
+        }
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CloseHistoryDialog">关闭</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+@code {
+    private const int TaskDialogAutoCloseDelayMs = 1000;
+    private const int AutoRefreshIntervalMs = 5000;
+    
+    private List<ScheduledTask>? tasks;
+    private Timer? refreshTimer;
+    private bool showTaskDialog = false;
+    private bool showDeleteDialog = false;
+    private bool showHistoryDialog = false;
+    private ScheduledTask? editingTask = null;
+    private ScheduledTask? deletingTask = null;
+    private string statusFilter = "All";
+    private string nameFilter = string.Empty;
+    private bool _disposed = false;
+    private List<ScheduledTaskExecutionHistory>? executionHistory;
+    
+    // Task dialog state
+    private string taskName = string.Empty;
+    private string taskDescription = string.Empty;
+    private string taskType = "FileIndexing";
+    private string taskConfigRootPath = string.Empty;
+    private int taskInterval = 1440; // Default: 1 day
+    private bool taskEnabled = true;
+    private string taskDialogMessage = string.Empty;
+    private bool taskDialogSuccess = false;
+    private string scheduleType = "Interval"; // "Interval", "Cron", "OneTime"
+    private string taskCronExpression = string.Empty;
+    private string cronValidationMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await LoadTasksAsync();
+        
+        // Auto-refresh tasks every 5 seconds
+        refreshTimer = new Timer(async _ => 
+        {
+            if (_disposed) return;
+            
+            await InvokeAsync(async () =>
+            {
+                if (_disposed) return;
+                await LoadTasksAsync();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromMilliseconds(AutoRefreshIntervalMs), TimeSpan.FromMilliseconds(AutoRefreshIntervalMs));
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        try
+        {
+            tasks = await ScheduledTaskService.GetAllTasksAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "加载定时任务失败");
+            tasks = new List<ScheduledTask>();
+        }
+    }
+
+    private async Task RefreshTasksAsync()
+    {
+        await LoadTasksAsync();
+        StateHasChanged();
+    }
+
+    private void SetStatusFilter(string filter)
+    {
+        statusFilter = filter;
+        StateHasChanged();
+    }
+
+    private List<ScheduledTask> GetFilteredTasks()
+    {
+        if (tasks == null) return new List<ScheduledTask>();
+        
+        var filtered = tasks.AsEnumerable();
+        
+        // Apply status filter
+        if (statusFilter != "All")
+        {
+            filtered = statusFilter == "Disabled"
+                ? filtered.Where(t => !t.IsEnabled)
+                : filtered.Where(t => t.Status == statusFilter);
+        }
+        
+        // Apply name filter
+        if (!string.IsNullOrWhiteSpace(nameFilter))
+        {
+            filtered = filtered.Where(t => t.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase));
+        }
+        
+        return filtered.ToList();
+    }
+
+    private int GetTaskCountByStatus(string status)
+    {
+        return tasks?.Count(t => t.Status == status) ?? 0;
+    }
+
+    private string GetStatusFilterDisplayName()
+    {
+        return statusFilter switch
+        {
+            "Running" => "运行中",
+            "Completed" => "已完成",
+            "Failed" => "失败",
+            "Idle" => "等待中",
+            "Disabled" => "已禁用",
+            _ => ""
+        };
+    }
+
+    private void ShowCreateTaskDialog()
+    {
+        editingTask = null;
+        taskName = string.Empty;
+        taskDescription = string.Empty;
+        taskType = "FileIndexing";
+        taskConfigRootPath = string.Empty;
+        taskInterval = 1440;
+        taskEnabled = true;
+        scheduleType = "Interval";
+        taskCronExpression = string.Empty;
+        cronValidationMessage = string.Empty;
+        taskDialogMessage = string.Empty;
+        taskDialogSuccess = false;
+        showTaskDialog = true;
+    }
+
+    private void ShowEditTaskDialog(ScheduledTask task)
+    {
+        editingTask = task;
+        taskName = task.Name;
+        taskDescription = task.Description;
+        taskType = task.TaskType;
+        taskInterval = task.IntervalMinutes;
+        taskEnabled = task.IsEnabled;
+        taskCronExpression = task.CronExpression ?? string.Empty;
+        cronValidationMessage = string.Empty;
+        
+        // Determine schedule type
+        if (task.IsOneTime)
+        {
+            scheduleType = "OneTime";
+        }
+        else if (!string.IsNullOrEmpty(task.CronExpression))
+        {
+            scheduleType = "Cron";
+        }
+        else
+        {
+            scheduleType = "Interval";
+        }
+        
+        taskDialogMessage = string.Empty;
+        taskDialogSuccess = false;
+        
+        // Parse configuration
+        if (task.TaskType == "FileIndexing" && !string.IsNullOrEmpty(task.Configuration))
+        {
+            try
+            {
+                var config = JsonSerializer.Deserialize<FileIndexingConfig>(task.Configuration);
+                taskConfigRootPath = config?.RootPath ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to deserialize FileIndexing configuration for scheduled task '{TaskName}' (ID: {TaskId}). Falling back to empty path.", task.Name, task.Id);
+                taskConfigRootPath = string.Empty;
+            }
+        }
+        
+        showTaskDialog = true;
+    }
+
+    private void CloseTaskDialog()
+    {
+        showTaskDialog = false;
+        editingTask = null;
+        taskDialogMessage = string.Empty;
+        taskDialogSuccess = false;
+    }
+
+    private async Task SaveTask()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(taskName))
+            {
+                taskDialogMessage = "请输入任务名称";
+                taskDialogSuccess = false;
+                return;
+            }
+
+            // Validate schedule settings
+            if (scheduleType == "Interval")
+            {
+                if (taskInterval < 1)
+                {
+                    taskDialogMessage = "执行频率必须大于0";
+                    taskDialogSuccess = false;
+                    return;
+                }
+            }
+            else if (scheduleType == "Cron")
+            {
+                if (string.IsNullOrWhiteSpace(taskCronExpression))
+                {
+                    taskDialogMessage = "请输入Cron表达式";
+                    taskDialogSuccess = false;
+                    return;
+                }
+                
+                if (!ScheduledTaskService.ValidateCronExpression(taskCronExpression))
+                {
+                    cronValidationMessage = "Cron表达式格式无效";
+                    taskDialogMessage = "Cron表达式格式无效";
+                    taskDialogSuccess = false;
+                    return;
+                }
+                
+                cronValidationMessage = string.Empty;
+            }
+
+            // Build configuration
+            string configuration = string.Empty;
+            if (taskType == "FileIndexing")
+            {
+                if (string.IsNullOrWhiteSpace(taskConfigRootPath))
+                {
+                    taskDialogMessage = "请输入索引目录";
+                    taskDialogSuccess = false;
+                    return;
+                }
+                
+                // Validate path is allowed by FileManagerService
+                if (!FileManagerService.IsPathAllowed(taskConfigRootPath))
+                {
+                    taskDialogMessage = "指定的路径不允许访问";
+                    taskDialogSuccess = false;
+                    return;
+                }
+                
+                var config = new FileIndexingConfig { RootPath = taskConfigRootPath };
+                configuration = JsonSerializer.Serialize(config);
+            }
+
+            if (editingTask == null)
+            {
+                // Create new task
+                var newTask = new ScheduledTask
+                {
+                    Name = taskName,
+                    Description = taskDescription,
+                    TaskType = taskType,
+                    Configuration = configuration,
+                    IntervalMinutes = taskInterval,
+                    CronExpression = scheduleType == "Cron" ? taskCronExpression : null,
+                    IsOneTime = scheduleType == "OneTime",
+                    IsEnabled = taskEnabled
+                };
+                
+                await ScheduledTaskService.CreateTaskAsync(newTask);
+                taskDialogMessage = "任务创建成功";
+            }
+            else
+            {
+                // Update existing task
+                editingTask.Name = taskName;
+                editingTask.Description = taskDescription;
+                editingTask.TaskType = taskType;
+                editingTask.Configuration = configuration;
+                editingTask.IntervalMinutes = taskInterval;
+                editingTask.CronExpression = scheduleType == "Cron" ? taskCronExpression : null;
+                editingTask.IsOneTime = scheduleType == "OneTime";
+                editingTask.IsEnabled = taskEnabled;
+                
+                await ScheduledTaskService.UpdateTaskAsync(editingTask);
+                taskDialogMessage = "任务更新成功";
+            }
+            
+            taskDialogSuccess = true;
+            
+            // Reload tasks
+            await LoadTasksAsync();
+            
+            // Close dialog after delay
+            await Task.Delay(TaskDialogAutoCloseDelayMs);
+            CloseTaskDialog();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "保存任务失败");
+            taskDialogMessage = $"保存失败: {ex.Message}";
+            taskDialogSuccess = false;
+        }
+    }
+
+    private async Task ToggleTaskEnabled(int taskId, bool enabled)
+    {
+        try
+        {
+            await ScheduledTaskService.SetTaskEnabledAsync(taskId, enabled);
+            await LoadTasksAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "切换任务状态失败");
+        }
+    }
+
+    private async Task RunTaskNow(int taskId)
+    {
+        try
+        {
+            await ScheduledTaskService.RunTaskNowAsync(taskId);
+            await LoadTasksAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "运行任务失败");
+        }
+    }
+
+    private async Task StopTask(int taskId)
+    {
+        try
+        {
+            await ScheduledTaskService.StopTaskAsync(taskId);
+            await LoadTasksAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "停止任务失败");
+        }
+    }
+
+    private void ShowDeleteConfirmDialog(ScheduledTask task)
+    {
+        deletingTask = task;
+        showDeleteDialog = true;
+    }
+
+    private void CloseDeleteDialog()
+    {
+        showDeleteDialog = false;
+        deletingTask = null;
+    }
+
+    private async Task ConfirmDeleteTask()
+    {
+        if (deletingTask == null) return;
+        
+        try
+        {
+            await ScheduledTaskService.DeleteTaskAsync(deletingTask.Id);
+            await LoadTasksAsync();
+            CloseDeleteDialog();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "删除任务失败");
+        }
+    }
+
+    private string GetTaskTypeDisplay(string taskTypeCode)
+    {
+        return taskTypeCode switch
+        {
+            "FileIndexing" => "文件索引",
+            _ => taskTypeCode
+        };
+    }
+
+    private string GetStatusDisplay(string status)
+    {
+        return status switch
+        {
+            "Idle" => "空闲",
+            "Running" => "运行中",
+            "Completed" => "已完成",
+            "Failed" => "失败",
+            "Stopped" => "已停止",
+            _ => status
+        };
+    }
+
+    private Appearance GetStatusAppearance(string status)
+    {
+        return status switch
+        {
+            "Running" => Appearance.Accent,
+            "Completed" => Appearance.Accent,
+            "Failed" => Appearance.Neutral,
+            "Stopped" => Appearance.Neutral,
+            _ => Appearance.Neutral
+        };
+    }
+
+    private string GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Running" => "#4facfe",
+            "Completed" => "#43e97b",
+            "Failed" => "#fa709a",
+            "Idle" => "#a8a8a8",
+            "Stopped" => "#ffa726",
+            _ => "#a8a8a8"
+        };
+    }
+
+    private string GetStatusIcon(string status)
+    {
+        return status switch
+        {
+            "Running" => "play_circle",
+            "Completed" => "check_circle",
+            "Failed" => "error",
+            "Idle" => "schedule",
+            "Stopped" => "stop_circle",
+            _ => "circle"
+        };
+    }
+    
+    private async Task ShowExecutionHistory(int taskId)
+    {
+        try
+        {
+            executionHistory = await ExecutionHistoryService.GetHistoryByTaskIdAsync(taskId, 50);
+            showHistoryDialog = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load execution history for task {TaskId}", taskId);
+        }
+    }
+    
+    private void CloseHistoryDialog()
+    {
+        showHistoryDialog = false;
+        executionHistory = null;
+    }
+    
+    private string GetScheduleTypeDisplay(string type)
+    {
+        return type switch
+        {
+            "Interval" => "固定间隔",
+            "Cron" => "Cron表达式",
+            "OneTime" => "一次性任务",
+            _ => type
+        };
+    }
+    
+    private string GetHistoryStatusDisplay(string status)
+    {
+        return status switch
+        {
+            "Success" => "成功",
+            "Failed" => "失败",
+            "Cancelled" => "已取消",
+            "Running" => "运行中",
+            _ => status
+        };
+    }
+    
+    private Appearance GetHistoryStatusAppearance(string status)
+    {
+        return status switch
+        {
+            "Success" => Appearance.Accent,
+            "Running" => Appearance.Accent,
+            _ => Appearance.Neutral
+        };
+    }
+    
+    private string GetHistoryStatusColor(string status)
+    {
+        return status switch
+        {
+            "Success" => "#43e97b",
+            "Failed" => "#fa709a",
+            "Cancelled" => "#ffa726",
+            "Running" => "#4facfe",
+            _ => "#a8a8a8"
+        };
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        refreshTimer?.Dispose();
+    }
+}
+

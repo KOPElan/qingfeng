@@ -2,6 +2,7 @@ using QingFeng.Models;
 using QingFeng.Data;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
+using Cronos;
 
 namespace QingFeng.Services;
 
@@ -39,9 +40,9 @@ public class ScheduledTaskService : IScheduledTaskService
         task.Status = "Idle";
         
         // Calculate first run time if enabled
-        if (task.IsEnabled && task.IntervalMinutes > 0)
+        if (task.IsEnabled)
         {
-            task.NextRunTime = DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
+            task.NextRunTime = CalculateNextRunTime(task);
         }
         
         context.ScheduledTasks.Add(task);
@@ -66,15 +67,14 @@ public class ScheduledTaskService : IScheduledTaskService
         existing.Configuration = task.Configuration;
         existing.IsEnabled = task.IsEnabled;
         existing.IntervalMinutes = task.IntervalMinutes;
+        existing.CronExpression = task.CronExpression;
+        existing.IsOneTime = task.IsOneTime;
         existing.UpdatedAt = DateTime.UtcNow;
         
-        // Recalculate next run time if interval changed or task was disabled/enabled
-        if (task.IsEnabled && task.IntervalMinutes > 0)
+        // Recalculate next run time
+        if (task.IsEnabled)
         {
-            if (existing.NextRunTime == null || existing.NextRunTime < DateTime.UtcNow)
-            {
-                existing.NextRunTime = DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
-            }
+            existing.NextRunTime = CalculateNextRunTime(existing);
         }
         else
         {
@@ -140,6 +140,28 @@ public class ScheduledTaskService : IScheduledTaskService
         _logger.LogInformation("立即运行定时任务: {TaskName}", task.Name);
     }
 
+    public async Task StopTaskAsync(int id)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var task = await context.ScheduledTasks.FindAsync(id);
+        if (task == null)
+            throw new InvalidOperationException($"任务不存在: {id}");
+        
+        if (task.Status != "Running")
+        {
+            _logger.LogWarning("任务不在运行状态，无法停止: {TaskName} (当前状态: {Status})", task.Name, task.Status);
+            return;
+        }
+        
+        // Mark task as stopped - the executor service will check this
+        task.Status = "Stopped";
+        task.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        
+        _logger.LogInformation("标记定时任务为停止: {TaskName}", task.Name);
+    }
+
     public async Task<List<ScheduledTask>> GetPendingTasksAsync()
     {
         using var context = await _dbContextFactory.CreateDbContextAsync();
@@ -174,4 +196,52 @@ public class ScheduledTaskService : IScheduledTaskService
         
         await context.SaveChangesAsync();
     }
+    
+    public bool ValidateCronExpression(string cronExpression)
+    {
+        if (string.IsNullOrWhiteSpace(cronExpression))
+            return false;
+            
+        try
+        {
+            CronExpression.Parse(cronExpression, CronFormat.IncludeSeconds);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+    
+    public DateTime? CalculateNextRunTime(ScheduledTask task)
+    {
+        try
+        {
+            // If it's a one-time task that has already run, return null
+            if (task.IsOneTime && task.LastRunTime != null)
+                return null;
+                
+            // If cron expression is specified, use it (takes precedence)
+            if (!string.IsNullOrWhiteSpace(task.CronExpression))
+            {
+                var cron = CronExpression.Parse(task.CronExpression, CronFormat.IncludeSeconds);
+                // Use UTC for consistency across all time operations
+                return cron.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc);
+            }
+            
+            // Fall back to interval-based scheduling
+            if (task.IntervalMinutes > 0)
+            {
+                return DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
+            }
+            
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to calculate next run time for task {TaskId}", task.Id);
+            return null;
+        }
+    }
 }
+

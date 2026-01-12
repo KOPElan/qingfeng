@@ -69,6 +69,7 @@ builder.Services.AddScoped<AuthenticationStateService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IFileIndexService, FileIndexService>();
 builder.Services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
+builder.Services.AddScoped<IScheduledTaskExecutionHistoryService, ScheduledTaskExecutionHistoryService>();
 builder.Services.AddHostedService<ScheduledTaskExecutorService>();
 builder.Services.AddScoped<IAnydropService, AnydropService>();
 

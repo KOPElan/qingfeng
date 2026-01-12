@@ -249,13 +249,23 @@ public class DockItemService : IDockItemService
                     IsSystemItem = true
                 },
                 new() {
+                    ItemId = "scheduled-tasks",
+                    Title = "定时任务",
+                    Icon = "schedule",
+                    Url = "/scheduled-tasks",
+                    IconBackground = "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+                    IconColor = "white",
+                    SortOrder = 7,
+                    IsSystemItem = true
+                },
+                new() {
                     ItemId = "settings",
                     Title = "设置",
                     Icon = "tune",
                     Url = "/settings",
                     IconBackground = "var(--dock-gradient-settings)",
                     IconColor = "rgb(55 65 81)",
-                    SortOrder = 7,
+                    SortOrder = 8,
                     IsSystemItem = true
                 }
             };
