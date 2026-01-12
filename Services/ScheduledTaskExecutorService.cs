@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
+using QingFeng.Models;
 
 namespace QingFeng.Services;
 
@@ -51,13 +52,21 @@ public class ScheduledTaskExecutorService : BackgroundService
         var allTasks = await taskService.GetAllTasksAsync();
         foreach (var task in allTasks.Where(t => t.Status == "Stopped"))
         {
+            CancellationTokenSource? cts = null;
             lock (_runningTasksLock)
             {
-                if (_runningTasks.TryGetValue(task.Id, out var cts))
+                if (_runningTasks.TryGetValue(task.Id, out var existingCts))
                 {
-                    cts.Cancel();
-                    _logger.LogInformation("取消正在运行的任务: TaskId={TaskId}", task.Id);
+                    cts = existingCts;
+                    _runningTasks.Remove(task.Id);
                 }
+            }
+
+            if (cts != null)
+            {
+                cts.Cancel();
+                cts.Dispose();
+                _logger.LogInformation("取消正在运行的任务: TaskId={TaskId}", task.Id);
             }
         }
         
@@ -73,8 +82,19 @@ public class ScheduledTaskExecutorService : BackgroundService
             if (cancellationToken.IsCancellationRequested)
                 break;
             
+            // Check if task is already running to avoid resource leak
+            lock (_runningTasksLock)
+            {
+                if (_runningTasks.ContainsKey(task.Id))
+                {
+                    _logger.LogWarning("任务已在运行中，跳过: TaskId={TaskId}", task.Id);
+                    continue;
+                }
+            }
+            
             // Execute task in background (don't wait)
-            var taskCts = new CancellationTokenSource();
+            // Link the task CancellationTokenSource with the service's cancellation token
+            var taskCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             lock (_runningTasksLock)
             {
                 _runningTasks[task.Id] = taskCts;
@@ -98,7 +118,7 @@ public class ScheduledTaskExecutorService : BackgroundService
                     }
                     taskCts.Dispose();
                 }
-            }, cancellationToken);
+            }, CancellationToken.None); // Don't pass cancellation token here to avoid immediate cancellation
         }
     }
 
@@ -166,13 +186,6 @@ public class ScheduledTaskExecutorService : BackgroundService
             
             await taskService.UpdateTaskStatusAsync(taskId, "Failed", nextRunTime, ex.Message);
         }
-        finally
-        {
-            lock (_runningTasksLock)
-            {
-                _runningTasks.Remove(taskId);
-            }
-        }
     }
 
     private async Task ExecuteFileIndexingTaskAsync(string configuration, CancellationToken cancellationToken)
@@ -190,10 +203,5 @@ public class ScheduledTaskExecutorService : BackgroundService
         _logger.LogInformation("开始重建文件索引: {RootPath}", config.RootPath);
         await fileIndexService.RebuildIndexAsync(config.RootPath);
         _logger.LogInformation("文件索引重建完成: {RootPath}", config.RootPath);
-    }
-
-    private class FileIndexingConfig
-    {
-        public string RootPath { get; set; } = string.Empty;
     }
 }

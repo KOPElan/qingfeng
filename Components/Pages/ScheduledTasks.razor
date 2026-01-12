@@ -5,8 +5,10 @@
 @using Icon = Microsoft.FluentUI.AspNetCore.Components.Icon
 @using System.Text.Json
 @inherits AuthorizedPageBase
+@implements IDisposable
 @inject IScheduledTaskService ScheduledTaskService
 @inject ILocalizationService LocalizationService
+@inject IFileManagerService FileManagerService
 @inject ILogger<ScheduledTasks> Logger
 @rendermode InteractiveServer
 
@@ -179,7 +181,6 @@
                 <TemplateColumn Title="状态" Sortable="true" SortBy="@(GridSort<ScheduledTask>.ByAscending(t => t.Status))">
                     <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem; align-items: center;">
                         @{
-                            var statusIcon = GetStatusIcon(context.Status);
                             var statusColor = GetStatusColor(context.Status);
                         }
                         <div style="width: 8px; height: 8px; border-radius: 50%; background: @statusColor;"></div>
@@ -340,7 +341,7 @@
                 </FluentLabel>
             </FluentStack>
             
-            <FluentCheckbox @bind-Value="taskEnabled">创建后立即启用</FluentCheckbox>
+            <FluentCheckbox @bind-Value="taskEnabled">@(editingTask == null ? "创建后立即启用" : "启用任务")</FluentCheckbox>
             
             @if (!string.IsNullOrEmpty(taskDialogMessage))
             {
@@ -384,6 +385,7 @@
     private ScheduledTask? deletingTask = null;
     private string statusFilter = "All";
     private string nameFilter = string.Empty;
+    private bool _disposed = false;
     
     // Task dialog state
     private string taskName = string.Empty;
@@ -403,8 +405,11 @@
         // Auto-refresh tasks every 5 seconds
         refreshTimer = new Timer(async _ => 
         {
+            if (_disposed) return;
+            
             await InvokeAsync(async () =>
             {
+                if (_disposed) return;
                 await LoadTasksAsync();
                 StateHasChanged();
             });
@@ -445,14 +450,9 @@
         // Apply status filter
         if (statusFilter != "All")
         {
-            if (statusFilter == "Disabled")
-            {
-                filtered = filtered.Where(t => !t.IsEnabled);
-            }
-            else
-            {
-                filtered = filtered.Where(t => t.Status == statusFilter);
-            }
+            filtered = statusFilter == "Disabled"
+                ? filtered.Where(t => !t.IsEnabled)
+                : filtered.Where(t => t.Status == statusFilter);
         }
         
         // Apply name filter
@@ -488,7 +488,7 @@
         taskName = string.Empty;
         taskDescription = string.Empty;
         taskType = "FileIndexing";
-        taskConfigRootPath = "/";
+        taskConfigRootPath = string.Empty; // Let user specify the path
         taskInterval = 1440;
         taskEnabled = true;
         taskDialogMessage = string.Empty;
@@ -513,11 +513,12 @@
             try
             {
                 var config = JsonSerializer.Deserialize<FileIndexingConfig>(task.Configuration);
-                taskConfigRootPath = config?.RootPath ?? "/";
+                taskConfigRootPath = config?.RootPath ?? string.Empty;
             }
-            catch
+            catch (Exception ex)
             {
-                taskConfigRootPath = "/";
+                Logger.LogWarning(ex, "Failed to deserialize FileIndexing configuration for scheduled task '{TaskName}' (ID: {TaskId}). Falling back to empty path.", task.Name, task.Id);
+                taskConfigRootPath = string.Empty;
             }
         }
         
@@ -557,6 +558,14 @@
                 if (string.IsNullOrWhiteSpace(taskConfigRootPath))
                 {
                     taskDialogMessage = "请输入索引目录";
+                    taskDialogSuccess = false;
+                    return;
+                }
+                
+                // Validate path is allowed by FileManagerService
+                if (!FileManagerService.IsPathAllowed(taskConfigRootPath))
+                {
+                    taskDialogMessage = "指定的路径不允许访问";
                     taskDialogSuccess = false;
                     return;
                 }
@@ -679,12 +688,12 @@
         }
     }
 
-    private string GetTaskTypeDisplay(string taskType)
+    private string GetTaskTypeDisplay(string taskTypeCode)
     {
-        return taskType switch
+        return taskTypeCode switch
         {
             "FileIndexing" => "文件索引",
-            _ => taskType
+            _ => taskTypeCode
         };
     }
 
@@ -741,11 +750,7 @@
 
     public void Dispose()
     {
+        _disposed = true;
         refreshTimer?.Dispose();
-    }
-
-    private class FileIndexingConfig
-    {
-        public string RootPath { get; set; } = string.Empty;
     }
 }

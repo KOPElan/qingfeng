@@ -34,4 +34,7 @@ public interface IFileManagerService
     Task BatchCopyAsync(List<string> sourcePaths, string destinationPath);
     Task BatchMoveAsync(List<string> sourcePaths, string destinationPath);
     Task BatchDeleteAsync(List<string> paths);
+    
+    // Path validation
+    bool IsPathAllowed(string path);
 }

@@ -177,7 +177,7 @@ public class FileManagerService : IFileManagerService
         }
     }
 
-    private bool IsPathAllowed(string path)
+    public bool IsPathAllowed(string path)
     {
         try
         {
