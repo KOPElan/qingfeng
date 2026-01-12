@@ -17,6 +17,7 @@ public class QingFengDbContext : DbContext
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<FavoriteFolder> FavoriteFolders { get; set; } = null!;
     public DbSet<ScheduledTask> ScheduledTasks { get; set; } = null!;
+    public DbSet<ScheduledTaskExecutionHistory> ScheduledTaskExecutionHistories { get; set; } = null!;
     public DbSet<AnydropMessage> AnydropMessages { get; set; } = null!;
     public DbSet<AnydropAttachment> AnydropAttachments { get; set; } = null!;
 
@@ -96,6 +97,23 @@ public class QingFengDbContext : DbContext
             entity.Property(e => e.TaskType).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Configuration).HasMaxLength(4000);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CronExpression).HasMaxLength(100);
+        });
+        
+        // Configure ScheduledTaskExecutionHistory
+        modelBuilder.Entity<ScheduledTaskExecutionHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ScheduledTaskId);
+            entity.HasIndex(e => e.StartTime);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(4000);
+            entity.Property(e => e.Result).HasMaxLength(4000);
+            
+            entity.HasOne(e => e.ScheduledTask)
+                .WithMany()
+                .HasForeignKey(e => e.ScheduledTaskId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
         
         // Configure AnydropMessage
