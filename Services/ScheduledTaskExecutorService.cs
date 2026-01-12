@@ -126,9 +126,21 @@ public class ScheduledTaskExecutorService : BackgroundService
     {
         using var scope = _serviceProvider.CreateScope();
         var taskService = scope.ServiceProvider.GetRequiredService<IScheduledTaskService>();
+        var historyService = scope.ServiceProvider.GetRequiredService<IScheduledTaskExecutionHistoryService>();
+        
+        var startTime = DateTime.UtcNow;
+        var history = new ScheduledTaskExecutionHistory
+        {
+            ScheduledTaskId = taskId,
+            StartTime = startTime,
+            Status = "Running"
+        };
         
         try
         {
+            // Create history record
+            history = await historyService.CreateHistoryAsync(history);
+            
             _logger.LogInformation("开始执行定时任务: ID={TaskId}, Type={TaskType}", taskId, taskType);
             
             // Update status to Running
@@ -151,26 +163,53 @@ public class ScheduledTaskExecutorService : BackgroundService
             {
                 _logger.LogInformation("定时任务已被停止: ID={TaskId}", taskId);
                 await taskService.UpdateTaskStatusAsync(taskId, "Idle", null);
+                
+                // Update history
+                history.Status = "Cancelled";
+                history.EndTime = DateTime.UtcNow;
+                history.DurationMs = (int)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+                await historyService.UpdateHistoryAsync(history);
                 return;
             }
             
-            // Get the task again to calculate next run time
-            if (task != null && task.IsEnabled && task.IntervalMinutes > 0)
+            // Calculate next run time
+            DateTime? nextRunTime = null;
+            if (task != null && task.IsEnabled)
             {
-                var nextRunTime = DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
-                await taskService.UpdateTaskStatusAsync(taskId, "Completed", nextRunTime);
-                _logger.LogInformation("定时任务执行成功: ID={TaskId}, 下次执行时间: {NextRunTime}", taskId, nextRunTime);
+                // If it's a one-time task, disable it after execution
+                if (task.IsOneTime)
+                {
+                    await taskService.SetTaskEnabledAsync(taskId, false);
+                    _logger.LogInformation("一次性任务已执行完成并禁用: ID={TaskId}", taskId);
+                }
+                else
+                {
+                    // Calculate next run time for recurring tasks
+                    nextRunTime = taskService.CalculateNextRunTime(task);
+                }
             }
-            else
-            {
-                await taskService.UpdateTaskStatusAsync(taskId, "Completed", null);
-                _logger.LogInformation("定时任务执行成功: ID={TaskId}", taskId);
-            }
+            
+            await taskService.UpdateTaskStatusAsync(taskId, "Completed", nextRunTime);
+            _logger.LogInformation("定时任务执行成功: ID={TaskId}, 下次执行时间: {NextRunTime}", taskId, nextRunTime);
+            
+            // Update history
+            history.Status = "Success";
+            history.EndTime = DateTime.UtcNow;
+            history.DurationMs = (int)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+            history.Result = "任务执行成功";
+            await historyService.UpdateHistoryAsync(history);
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("定时任务被取消: ID={TaskId}", taskId);
             await taskService.UpdateTaskStatusAsync(taskId, "Idle", null, "任务被取消");
+            
+            // Update history
+            history.Status = "Cancelled";
+            history.EndTime = DateTime.UtcNow;
+            history.DurationMs = (int)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+            history.ErrorMessage = "任务被取消";
+            await historyService.UpdateHistoryAsync(history);
         }
         catch (Exception ex)
         {
@@ -179,12 +218,20 @@ public class ScheduledTaskExecutorService : BackgroundService
             // Get the task again to calculate next run time even on failure
             var task = await taskService.GetTaskAsync(taskId);
             DateTime? nextRunTime = null;
-            if (task != null && task.IsEnabled && task.IntervalMinutes > 0)
+            if (task != null && task.IsEnabled)
             {
-                nextRunTime = DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
+                nextRunTime = taskService.CalculateNextRunTime(task);
             }
             
             await taskService.UpdateTaskStatusAsync(taskId, "Failed", nextRunTime, ex.Message);
+            
+            // Update history
+            history.Status = "Failed";
+            history.EndTime = DateTime.UtcNow;
+            history.DurationMs = (int)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+            history.ErrorMessage = ex.Message;
+            history.Result = ex.StackTrace;
+            await historyService.UpdateHistoryAsync(history);
         }
     }
 

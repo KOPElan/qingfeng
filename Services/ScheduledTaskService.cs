@@ -2,6 +2,7 @@ using QingFeng.Models;
 using QingFeng.Data;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
+using Cronos;
 
 namespace QingFeng.Services;
 
@@ -39,9 +40,9 @@ public class ScheduledTaskService : IScheduledTaskService
         task.Status = "Idle";
         
         // Calculate first run time if enabled
-        if (task.IsEnabled && task.IntervalMinutes > 0)
+        if (task.IsEnabled)
         {
-            task.NextRunTime = DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
+            task.NextRunTime = CalculateNextRunTime(task);
         }
         
         context.ScheduledTasks.Add(task);
@@ -66,15 +67,14 @@ public class ScheduledTaskService : IScheduledTaskService
         existing.Configuration = task.Configuration;
         existing.IsEnabled = task.IsEnabled;
         existing.IntervalMinutes = task.IntervalMinutes;
+        existing.CronExpression = task.CronExpression;
+        existing.IsOneTime = task.IsOneTime;
         existing.UpdatedAt = DateTime.UtcNow;
         
-        // Recalculate next run time if interval changed or task was disabled/enabled
-        if (task.IsEnabled && task.IntervalMinutes > 0)
+        // Recalculate next run time
+        if (task.IsEnabled)
         {
-            if (existing.NextRunTime == null || existing.NextRunTime < DateTime.UtcNow)
-            {
-                existing.NextRunTime = DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
-            }
+            existing.NextRunTime = CalculateNextRunTime(existing);
         }
         else
         {
@@ -196,4 +196,51 @@ public class ScheduledTaskService : IScheduledTaskService
         
         await context.SaveChangesAsync();
     }
+    
+    public bool ValidateCronExpression(string cronExpression)
+    {
+        if (string.IsNullOrWhiteSpace(cronExpression))
+            return false;
+            
+        try
+        {
+            CronExpression.Parse(cronExpression, CronFormat.IncludeSeconds);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+    
+    public DateTime? CalculateNextRunTime(ScheduledTask task)
+    {
+        try
+        {
+            // If it's a one-time task that has already run, return null
+            if (task.IsOneTime && task.LastRunTime != null)
+                return null;
+                
+            // If cron expression is specified, use it (takes precedence)
+            if (!string.IsNullOrWhiteSpace(task.CronExpression))
+            {
+                var cron = CronExpression.Parse(task.CronExpression, CronFormat.IncludeSeconds);
+                return cron.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Local);
+            }
+            
+            // Fall back to interval-based scheduling
+            if (task.IntervalMinutes > 0)
+            {
+                return DateTime.UtcNow.AddMinutes(task.IntervalMinutes);
+            }
+            
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to calculate next run time for task {TaskId}", task.Id);
+            return null;
+        }
+    }
 }
+
