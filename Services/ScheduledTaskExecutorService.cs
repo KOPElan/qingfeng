@@ -192,12 +192,19 @@ public class ScheduledTaskExecutorService : BackgroundService
     {
         using var scope = _serviceProvider.CreateScope();
         var fileIndexService = scope.ServiceProvider.GetRequiredService<IFileIndexService>();
+        var fileManagerService = scope.ServiceProvider.GetRequiredService<IFileManagerService>();
         
         // Parse configuration to get root path
         var config = JsonSerializer.Deserialize<FileIndexingConfig>(configuration);
         if (config == null || string.IsNullOrEmpty(config.RootPath))
         {
             throw new InvalidOperationException("文件索引任务配置无效");
+        }
+        
+        // Validate path is allowed for security
+        if (!fileManagerService.IsPathAllowed(config.RootPath))
+        {
+            throw new UnauthorizedAccessException($"不允许访问路径: {config.RootPath}");
         }
         
         _logger.LogInformation("开始重建文件索引: {RootPath}", config.RootPath);
