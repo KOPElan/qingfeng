@@ -9,7 +9,7 @@ public class ScheduledTaskExecutionHistory
     public string Status { get; set; } = string.Empty; // "Success", "Failed", "Cancelled"
     public string? Result { get; set; } // Execution result or output
     public string? ErrorMessage { get; set; }
-    public int? DurationMs { get; set; } // Duration in milliseconds
+    public long? DurationMs { get; set; } // Duration in milliseconds (using long to avoid overflow)
     
     // Navigation property
     public ScheduledTask? ScheduledTask { get; set; }

@@ -225,7 +225,8 @@ public class ScheduledTaskService : IScheduledTaskService
             if (!string.IsNullOrWhiteSpace(task.CronExpression))
             {
                 var cron = CronExpression.Parse(task.CronExpression, CronFormat.IncludeSeconds);
-                return cron.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Local);
+                // Use UTC for consistency across all time operations
+                return cron.GetNextOccurrence(DateTime.UtcNow, TimeZoneInfo.Utc);
             }
             
             // Fall back to interval-based scheduling

@@ -167,7 +167,7 @@ public class ScheduledTaskExecutorService : BackgroundService
                 // Update history
                 history.Status = "Cancelled";
                 history.EndTime = DateTime.UtcNow;
-                history.DurationMs = (int)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+                history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
                 await historyService.UpdateHistoryAsync(history);
                 return;
             }
@@ -195,7 +195,7 @@ public class ScheduledTaskExecutorService : BackgroundService
             // Update history
             history.Status = "Success";
             history.EndTime = DateTime.UtcNow;
-            history.DurationMs = (int)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+            history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
             history.Result = "任务执行成功";
             await historyService.UpdateHistoryAsync(history);
         }
@@ -207,7 +207,7 @@ public class ScheduledTaskExecutorService : BackgroundService
             // Update history
             history.Status = "Cancelled";
             history.EndTime = DateTime.UtcNow;
-            history.DurationMs = (int)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+            history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
             history.ErrorMessage = "任务被取消";
             await historyService.UpdateHistoryAsync(history);
         }
@@ -228,7 +228,7 @@ public class ScheduledTaskExecutorService : BackgroundService
             // Update history
             history.Status = "Failed";
             history.EndTime = DateTime.UtcNow;
-            history.DurationMs = (int)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
+            history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
             history.ErrorMessage = ex.Message;
             history.Result = ex.StackTrace;
             await historyService.UpdateHistoryAsync(history);
