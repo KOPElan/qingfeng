@@ -453,21 +453,62 @@ public class ScheduledTaskExecutorService : BackgroundService
                     Directory.CreateDirectory(destinationDir);
                 }
 
-                // Move the file
+                // Move the file using copy + delete for better error handling
                 if (File.Exists(destinationFile))
                 {
-                    _logger.LogWarning("目标文件已存在，跳过: {File}", relativePath);
+                    // File exists, try to create a unique name
+                    var fileName = Path.GetFileNameWithoutExtension(destinationFile);
+                    var extension = Path.GetExtension(destinationFile);
+                    var directory = Path.GetDirectoryName(destinationFile) ?? config.DestinationDirectory;
+                    var counter = 1;
+                    
+                    while (File.Exists(destinationFile) && counter < 1000)
+                    {
+                        destinationFile = Path.Combine(directory, $"{fileName}_copy_{counter}{extension}");
+                        counter++;
+                    }
+                    
+                    if (File.Exists(destinationFile))
+                    {
+                        _logger.LogWarning("目标文件已存在且无法创建唯一名称，跳过: {File}", relativePath);
+                        failedFiles++;
+                        continue;
+                    }
+                    
+                    _logger.LogInformation("目标文件已存在，使用新名称: {NewName}", Path.GetFileName(destinationFile));
+                }
+                
+                try
+                {
+                    // Use copy + delete for better error handling and data integrity
+                    File.Copy(sourceFile, destinationFile, false);
+                    
+                    // Verify the copy was successful before deleting source
+                    if (File.Exists(destinationFile))
+                    {
+                        File.Delete(sourceFile);
+                        movedFiles++;
+                        
+                        if (movedFiles % 100 == 0)
+                        {
+                            _logger.LogInformation("已迁移 {MovedFiles}/{TotalFiles} 个文件", movedFiles, totalFiles);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogError("文件复制后验证失败: {File}", sourceFile);
+                        failedFiles++;
+                    }
+                }
+                catch (IOException ioEx)
+                {
+                    _logger.LogError(ioEx, "文件迁移IO错误（可能文件正在使用）: {File}", sourceFile);
                     failedFiles++;
                 }
-                else
+                catch (UnauthorizedAccessException uaEx)
                 {
-                    File.Move(sourceFile, destinationFile);
-                    movedFiles++;
-                    
-                    if (movedFiles % 100 == 0)
-                    {
-                        _logger.LogInformation("已迁移 {MovedFiles}/{TotalFiles} 个文件", movedFiles, totalFiles);
-                    }
+                    _logger.LogError(uaEx, "文件迁移权限错误: {File}", sourceFile);
+                    failedFiles++;
                 }
             }
             catch (Exception ex)

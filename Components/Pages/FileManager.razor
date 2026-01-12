@@ -2575,10 +2575,8 @@
             indexSuccess = false;
             _logger.LogError(ex, "创建索引重建任务失败");
         }
-        finally
-        {
-            isRebuildingIndex = false;
-        }
+        // Note: isRebuildingIndex is not set here since the rebuild is now asynchronous.
+        // The flag can be removed or repurposed if needed for future UI state management.
     }
 
     private string GetIndexButtonTitle()
