@@ -189,6 +189,13 @@ public class SystemSettingService : ISystemSettingService
                     Category = "Features",
                     Description = "Enable system notifications",
                     DataType = "bool"
+                },
+                new() {
+                    Key = "anydropStoragePath",
+                    Value = Path.Combine(Directory.GetCurrentDirectory(), "AnydropFiles"),
+                    Category = "System",
+                    Description = "Anydrop attachment storage location",
+                    DataType = "string"
                 }
             };
 

@@ -26,8 +26,8 @@ public class AnydropService : IAnydropService
         _logger = logger;
         _httpClientFactory = httpClientFactory;
         
-        // Get Anydrop storage path from configuration or use default
-        _anydropStoragePath = configuration["AnydropStoragePath"] ?? Path.Combine(Directory.GetCurrentDirectory(), "AnydropFiles");
+        // Initialize storage path - try to read from settings synchronously
+        _anydropStoragePath = GetStoragePathFromSettings(configuration);
         
         // Ensure storage directory exists
         if (!Directory.Exists(_anydropStoragePath))
@@ -35,6 +35,29 @@ public class AnydropService : IAnydropService
             Directory.CreateDirectory(_anydropStoragePath);
             _logger.LogInformation("Created Anydrop storage directory: {Path}", _anydropStoragePath);
         }
+    }
+
+    private string GetStoragePathFromSettings(IConfiguration configuration)
+    {
+        try
+        {
+            // Try to get from system settings using synchronous API
+            using var context = _dbContextFactory.CreateDbContext();
+            var setting = context.SystemSettings
+                .FirstOrDefault(s => s.Key == "anydropStoragePath");
+            
+            if (setting != null && !string.IsNullOrWhiteSpace(setting.Value))
+            {
+                return setting.Value;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not read Anydrop storage path from settings, using default");
+        }
+        
+        // Fallback to configuration or default
+        return configuration["AnydropStoragePath"] ?? Path.Combine(Directory.GetCurrentDirectory(), "AnydropFiles");
     }
 
     public async Task<List<AnydropMessage>> GetMessagesAsync(int pageSize = 20, int? beforeMessageId = null)
