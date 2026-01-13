@@ -147,20 +147,21 @@ public class ScheduledTaskExecutorService : BackgroundService
             await taskService.UpdateTaskStatusAsync(taskId, "Running", null);
             
             // Execute based on task type and capture results
-            string? taskResult = null;
+            TaskExecutionResult? executionResult = null;
             switch (taskType)
             {
                 case "FileIndexing":
-                    taskResult = await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
+                    executionResult = await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
                     break;
                 case "ShellCommand":
-                    await ExecuteShellCommandTaskAsync(taskId, configuration, cancellationToken);
+                    executionResult = await ExecuteShellCommandTaskAsync(taskId, configuration, cancellationToken);
                     break;
                 case "AnydropMigration":
-                    taskResult = await ExecuteAnydropMigrationTaskAsync(configuration, cancellationToken);
+                    executionResult = await ExecuteAnydropMigrationTaskAsync(configuration, cancellationToken);
                     break;
                 default:
                     _logger.LogWarning("未知的任务类型: {TaskType}", taskType);
+                    executionResult = TaskExecutionResult.Failure($"未知的任务类型: {taskType}");
                     break;
             }
             
@@ -199,11 +200,12 @@ public class ScheduledTaskExecutorService : BackgroundService
             await taskService.UpdateTaskStatusAsync(taskId, "Completed", nextRunTime);
             _logger.LogInformation("定时任务执行成功: ID={TaskId}, 下次执行时间: {NextRunTime}", taskId, nextRunTime);
             
-            // Update history
-            history.Status = "Success";
+            // Update history with structured result
+            history.Status = executionResult?.IsSuccess == true ? "Success" : "Failed";
             history.EndTime = DateTime.UtcNow;
             history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
-            history.Result = taskResult ?? "任务执行成功";
+            history.Result = executionResult?.ResultMessage ?? "任务执行成功";
+            history.ErrorMessage = executionResult?.ErrorMessage;
             await historyService.UpdateHistoryAsync(history);
         }
         catch (OperationCanceledException)
@@ -242,8 +244,9 @@ public class ScheduledTaskExecutorService : BackgroundService
         }
     }
 
-    private async Task<string> ExecuteFileIndexingTaskAsync(string configuration, CancellationToken cancellationToken)
+    private async Task<TaskExecutionResult> ExecuteFileIndexingTaskAsync(string configuration, CancellationToken cancellationToken)
     {
+        var startTime = DateTime.UtcNow;
         using var scope = _serviceProvider.CreateScope();
         var fileIndexService = scope.ServiceProvider.GetRequiredService<IFileIndexService>();
         var fileManagerService = scope.ServiceProvider.GetRequiredService<IFileManagerService>();
@@ -267,13 +270,24 @@ public class ScheduledTaskExecutorService : BackgroundService
         // Get the index stats to retrieve the count
         var (lastIndexed, fileCount) = await fileIndexService.GetIndexStatsAsync(config.RootPath);
         
+        var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
         _logger.LogInformation("文件索引重建完成: {RootPath}, 共索引 {FileCount} 个文件/文件夹", config.RootPath, fileCount);
         
-        return $"索引重建完成，共索引 {fileCount} 个文件/文件夹";
+        return TaskExecutionResult.Success(
+            $"索引重建完成，共索引 {fileCount} 个文件/文件夹",
+            new Dictionary<string, object>
+            {
+                { "fileCount", fileCount },
+                { "rootPath", config.RootPath },
+                { "lastIndexed", lastIndexed ?? DateTime.UtcNow }
+            },
+            duration
+        );
     }
 
-    private async Task ExecuteShellCommandTaskAsync(int taskId, string configuration, CancellationToken cancellationToken)
+    private async Task<TaskExecutionResult> ExecuteShellCommandTaskAsync(int taskId, string configuration, CancellationToken cancellationToken)
     {
+        var startTime = DateTime.UtcNow;
         // Parse configuration
         var config = JsonSerializer.Deserialize<ShellCommandConfig>(configuration);
         if (config == null || string.IsNullOrEmpty(config.Command))
@@ -391,6 +405,8 @@ public class ScheduledTaskExecutorService : BackgroundService
 
             _logger.LogInformation("Shell命令执行成功: {Command}, 退出码: {ExitCode}", config.Command, exitCode);
 
+            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+            
             // Output capture note: Command output is logged in real-time above (via OutputDataReceived).
             // The execution history is updated by the calling method (ExecuteTaskAsync) which handles
             // the overall task lifecycle including success/failure status and duration.
@@ -399,16 +415,30 @@ public class ScheduledTaskExecutorService : BackgroundService
             {
                 _logger.LogInformation("命令输出:\n{Output}", output);
             }
+            
+            return TaskExecutionResult.Success(
+                "Shell命令执行成功",
+                new Dictionary<string, object>
+                {
+                    { "command", config.Command },
+                    { "exitCode", exitCode },
+                    { "hasOutput", !string.IsNullOrEmpty(output) },
+                    { "outputLength", output.Length }
+                },
+                duration
+            );
         }
         catch (Exception ex)
         {
+            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
             _logger.LogError(ex, "执行Shell命令失败: {Command}", config.Command);
             throw;
         }
     }
 
-    private async Task<string> ExecuteAnydropMigrationTaskAsync(string configuration, CancellationToken cancellationToken)
+    private async Task<TaskExecutionResult> ExecuteAnydropMigrationTaskAsync(string configuration, CancellationToken cancellationToken)
     {
+        var startTime = DateTime.UtcNow;
         // Parse configuration
         var config = JsonSerializer.Deserialize<AnydropMigrationConfig>(configuration);
         if (config == null || string.IsNullOrEmpty(config.SourceDirectory) || string.IsNullOrEmpty(config.DestinationDirectory))
@@ -421,7 +451,19 @@ public class ScheduledTaskExecutorService : BackgroundService
         if (!Directory.Exists(config.SourceDirectory))
         {
             _logger.LogWarning("源目录不存在: {Source}，无需迁移", config.SourceDirectory);
-            return "源目录不存在，无需迁移";
+            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+            return TaskExecutionResult.Success(
+                "源目录不存在，无需迁移",
+                new Dictionary<string, object>
+                {
+                    { "sourceDirectory", config.SourceDirectory },
+                    { "destinationDirectory", config.DestinationDirectory },
+                    { "totalFiles", 0 },
+                    { "movedFiles", 0 },
+                    { "failedFiles", 0 }
+                },
+                duration
+            );
         }
 
         // Create destination directory if it doesn't exist
@@ -564,6 +606,19 @@ public class ScheduledTaskExecutorService : BackgroundService
         _logger.LogInformation("Anydrop文件迁移完成: 成功 {MovedFiles} 个, 失败 {FailedFiles} 个, 总计 {TotalFiles} 个", 
             movedFiles, failedFiles, totalFiles);
         
-        return $"文件迁移完成: 成功 {movedFiles} 个, 失败 {failedFiles} 个, 总计 {totalFiles} 个文件";
+        var totalDuration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+        
+        return TaskExecutionResult.Success(
+            $"文件迁移完成: 成功 {movedFiles} 个, 失败 {failedFiles} 个, 总计 {totalFiles} 个文件",
+            new Dictionary<string, object>
+            {
+                { "sourceDirectory", config.SourceDirectory },
+                { "destinationDirectory", config.DestinationDirectory },
+                { "totalFiles", totalFiles },
+                { "movedFiles", movedFiles },
+                { "failedFiles", failedFiles }
+            },
+            totalDuration
+        );
     }
 }
