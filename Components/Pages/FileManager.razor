@@ -4,8 +4,10 @@
 @using QingFeng.Utilities
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Icon = Microsoft.FluentUI.AspNetCore.Components.Icon
+@using System.Text.Json
 @inject IFileManagerService FileManagerService
 @inject IFileIndexService FileIndexService
+@inject IScheduledTaskService ScheduledTaskService
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject ILogger<FileManager> _logger
@@ -2539,41 +2541,42 @@
                 return;
             }
             
-            isRebuildingIndex = true;
-            indexMessage = string.Empty;
-            indexSuccess = false;
-            indexProgress = 0;
-            StateHasChanged();
-
-            var progress = new Progress<int>(count =>
+            // Create a scheduled task for rebuilding the index in the background
+            var config = new FileIndexingConfig { RootPath = indexRootPath };
+            var configJson = JsonSerializer.Serialize(config);
+            
+            var task = new ScheduledTask
             {
-                indexProgress = count;
-                InvokeAsync(StateHasChanged);
-            });
-
-            await FileIndexService.RebuildIndexAsync(indexRootPath, progress);
+                Name = $"重建文件索引 - {indexRootPath}",
+                Description = $"对目录 {indexRootPath} 进行索引重建",
+                TaskType = "FileIndexing",
+                Configuration = configJson,
+                IsEnabled = true,
+                IsOneTime = true,  // This is a one-time task
+                IntervalMinutes = 0
+            };
             
-            indexMessage = $"索引重建成功！共索引 {indexProgress} 个文件/文件夹";
+            var createdTask = await ScheduledTaskService.CreateTaskAsync(task);
+            
+            // Trigger immediate execution
+            await ScheduledTaskService.RunTaskNowAsync(createdTask.Id);
+            
+            indexMessage = "索引重建任务已创建，正在后台执行。您可以在定时任务页面查看执行进度。";
             indexSuccess = true;
+            StateHasChanged();
             
-            // Refresh index stats
-            hasIndex = true;
-            indexStats = await FileIndexService.GetIndexStatsAsync(indexRootPath);
-            
-            // Auto-close after delay
-            await Task.Delay(IndexDialogAutoCloseDelayMs);
+            // Auto-close after shorter delay since task is non-blocking
+            await Task.Delay(2000);
             CloseRebuildIndexDialog();
         }
         catch (Exception ex)
         {
-            indexMessage = $"索引重建失败: {ex.Message}";
+            indexMessage = $"创建索引重建任务失败: {ex.Message}";
             indexSuccess = false;
-            _logger.LogError(ex, "重建索引失败");
+            _logger.LogError(ex, "创建索引重建任务失败");
         }
-        finally
-        {
-            isRebuildingIndex = false;
-        }
+        // Note: isRebuildingIndex is not set here since the rebuild is now asynchronous.
+        // The flag can be removed or repurposed if needed for future UI state management.
     }
 
     private string GetIndexButtonTitle()

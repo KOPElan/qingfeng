@@ -2,9 +2,12 @@
 @using QingFeng.Services
 @using QingFeng.Models
 @using QingFeng.Components.Panels
+@using System.Text.Json
+@using Microsoft.FluentUI.AspNetCore.Components
 @inherits AuthorizedPageBase
 @inject ISystemSettingService SystemSettingService
 @inject ILocalizationService LocalizationService
+@inject IScheduledTaskService ScheduledTaskService
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
@@ -102,9 +105,46 @@
     </div>
 }
 
+<!-- Anydrop Migration Confirmation Dialog -->
+<FluentDialog Hidden="@(!showAnydropMigrationDialog)" Modal="true" OnDismiss="CancelAnydropMigration" Style="min-width: 500px;">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">确认Anydrop目录迁移</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+            <FluentMessageBar Intent="MessageIntent.Warning">
+                <strong>⚠️ 重要提示</strong>
+            </FluentMessageBar>
+            <FluentLabel>
+                您正在更改Anydrop附件存储目录：
+            </FluentLabel>
+            <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.5rem; padding: 1rem; background: var(--neutral-layer-2); border-radius: 8px;">
+                <FluentLabel Style="font-weight: 600;">原目录：</FluentLabel>
+                <FluentLabel Style="font-family: monospace;">@oldAnydropPath</FluentLabel>
+                <FluentLabel Style="font-weight: 600; margin-top: 0.5rem;">新目录：</FluentLabel>
+                <FluentLabel Style="font-family: monospace;">@newAnydropPath</FluentLabel>
+            </FluentStack>
+            <FluentLabel>
+                所有现有文件将被迁移到新目录。此过程将在后台执行，您可以在定时任务页面查看迁移进度。
+            </FluentLabel>
+            <FluentLabel Style="color: var(--neutral-foreground-hint); font-size: 0.9rem;">
+                注意：迁移完成前，请不要修改或删除原目录中的文件。
+            </FluentLabel>
+        </FluentStack>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Neutral" OnClick="CancelAnydropMigration">取消</FluentButton>
+        <FluentButton Appearance="Appearance.Accent" OnClick="ConfirmAnydropMigration">确认并开始迁移</FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
 @code {
     private Dictionary<string, List<SystemSetting>> settingsByCategory = new();
     private bool showSaveMessage = false;
+    private bool showAnydropMigrationDialog = false;
+    private string oldAnydropPath = string.Empty;
+    private string newAnydropPath = string.Empty;
+    private string pendingAnydropPathKey = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -123,15 +163,36 @@
     {
         try
         {
+            // Special handling for anydropStoragePath change
+            if (key == "anydropStoragePath")
+            {
+                var setting = settingsByCategory.Values
+                    .SelectMany(s => s)
+                    .FirstOrDefault(s => s.Key == key);
+                
+                if (setting != null && setting.Value != value)
+                {
+                    // Store the old and new paths
+                    oldAnydropPath = setting.Value;
+                    newAnydropPath = value;
+                    pendingAnydropPathKey = key;
+                    
+                    // Show confirmation dialog
+                    showAnydropMigrationDialog = true;
+                    StateHasChanged();
+                    return; // Don't save yet, wait for confirmation
+                }
+            }
+            
             // Find the setting to preserve category and description
-            var setting = settingsByCategory.Values
+            var setting2 = settingsByCategory.Values
                 .SelectMany(s => s)
                 .FirstOrDefault(s => s.Key == key);
 
-            if (setting != null)
+            if (setting2 != null)
             {
-                await SystemSettingService.SetSettingAsync(key, value, setting.Category, setting.Description);
-                setting.Value = value;
+                await SystemSettingService.SetSettingAsync(key, value, setting2.Category, setting2.Description);
+                setting2.Value = value;
                 
                 showSaveMessage = true;
                 StateHasChanged();
@@ -190,6 +251,82 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error updating language setting: {ex.Message}");
+        }
+    }
+
+    private void CancelAnydropMigration()
+    {
+        showAnydropMigrationDialog = false;
+        oldAnydropPath = string.Empty;
+        newAnydropPath = string.Empty;
+        pendingAnydropPathKey = string.Empty;
+        
+        // Reload settings to reset the UI
+        _ = LoadSettingsAsync();
+    }
+
+    private async Task ConfirmAnydropMigration()
+    {
+        try
+        {
+            // Create migration task
+            var config = new AnydropMigrationConfig
+            {
+                SourceDirectory = oldAnydropPath,
+                DestinationDirectory = newAnydropPath
+            };
+            var configJson = JsonSerializer.Serialize(config);
+            
+            var task = new ScheduledTask
+            {
+                Name = $"Anydrop文件迁移",
+                Description = $"从 {oldAnydropPath} 迁移到 {newAnydropPath}",
+                TaskType = "AnydropMigration",
+                Configuration = configJson,
+                IsEnabled = true,
+                IsOneTime = true,
+                IntervalMinutes = 0
+            };
+            
+            var createdTask = await ScheduledTaskService.CreateTaskAsync(task);
+            
+            // Update the setting
+            var setting = settingsByCategory.Values
+                .SelectMany(s => s)
+                .FirstOrDefault(s => s.Key == pendingAnydropPathKey);
+                
+            if (setting != null)
+            {
+                await SystemSettingService.SetSettingAsync(pendingAnydropPathKey, newAnydropPath, setting.Category, setting.Description);
+                setting.Value = newAnydropPath;
+            }
+            
+            // Trigger immediate execution
+            await ScheduledTaskService.RunTaskNowAsync(createdTask.Id);
+            
+            showAnydropMigrationDialog = false;
+            showSaveMessage = true;
+            StateHasChanged();
+            
+            // Reset temp variables
+            oldAnydropPath = string.Empty;
+            newAnydropPath = string.Empty;
+            pendingAnydropPathKey = string.Empty;
+            
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(3000);
+                await InvokeAsync(() =>
+                {
+                    showSaveMessage = false;
+                    StateHasChanged();
+                });
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating migration task: {ex.Message}");
+            showAnydropMigrationDialog = false;
         }
     }
 

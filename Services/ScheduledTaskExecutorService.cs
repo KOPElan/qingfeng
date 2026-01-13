@@ -146,14 +146,22 @@ public class ScheduledTaskExecutorService : BackgroundService
             // Update status to Running
             await taskService.UpdateTaskStatusAsync(taskId, "Running", null);
             
-            // Execute based on task type
+            // Execute based on task type and capture results
+            TaskExecutionResult? executionResult = null;
             switch (taskType)
             {
                 case "FileIndexing":
-                    await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
+                    executionResult = await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
+                    break;
+                case "ShellCommand":
+                    executionResult = await ExecuteShellCommandTaskAsync(taskId, configuration, cancellationToken);
+                    break;
+                case "AnydropMigration":
+                    executionResult = await ExecuteAnydropMigrationTaskAsync(configuration, cancellationToken);
                     break;
                 default:
                     _logger.LogWarning("未知的任务类型: {TaskType}", taskType);
+                    executionResult = TaskExecutionResult.Failure($"未知的任务类型: {taskType}");
                     break;
             }
             
@@ -192,11 +200,12 @@ public class ScheduledTaskExecutorService : BackgroundService
             await taskService.UpdateTaskStatusAsync(taskId, "Completed", nextRunTime);
             _logger.LogInformation("定时任务执行成功: ID={TaskId}, 下次执行时间: {NextRunTime}", taskId, nextRunTime);
             
-            // Update history
-            history.Status = "Success";
+            // Update history with structured result
+            history.Status = executionResult?.IsSuccess == true ? "Success" : "Failed";
             history.EndTime = DateTime.UtcNow;
             history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
-            history.Result = "任务执行成功";
+            history.Result = executionResult?.ResultMessage ?? "任务执行成功";
+            history.ErrorMessage = executionResult?.ErrorMessage;
             await historyService.UpdateHistoryAsync(history);
         }
         catch (OperationCanceledException)
@@ -235,8 +244,9 @@ public class ScheduledTaskExecutorService : BackgroundService
         }
     }
 
-    private async Task ExecuteFileIndexingTaskAsync(string configuration, CancellationToken cancellationToken)
+    private async Task<TaskExecutionResult> ExecuteFileIndexingTaskAsync(string configuration, CancellationToken cancellationToken)
     {
+        var startTime = DateTime.UtcNow;
         using var scope = _serviceProvider.CreateScope();
         var fileIndexService = scope.ServiceProvider.GetRequiredService<IFileIndexService>();
         var fileManagerService = scope.ServiceProvider.GetRequiredService<IFileManagerService>();
@@ -256,6 +266,359 @@ public class ScheduledTaskExecutorService : BackgroundService
         
         _logger.LogInformation("开始重建文件索引: {RootPath}", config.RootPath);
         await fileIndexService.RebuildIndexAsync(config.RootPath);
-        _logger.LogInformation("文件索引重建完成: {RootPath}", config.RootPath);
+        
+        // Get the index stats to retrieve the count
+        var (lastIndexed, fileCount) = await fileIndexService.GetIndexStatsAsync(config.RootPath);
+        
+        var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+        _logger.LogInformation("文件索引重建完成: {RootPath}, 共索引 {FileCount} 个文件/文件夹", config.RootPath, fileCount);
+        
+        return TaskExecutionResult.Success(
+            $"索引重建完成，共索引 {fileCount} 个文件/文件夹",
+            new Dictionary<string, object>
+            {
+                { "fileCount", fileCount },
+                { "rootPath", config.RootPath },
+                { "lastIndexed", lastIndexed ?? DateTime.UtcNow }
+            },
+            duration
+        );
+    }
+
+    private async Task<TaskExecutionResult> ExecuteShellCommandTaskAsync(int taskId, string configuration, CancellationToken cancellationToken)
+    {
+        var startTime = DateTime.UtcNow;
+        // Parse configuration
+        var config = JsonSerializer.Deserialize<ShellCommandConfig>(configuration);
+        if (config == null || string.IsNullOrEmpty(config.Command))
+        {
+            throw new InvalidOperationException("Shell命令任务配置无效");
+        }
+        
+        // Validate working directory path if specified
+        if (!string.IsNullOrEmpty(config.WorkingDirectory))
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var fileManagerService = scope.ServiceProvider.GetRequiredService<IFileManagerService>();
+            
+            if (!fileManagerService.IsPathAllowed(config.WorkingDirectory))
+            {
+                throw new UnauthorizedAccessException($"不允许访问工作目录: {config.WorkingDirectory}");
+            }
+            
+            if (!Directory.Exists(config.WorkingDirectory))
+            {
+                throw new InvalidOperationException($"工作目录不存在: {config.WorkingDirectory}");
+            }
+        }
+
+        _logger.LogInformation("开始执行Shell命令: {Command}", config.Command);
+
+        var outputBuilder = new System.Text.StringBuilder();
+        var errorBuilder = new System.Text.StringBuilder();
+
+        try
+        {
+            // ⚠️ SECURITY NOTE: Commands are executed via /bin/bash -c with only basic quote escaping.
+            // This approach is chosen for maximum flexibility but requires strict access control.
+            // REQUIREMENTS for callers:
+            // 1. Only allow trusted administrators to create shell command tasks
+            // 2. Never include unsanitized user input in command strings
+            // 3. Implement command allowlist or approval workflow in production
+            // 4. See doc/SECURITY_SHELL_COMMANDS.md for complete security guidelines
+            //
+            // Alternative considered: ProcessStartInfo with argument arrays would be safer but
+            // doesn't support complex shell commands (pipes, redirects, etc.) which is the
+            // primary use case for this feature.
+            var processStartInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "/bin/bash",
+                Arguments = $"-c \"{config.Command.Replace("\"", "\\\"")}\"",
+                RedirectStandardOutput = config.CaptureOutput,
+                RedirectStandardError = config.CaptureOutput,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = string.IsNullOrEmpty(config.WorkingDirectory) ? Environment.CurrentDirectory : config.WorkingDirectory
+            };
+
+            using var process = new System.Diagnostics.Process { StartInfo = processStartInfo };
+            
+            if (config.CaptureOutput)
+            {
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        outputBuilder.AppendLine(e.Data);
+                        _logger.LogInformation("[TaskId={TaskId}] {Output}", taskId, e.Data);
+                    }
+                };
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        errorBuilder.AppendLine(e.Data);
+                        _logger.LogWarning("[TaskId={TaskId}] {Error}", taskId, e.Data);
+                    }
+                };
+            }
+
+            process.Start();
+
+            if (config.CaptureOutput)
+            {
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+            }
+
+            // Wait for the process to exit with timeout
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(config.TimeoutSeconds), cancellationToken);
+            var processTask = process.WaitForExitAsync(cancellationToken);
+            
+            var completedTask = await Task.WhenAny(processTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                // Timeout occurred
+                try
+                {
+                    process.Kill(true);
+                }
+                catch { }
+                throw new TimeoutException($"命令执行超时（超过 {config.TimeoutSeconds} 秒）");
+            }
+
+            // Process completed
+            var exitCode = process.ExitCode;
+            var output = outputBuilder.ToString();
+            var errorOutput = errorBuilder.ToString();
+
+            if (exitCode != 0)
+            {
+                var errorMessage = $"命令执行失败，退出码: {exitCode}";
+                if (!string.IsNullOrEmpty(errorOutput))
+                {
+                    errorMessage += $"\n错误输出:\n{errorOutput}";
+                }
+                throw new InvalidOperationException(errorMessage);
+            }
+
+            _logger.LogInformation("Shell命令执行成功: {Command}, 退出码: {ExitCode}", config.Command, exitCode);
+
+            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+            
+            // Output capture note: Command output is logged in real-time above (via OutputDataReceived).
+            // The execution history is updated by the calling method (ExecuteTaskAsync) which handles
+            // the overall task lifecycle including success/failure status and duration.
+            // Individual command outputs are visible in server logs with [TaskId=X] prefix.
+            if (!string.IsNullOrEmpty(output))
+            {
+                _logger.LogInformation("命令输出:\n{Output}", output);
+            }
+            
+            return TaskExecutionResult.Success(
+                "Shell命令执行成功",
+                new Dictionary<string, object>
+                {
+                    { "command", config.Command },
+                    { "exitCode", exitCode },
+                    { "hasOutput", !string.IsNullOrEmpty(output) },
+                    { "outputLength", output.Length }
+                },
+                duration
+            );
+        }
+        catch (Exception ex)
+        {
+            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+            _logger.LogError(ex, "执行Shell命令失败: {Command}", config.Command);
+            throw;
+        }
+    }
+
+    private async Task<TaskExecutionResult> ExecuteAnydropMigrationTaskAsync(string configuration, CancellationToken cancellationToken)
+    {
+        var startTime = DateTime.UtcNow;
+        // Parse configuration
+        var config = JsonSerializer.Deserialize<AnydropMigrationConfig>(configuration);
+        if (config == null || string.IsNullOrEmpty(config.SourceDirectory) || string.IsNullOrEmpty(config.DestinationDirectory))
+        {
+            throw new InvalidOperationException("Anydrop迁移任务配置无效");
+        }
+
+        _logger.LogInformation("开始Anydrop文件迁移: {Source} -> {Destination}", config.SourceDirectory, config.DestinationDirectory);
+
+        if (!Directory.Exists(config.SourceDirectory))
+        {
+            _logger.LogWarning("源目录不存在: {Source}，无需迁移", config.SourceDirectory);
+            var duration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+            return TaskExecutionResult.Success(
+                "源目录不存在，无需迁移",
+                new Dictionary<string, object>
+                {
+                    { "sourceDirectory", config.SourceDirectory },
+                    { "destinationDirectory", config.DestinationDirectory },
+                    { "totalFiles", 0 },
+                    { "movedFiles", 0 },
+                    { "failedFiles", 0 }
+                },
+                duration
+            );
+        }
+
+        // Create destination directory if it doesn't exist
+        if (!Directory.Exists(config.DestinationDirectory))
+        {
+            Directory.CreateDirectory(config.DestinationDirectory);
+            _logger.LogInformation("创建目标目录: {Destination}", config.DestinationDirectory);
+        }
+
+        // Get all files in the source directory
+        var files = Directory.GetFiles(config.SourceDirectory, "*", SearchOption.AllDirectories);
+        var totalFiles = files.Length;
+        var movedFiles = 0;
+        var failedFiles = 0;
+
+        _logger.LogInformation("准备迁移 {TotalFiles} 个文件", totalFiles);
+
+        foreach (var sourceFile in files)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("Anydrop迁移任务被取消");
+                throw new OperationCanceledException();
+            }
+
+            try
+            {
+                // Calculate relative path
+                var relativePath = Path.GetRelativePath(config.SourceDirectory, sourceFile);
+                var destinationFile = Path.Combine(config.DestinationDirectory, relativePath);
+
+                // Create subdirectories if needed
+                var destinationDir = Path.GetDirectoryName(destinationFile);
+                if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
+                {
+                    Directory.CreateDirectory(destinationDir);
+                }
+
+                // Move the file using copy + delete for better error handling
+                if (File.Exists(destinationFile))
+                {
+                    // File exists, try to create a unique name
+                    var fileName = Path.GetFileNameWithoutExtension(destinationFile);
+                    var extension = Path.GetExtension(destinationFile);
+                    var directory = Path.GetDirectoryName(destinationFile) ?? config.DestinationDirectory;
+                    var counter = 1;
+                    
+                    while (File.Exists(destinationFile) && counter < 1000)
+                    {
+                        destinationFile = Path.Combine(directory, $"{fileName}_copy_{counter}{extension}");
+                        counter++;
+                    }
+                    
+                    if (File.Exists(destinationFile))
+                    {
+                        _logger.LogWarning("目标文件已存在且无法创建唯一名称，跳过: {File}", relativePath);
+                        failedFiles++;
+                        continue;
+                    }
+                    
+                    _logger.LogInformation("目标文件已存在，使用新名称: {NewName}", Path.GetFileName(destinationFile));
+                }
+                
+                try
+                {
+                    // Use copy + delete for better error handling and data integrity
+                    File.Copy(sourceFile, destinationFile, false);
+                    
+                    // Verify the copy was successful before deleting source
+                    if (File.Exists(destinationFile))
+                    {
+                        File.Delete(sourceFile);
+                        movedFiles++;
+                        
+                        if (movedFiles % 100 == 0)
+                        {
+                            _logger.LogInformation("已迁移 {MovedFiles}/{TotalFiles} 个文件", movedFiles, totalFiles);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogError("文件复制后验证失败: {File}", sourceFile);
+                        failedFiles++;
+                    }
+                }
+                catch (IOException ioEx)
+                {
+                    _logger.LogError(ioEx, "文件迁移IO错误（可能文件正在使用）: {File}", sourceFile);
+                    failedFiles++;
+                }
+                catch (UnauthorizedAccessException uaEx)
+                {
+                    _logger.LogError(uaEx, "文件迁移权限错误: {File}", sourceFile);
+                    failedFiles++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "迁移文件失败: {File}", sourceFile);
+                failedFiles++;
+            }
+        }
+
+        // Try to remove empty directories in source
+        try
+        {
+            var directories = Directory.GetDirectories(config.SourceDirectory, "*", SearchOption.AllDirectories)
+                .OrderByDescending(d => d.Length); // Process deepest directories first
+
+            foreach (var dir in directories)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+
+                try
+                {
+                    if (!Directory.EnumerateFileSystemEntries(dir).Any())
+                    {
+                        Directory.Delete(dir);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "无法删除空目录: {Directory}", dir);
+                }
+            }
+
+            // Try to remove the root source directory if empty
+            if (!Directory.EnumerateFileSystemEntries(config.SourceDirectory).Any())
+            {
+                Directory.Delete(config.SourceDirectory);
+                _logger.LogInformation("源目录已清空并删除: {Source}", config.SourceDirectory);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "清理源目录时发生错误");
+        }
+
+        _logger.LogInformation("Anydrop文件迁移完成: 成功 {MovedFiles} 个, 失败 {FailedFiles} 个, 总计 {TotalFiles} 个", 
+            movedFiles, failedFiles, totalFiles);
+        
+        var totalDuration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
+        
+        return TaskExecutionResult.Success(
+            $"文件迁移完成: 成功 {movedFiles} 个, 失败 {failedFiles} 个, 总计 {totalFiles} 个文件",
+            new Dictionary<string, object>
+            {
+                { "sourceDirectory", config.SourceDirectory },
+                { "destinationDirectory", config.DestinationDirectory },
+                { "totalFiles", totalFiles },
+                { "movedFiles", movedFiles },
+                { "failedFiles", failedFiles }
+            },
+            totalDuration
+        );
     }
 }
