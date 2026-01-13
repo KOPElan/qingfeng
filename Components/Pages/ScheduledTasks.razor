@@ -478,6 +478,18 @@
                         @GetHistoryStatusDisplay(context.Status)
                     </FluentBadge>
                 </TemplateColumn>
+                <TemplateColumn Title="执行结果">
+                    @if (!string.IsNullOrEmpty(context.Result))
+                    {
+                        <span title="@context.Result" style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; display: block;">
+                            @context.Result
+                        </span>
+                    }
+                    else
+                    {
+                        <span style="color: var(--neutral-foreground-hint);">-</span>
+                    }
+                </TemplateColumn>
                 <TemplateColumn Title="执行时长" Sortable="true" SortBy="@(GridSort<ScheduledTaskExecutionHistory>.ByAscending(h => h.DurationMs))">
                     @if (context.DurationMs.HasValue)
                     {
