@@ -146,17 +146,18 @@ public class ScheduledTaskExecutorService : BackgroundService
             // Update status to Running
             await taskService.UpdateTaskStatusAsync(taskId, "Running", null);
             
-            // Execute based on task type
+            // Execute based on task type and capture results
+            string? taskResult = null;
             switch (taskType)
             {
                 case "FileIndexing":
-                    await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
+                    taskResult = await ExecuteFileIndexingTaskAsync(configuration, cancellationToken);
                     break;
                 case "ShellCommand":
                     await ExecuteShellCommandTaskAsync(taskId, configuration, cancellationToken);
                     break;
                 case "AnydropMigration":
-                    await ExecuteAnydropMigrationTaskAsync(configuration, cancellationToken);
+                    taskResult = await ExecuteAnydropMigrationTaskAsync(configuration, cancellationToken);
                     break;
                 default:
                     _logger.LogWarning("未知的任务类型: {TaskType}", taskType);
@@ -202,7 +203,7 @@ public class ScheduledTaskExecutorService : BackgroundService
             history.Status = "Success";
             history.EndTime = DateTime.UtcNow;
             history.DurationMs = (long)(history.EndTime.Value - history.StartTime).TotalMilliseconds;
-            history.Result = "任务执行成功";
+            history.Result = taskResult ?? "任务执行成功";
             await historyService.UpdateHistoryAsync(history);
         }
         catch (OperationCanceledException)
@@ -241,7 +242,7 @@ public class ScheduledTaskExecutorService : BackgroundService
         }
     }
 
-    private async Task ExecuteFileIndexingTaskAsync(string configuration, CancellationToken cancellationToken)
+    private async Task<string> ExecuteFileIndexingTaskAsync(string configuration, CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var fileIndexService = scope.ServiceProvider.GetRequiredService<IFileIndexService>();
@@ -262,7 +263,13 @@ public class ScheduledTaskExecutorService : BackgroundService
         
         _logger.LogInformation("开始重建文件索引: {RootPath}", config.RootPath);
         await fileIndexService.RebuildIndexAsync(config.RootPath);
-        _logger.LogInformation("文件索引重建完成: {RootPath}", config.RootPath);
+        
+        // Get the index stats to retrieve the count
+        var (lastIndexed, fileCount) = await fileIndexService.GetIndexStatsAsync(config.RootPath);
+        
+        _logger.LogInformation("文件索引重建完成: {RootPath}, 共索引 {FileCount} 个文件/文件夹", config.RootPath, fileCount);
+        
+        return $"索引重建完成，共索引 {fileCount} 个文件/文件夹";
     }
 
     private async Task ExecuteShellCommandTaskAsync(int taskId, string configuration, CancellationToken cancellationToken)
@@ -400,7 +407,7 @@ public class ScheduledTaskExecutorService : BackgroundService
         }
     }
 
-    private async Task ExecuteAnydropMigrationTaskAsync(string configuration, CancellationToken cancellationToken)
+    private async Task<string> ExecuteAnydropMigrationTaskAsync(string configuration, CancellationToken cancellationToken)
     {
         // Parse configuration
         var config = JsonSerializer.Deserialize<AnydropMigrationConfig>(configuration);
@@ -414,7 +421,7 @@ public class ScheduledTaskExecutorService : BackgroundService
         if (!Directory.Exists(config.SourceDirectory))
         {
             _logger.LogWarning("源目录不存在: {Source}，无需迁移", config.SourceDirectory);
-            return;
+            return "源目录不存在，无需迁移";
         }
 
         // Create destination directory if it doesn't exist
@@ -556,5 +563,7 @@ public class ScheduledTaskExecutorService : BackgroundService
 
         _logger.LogInformation("Anydrop文件迁移完成: 成功 {MovedFiles} 个, 失败 {FailedFiles} 个, 总计 {TotalFiles} 个", 
             movedFiles, failedFiles, totalFiles);
+        
+        return $"文件迁移完成: 成功 {movedFiles} 个, 失败 {failedFiles} 个, 总计 {totalFiles} 个文件";
     }
 }
