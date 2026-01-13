@@ -481,7 +481,7 @@
                 <TemplateColumn Title="执行结果">
                     @if (!string.IsNullOrEmpty(context.Result))
                     {
-                        <span title="@context.Result" style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; display: block;">
+                        <span title="@context.Result" style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;">
                             @context.Result
                         </span>
                     }
