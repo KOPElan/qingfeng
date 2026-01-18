@@ -460,7 +460,8 @@ public class ScheduledTaskExecutorService : BackgroundService
                     { "destinationDirectory", config.DestinationDirectory },
                     { "totalFiles", 0 },
                     { "movedFiles", 0 },
-                    { "failedFiles", 0 }
+                    { "failedFiles", 0 },
+                    { "updatedDbRecords", 0 }
                 },
                 duration
             );
@@ -478,6 +479,10 @@ public class ScheduledTaskExecutorService : BackgroundService
         var totalFiles = files.Length;
         var movedFiles = 0;
         var failedFiles = 0;
+        var updatedDbRecords = 0;
+
+        // Track file path mappings for database update
+        var filePathMappings = new Dictionary<string, string>();
 
         _logger.LogInformation("准备迁移 {TotalFiles} 个文件", totalFiles);
 
@@ -535,6 +540,9 @@ public class ScheduledTaskExecutorService : BackgroundService
                     // Verify the copy was successful before deleting source
                     if (File.Exists(destinationFile))
                     {
+                        // Track the mapping for database update
+                        filePathMappings[sourceFile] = destinationFile;
+                        
                         File.Delete(sourceFile);
                         movedFiles++;
                         
@@ -565,6 +573,64 @@ public class ScheduledTaskExecutorService : BackgroundService
                 _logger.LogError(ex, "迁移文件失败: {File}", sourceFile);
                 failedFiles++;
             }
+        }
+
+        // Update database FilePath for all moved attachments
+        _logger.LogInformation("开始更新数据库中的文件路径");
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContextFactory = scope.ServiceProvider.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Data.QingFengDbContext>>();
+            using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            
+            var attachments = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(context.AnydropAttachments, cancellationToken);
+            
+            foreach (var attachment in attachments)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+                
+                // Check if this attachment's file was moved
+                if (filePathMappings.ContainsKey(attachment.FilePath))
+                {
+                    // Update to new absolute path
+                    attachment.FilePath = filePathMappings[attachment.FilePath];
+                    updatedDbRecords++;
+                }
+                else if (Path.IsPathRooted(attachment.FilePath))
+                {
+                    // Handle case where file path is absolute but might need adjustment
+                    // Check if the path starts with old source directory
+                    if (attachment.FilePath.StartsWith(config.SourceDirectory, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Calculate relative path and create new absolute path
+                        var relativePath = Path.GetRelativePath(config.SourceDirectory, attachment.FilePath);
+                        var newAbsolutePath = Path.Combine(config.DestinationDirectory, relativePath);
+                        
+                        // Only update if the new file exists (was successfully moved)
+                        if (File.Exists(newAbsolutePath))
+                        {
+                            attachment.FilePath = newAbsolutePath;
+                            updatedDbRecords++;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("数据库记录的文件未找到: {FilePath}", newAbsolutePath);
+                        }
+                    }
+                }
+            }
+            
+            if (updatedDbRecords > 0)
+            {
+                await context.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("更新了 {UpdatedRecords} 条数据库记录", updatedDbRecords);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "更新数据库文件路径时发生错误");
+            // Don't fail the entire task, just log the error
         }
 
         // Try to remove empty directories in source
@@ -603,20 +669,21 @@ public class ScheduledTaskExecutorService : BackgroundService
             _logger.LogWarning(ex, "清理源目录时发生错误");
         }
 
-        _logger.LogInformation("Anydrop文件迁移完成: 成功 {MovedFiles} 个, 失败 {FailedFiles} 个, 总计 {TotalFiles} 个", 
-            movedFiles, failedFiles, totalFiles);
+        _logger.LogInformation("Anydrop文件迁移完成: 成功 {MovedFiles} 个, 失败 {FailedFiles} 个, 总计 {TotalFiles} 个, 更新数据库记录 {UpdatedDbRecords} 条", 
+            movedFiles, failedFiles, totalFiles, updatedDbRecords);
         
         var totalDuration = (long)(DateTime.UtcNow - startTime).TotalMilliseconds;
         
         return TaskExecutionResult.Success(
-            $"文件迁移完成: 成功 {movedFiles} 个, 失败 {failedFiles} 个, 总计 {totalFiles} 个文件",
+            $"文件迁移完成: 成功 {movedFiles} 个, 失败 {failedFiles} 个, 总计 {totalFiles} 个文件, 更新了 {updatedDbRecords} 条数据库记录",
             new Dictionary<string, object>
             {
                 { "sourceDirectory", config.SourceDirectory },
                 { "destinationDirectory", config.DestinationDirectory },
                 { "totalFiles", totalFiles },
                 { "movedFiles", movedFiles },
-                { "failedFiles", failedFiles }
+                { "failedFiles", failedFiles },
+                { "updatedDbRecords", updatedDbRecords }
             },
             totalDuration
         );
