@@ -66,4 +66,9 @@ public interface IAnydropService
     /// Upload file content to an existing attachment placeholder
     /// </summary>
     Task UploadAttachmentFileAsync(int attachmentId, Stream fileStream);
+    
+    /// <summary>
+    /// Convert absolute paths to relative paths for all attachments (data migration utility)
+    /// </summary>
+    Task<int> ConvertAbsolutePathsToRelativeAsync();
 }

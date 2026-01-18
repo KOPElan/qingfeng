@@ -593,4 +593,50 @@ public class AnydropService : IAnydropService
         
         _logger.LogInformation("Uploaded file for attachment {AttachmentId}: {FileName} at {RelativePath}", attachmentId, fileName, relativeFilePath);
     }
+
+    /// <summary>
+    /// Convert absolute paths to relative paths for all attachments (data migration utility)
+    /// </summary>
+    public async Task<int> ConvertAbsolutePathsToRelativeAsync()
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var attachments = await context.AnydropAttachments.ToListAsync();
+        var updatedCount = 0;
+        
+        foreach (var attachment in attachments)
+        {
+            // Check if path is absolute
+            if (Path.IsPathRooted(attachment.FilePath))
+            {
+                // If the file path is within the storage directory, convert to relative
+                if (attachment.FilePath.StartsWith(_anydropStoragePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    var relativePath = Path.GetRelativePath(_anydropStoragePath, attachment.FilePath);
+                    
+                    // Verify file exists before updating
+                    if (File.Exists(attachment.FilePath))
+                    {
+                        attachment.FilePath = relativePath;
+                        updatedCount++;
+                        _logger.LogInformation("Converted path to relative for attachment {AttachmentId}: {RelativePath}", 
+                            attachment.Id, relativePath);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("File not found for attachment {AttachmentId}: {FilePath}", 
+                            attachment.Id, attachment.FilePath);
+                    }
+                }
+            }
+        }
+        
+        if (updatedCount > 0)
+        {
+            await context.SaveChangesAsync();
+            _logger.LogInformation("Converted {Count} attachment paths from absolute to relative", updatedCount);
+        }
+        
+        return updatedCount;
+    }
 }
