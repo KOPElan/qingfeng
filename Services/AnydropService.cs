@@ -615,36 +615,63 @@ public class AnydropService : IAnydropService
         var attachments = await context.AnydropAttachments.ToListAsync();
         var updatedCount = 0;
         
-        // Normalize storage path for reliable comparison
-        var normalizedStoragePath = Path.GetFullPath(_anydropStoragePath);
+        // Normalize storage path for reliable comparison with error handling
+        string normalizedStoragePath;
+        try
+        {
+            normalizedStoragePath = Path.GetFullPath(_anydropStoragePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Invalid storage path configuration: {StoragePath}", _anydropStoragePath);
+            throw new InvalidOperationException($"Invalid storage path: {_anydropStoragePath}", ex);
+        }
         
         foreach (var attachment in attachments)
         {
-            // Check if path is absolute
-            if (Path.IsPathRooted(attachment.FilePath))
+            try
             {
-                // Normalize the attachment path for reliable comparison
-                var normalizedAttachmentPath = Path.GetFullPath(attachment.FilePath);
-                
-                // If the file path is within the storage directory, convert to relative
-                if (normalizedAttachmentPath.StartsWith(normalizedStoragePath, StringComparison.OrdinalIgnoreCase))
+                // Check if path is absolute
+                if (Path.IsPathRooted(attachment.FilePath))
                 {
-                    var relativePath = Path.GetRelativePath(normalizedStoragePath, normalizedAttachmentPath);
-                    
-                    // Verify file exists before updating
-                    if (File.Exists(normalizedAttachmentPath))
+                    // Normalize the attachment path for reliable comparison
+                    string normalizedAttachmentPath;
+                    try
                     {
-                        attachment.FilePath = relativePath;
-                        updatedCount++;
-                        _logger.LogInformation("Converted path to relative for attachment {AttachmentId}: {RelativePath}", 
-                            attachment.Id, relativePath);
+                        normalizedAttachmentPath = Path.GetFullPath(attachment.FilePath);
                     }
-                    else
+                    catch (Exception pathEx)
                     {
-                        _logger.LogWarning("File not found for attachment {AttachmentId}: {FilePath}", 
-                            attachment.Id, normalizedAttachmentPath);
+                        _logger.LogWarning(pathEx, "Invalid path format for attachment {AttachmentId}: {FilePath}", 
+                            attachment.Id, attachment.FilePath);
+                        continue;
+                    }
+                    
+                    // If the file path is within the storage directory, convert to relative
+                    if (normalizedAttachmentPath.StartsWith(normalizedStoragePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var relativePath = Path.GetRelativePath(normalizedStoragePath, normalizedAttachmentPath);
+                        
+                        // Verify file exists before updating
+                        if (File.Exists(normalizedAttachmentPath))
+                        {
+                            attachment.FilePath = relativePath;
+                            updatedCount++;
+                            _logger.LogInformation("Converted path to relative for attachment {AttachmentId}: {RelativePath}", 
+                                attachment.Id, relativePath);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("File not found for attachment {AttachmentId}: {FilePath}", 
+                                attachment.Id, normalizedAttachmentPath);
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing attachment {AttachmentId}", attachment.Id);
+                // Continue processing other attachments
             }
         }
         
