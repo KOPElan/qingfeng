@@ -2,7 +2,6 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using FFMpegCore;
-using FFMpegCore.Enums;
 
 namespace QingFeng.Services;
 
@@ -101,9 +100,10 @@ public class ThumbnailService : IThumbnailService
 
             try
             {
-                // Extract frame at 1 second (or first frame if video is shorter)
+                // Extract frame at 1 second (or earlier for short videos)
                 var mediaInfo = await FFProbe.AnalyseAsync(sourceFilePath);
-                var captureTime = TimeSpan.FromSeconds(Math.Min(1, mediaInfo.Duration.TotalSeconds / 2));
+                // Ensure we don't capture at 0 seconds, and don't exceed half the video duration
+                var captureTime = TimeSpan.FromSeconds(Math.Min(1, Math.Max(0.1, mediaInfo.Duration.TotalSeconds / 2)));
 
                 // Extract the frame
                 await FFMpeg.SnapshotAsync(sourceFilePath, tempFramePath, null, captureTime);
@@ -231,7 +231,7 @@ public class ThumbnailService : IThumbnailService
                 {
                     try
                     {
-                        var process = new System.Diagnostics.Process
+                        using var process = new System.Diagnostics.Process
                         {
                             StartInfo = new System.Diagnostics.ProcessStartInfo
                             {

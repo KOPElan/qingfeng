@@ -164,9 +164,7 @@ public class AnydropService : IAnydropService
         {
             try
             {
-                var thumbnailFileName = $"{messageId}_{Guid.NewGuid()}_thumb.jpg";
-                var thumbnailAbsolutePath = Path.Combine(dateDirectory, thumbnailFileName);
-                thumbnailRelativePath = Path.Combine(dateSubPath, thumbnailFileName);
+                var (thumbnailAbsolutePath, thumbnailRelPath) = GenerateThumbnailPaths(messageId, dateDirectory, dateSubPath);
                 
                 var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
                     absoluteFilePath, 
@@ -180,6 +178,7 @@ public class AnydropService : IAnydropService
                 }
                 else
                 {
+                    thumbnailRelativePath = thumbnailRelPath;
                     _logger.LogInformation("Generated thumbnail for {FileName} at {ThumbnailPath}", fileName, thumbnailRelativePath);
                 }
             }
@@ -373,6 +372,17 @@ public class AnydropService : IAnydropService
         }
         
         return (absoluteDir, dateSubPath);
+    }
+    
+    /// <summary>
+    /// Generate thumbnail file paths (both absolute and relative)
+    /// </summary>
+    private static (string absolutePath, string relativePath) GenerateThumbnailPaths(int messageId, string dateDirectory, string dateSubPath)
+    {
+        var thumbnailFileName = $"{messageId}_{Guid.NewGuid()}_thumb.jpg";
+        var absolutePath = Path.Combine(dateDirectory, thumbnailFileName);
+        var relativePath = Path.Combine(dateSubPath, thumbnailFileName);
+        return (absolutePath, relativePath);
     }
 
     private static string DetermineAttachmentType(string contentType)
@@ -625,23 +635,31 @@ public class AnydropService : IAnydropService
                 var dateSubPath = Path.GetDirectoryName(relativeFilePath);
                 var dateDirectory = Path.GetDirectoryName(absoluteFilePath);
                 
-                var thumbnailFileName = $"{messageId}_{Guid.NewGuid()}_thumb.jpg";
-                var thumbnailAbsolutePath = Path.Combine(dateDirectory!, thumbnailFileName);
-                thumbnailRelativePath = Path.Combine(dateSubPath!, thumbnailFileName);
-                
-                var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
-                    absoluteFilePath, 
-                    thumbnailAbsolutePath, 
-                    contentType);
-                
-                if (!thumbnailGenerated)
+                // Ensure we have valid directory paths
+                if (string.IsNullOrEmpty(dateSubPath) || string.IsNullOrEmpty(dateDirectory))
                 {
-                    _logger.LogWarning("Failed to generate thumbnail for {FileName}", fileName);
-                    thumbnailRelativePath = null;
+                    _logger.LogWarning("Invalid directory path for thumbnail generation: relative={RelativePath}, absolute={AbsolutePath}", 
+                        relativeFilePath, absoluteFilePath);
                 }
                 else
                 {
-                    _logger.LogInformation("Generated thumbnail for {FileName} at {ThumbnailPath}", fileName, thumbnailRelativePath);
+                    var (thumbnailAbsolutePath, thumbnailRelPath) = GenerateThumbnailPaths(messageId, dateDirectory, dateSubPath);
+                    
+                    var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
+                        absoluteFilePath, 
+                        thumbnailAbsolutePath, 
+                        contentType);
+                    
+                    if (!thumbnailGenerated)
+                    {
+                        _logger.LogWarning("Failed to generate thumbnail for {FileName}", fileName);
+                        thumbnailRelativePath = null;
+                    }
+                    else
+                    {
+                        thumbnailRelativePath = thumbnailRelPath;
+                        _logger.LogInformation("Generated thumbnail for {FileName} at {ThumbnailPath}", fileName, thumbnailRelativePath);
+                    }
                 }
             }
             catch (Exception ex)
