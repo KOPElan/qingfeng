@@ -1475,25 +1475,26 @@
             await JSRuntime.InvokeVoidAsync("eval", 
                 "document.querySelector('.messages-container').scrollTop = 0");
             
-            // Release UI immediately
-            isSending = false;
-            StateHasChanged();
-            
-            // Clear file selection AFTER capturing file upload tasks to avoid disposal issues
-            selectedFiles.Clear();
-            
             // Cancel any existing uploads
             _uploadCancellationTokenSource?.Cancel();
             _uploadCancellationTokenSource?.Dispose();
             _uploadCancellationTokenSource = new CancellationTokenSource();
             
             // Upload files asynchronously with proper task tracking
+            // IMPORTANT: Start uploads BEFORE clearing selectedFiles to keep IBrowserFile references valid
             _activeUploadTasks.Clear();
             foreach (var (message, file, attachmentId) in fileUploadTasks)
             {
                 var uploadTask = UploadFileAsync(message.Id, file, attachmentId, _uploadCancellationTokenSource.Token);
                 _activeUploadTasks.Add(uploadTask);
             }
+            
+            // Clear file selection AFTER starting uploads to avoid invalidating IBrowserFile references
+            selectedFiles.Clear();
+            
+            // Release UI immediately
+            isSending = false;
+            StateHasChanged();
         }
         catch (Exception ex)
         {
