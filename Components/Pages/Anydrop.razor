@@ -433,6 +433,48 @@
         text-overflow: ellipsis;
     }
 
+    .media-grid-item-checkbox {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 5;
+    }
+
+    .media-grid-item.selected {
+        border: 3px solid var(--accent-fill-rest);
+        box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3);
+    }
+
+    .selection-toolbar {
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--neutral-layer-2);
+        border-radius: 8px;
+        padding: 12px 20px;
+        box-shadow: var(--elevation-shadow-flyout);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        z-index: 100;
+        border: 1px solid var(--neutral-stroke-layer-rest);
+    }
+
+    .selection-count {
+        font-size: 14px;
+        color: var(--neutral-foreground-rest);
+        font-weight: 500;
+    }
+
+    .tab-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: var(--neutral-foreground-hint);
+    }
+
     /* Modal styles */
     .modal-backdrop {
         position: fixed;
@@ -579,6 +621,9 @@
             <button class="tab-button @(currentTab == "videos" ? "active" : "")" @onclick='() => SetTab("videos")'>
                 视频
             </button>
+            <button class="tab-button @(currentTab == "files" ? "active" : "")" @onclick='() => SetTab("files")'>
+                文件
+            </button>
         </div>
     </div>
 
@@ -605,70 +650,146 @@
                 <div>未找到匹配的消息</div>
             </div>
         }
-        else if (currentTab == "images" || currentTab == "videos")
+        else if (currentTab == "images" || currentTab == "videos" || currentTab == "files")
         {
-            <!-- Grid view for images/videos with timeline -->
-            <div style="padding: 20px 24px; overflow-y: auto;">
-                @{
-                    var groupedByDate = FilteredMessages
-                        .Where(m => m.Attachments != null && m.Attachments.Any())
-                        .SelectMany(m => m.Attachments
-                            .Where(a => a.UploadStatus == Completed)
-                            .Select(a => new { Message = m, Attachment = a }))
-                        .GroupBy(x => x.Message.CreatedAt.ToLocalTime().Date)
-                        .OrderByDescending(g => g.Key);
-                }
-                
-                @foreach (var dateGroup in groupedByDate)
-                {
-                    <div class="timeline-group" @key="dateGroup.Key">
-                        <div class="timeline-header">
-                            <div class="timeline-date">
-                                @if (dateGroup.Key.Date == DateTime.Today)
+            @if (isTabLoading)
+            {
+                <div class="tab-loading">
+                    <FluentProgressRing />
+                    <div style="margin-left: 12px;">加载中...</div>
+                </div>
+            }
+            else if (currentTab == "images" || currentTab == "videos")
+            {
+                <!-- Grid view for images/videos with timeline -->
+                <div style="padding: 20px 24px; overflow-y: auto;">
+                    @{
+                        var groupedByDate = tabFilteredAttachments
+                            .GroupBy(x => x.Message.CreatedAt.ToLocalTime().Date)
+                            .OrderByDescending(g => g.Key);
+                    }
+                    
+                    @foreach (var dateGroup in groupedByDate)
+                    {
+                        <div class="timeline-group" @key="dateGroup.Key">
+                            <div class="timeline-header">
+                                <div class="timeline-date">
+                                    @if (dateGroup.Key.Date == DateTime.Today)
+                                    {
+                                        <span>今天</span>
+                                    }
+                                    else if (dateGroup.Key.Date == DateTime.Today.AddDays(-1))
+                                    {
+                                        <span>昨天</span>
+                                    }
+                                    else if (dateGroup.Key.Year == DateTime.Today.Year)
+                                    {
+                                        <span>@dateGroup.Key.ToString("M月d日")</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@dateGroup.Key.ToString("yyyy年M月d日")</span>
+                                    }
+                                    <span class="timeline-count">(@dateGroup.Count() 项)</span>
+                                </div>
+                            </div>
+                            <div class="media-grid">
+                                @foreach (var item in dateGroup)
                                 {
-                                    <span>今天</span>
+                                    var isSelected = selectedAttachmentIds.Contains(item.Attachment.Id);
+                                    <div class="media-grid-item @(isSelected ? "selected" : "")" @key="item.Attachment.Id">
+                                        <div class="media-grid-item-checkbox" @onclick:stopPropagation="true">
+                                            <FluentCheckbox Value="@isSelected" 
+                                                          ValueChanged="@((bool value) => ToggleAttachmentSelection(item.Attachment.Id, value))" />
+                                        </div>
+                                        <div @onclick="@(() => OpenPreviewModal(item.Attachment))">
+                                            @if (item.Attachment.AttachmentType == "Image")
+                                            {
+                                                <img src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
+                                                     alt="@item.Attachment.FileName" 
+                                                     loading="lazy" />
+                                            }
+                                            else if (item.Attachment.AttachmentType == "Video")
+                                            {
+                                                <video aria-label="@item.Attachment.FileName">
+                                                    <source src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
+                                                           type="@item.Attachment.ContentType">
+                                                </video>
+                                            }
+                                            <div class="media-grid-item-overlay">
+                                                @item.Attachment.FileName
+                                            </div>
+                                        </div>
+                                    </div>
                                 }
-                                else if (dateGroup.Key.Date == DateTime.Today.AddDays(-1))
-                                {
-                                    <span>昨天</span>
-                                }
-                                else if (dateGroup.Key.Year == DateTime.Today.Year)
-                                {
-                                    <span>@dateGroup.Key.ToString("M月d日")</span>
-                                }
-                                else
-                                {
-                                    <span>@dateGroup.Key.ToString("yyyy年M月d日")</span>
-                                }
-                                <span class="timeline-count">(@dateGroup.Count() 项)</span>
                             </div>
                         </div>
-                        <div class="media-grid">
-                            @foreach (var item in dateGroup)
-                            {
-                                <div class="media-grid-item" @onclick="@(() => OpenPreviewModal(item.Attachment))" @key="item.Attachment.Id">
-                                    @if (item.Attachment.AttachmentType == "Image")
+                    }
+                </div>
+            }
+            else if (currentTab == "files")
+            {
+                <!-- List view for files -->
+                <div style="padding: 20px 24px; overflow-y: auto;">
+                    @{
+                        var groupedByDate = tabFilteredAttachments
+                            .GroupBy(x => x.Message.CreatedAt.ToLocalTime().Date)
+                            .OrderByDescending(g => g.Key);
+                    }
+                    
+                    @foreach (var dateGroup in groupedByDate)
+                    {
+                        <div class="timeline-group" @key="dateGroup.Key">
+                            <div class="timeline-header">
+                                <div class="timeline-date">
+                                    @if (dateGroup.Key.Date == DateTime.Today)
                                     {
-                                        <img src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
-                                             alt="@item.Attachment.FileName" 
-                                             loading="lazy" />
+                                        <span>今天</span>
                                     }
-                                    else if (item.Attachment.AttachmentType == "Video")
+                                    else if (dateGroup.Key.Date == DateTime.Today.AddDays(-1))
                                     {
-                                        <video aria-label="@item.Attachment.FileName">
-                                            <source src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
-                                                   type="@item.Attachment.ContentType">
-                                        </video>
+                                        <span>昨天</span>
                                     }
-                                    <div class="media-grid-item-overlay">
-                                        @item.Attachment.FileName
-                                    </div>
+                                    else if (dateGroup.Key.Year == DateTime.Today.Year)
+                                    {
+                                        <span>@dateGroup.Key.ToString("M月d日")</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@dateGroup.Key.ToString("yyyy年M月d日")</span>
+                                    }
+                                    <span class="timeline-count">(@dateGroup.Count() 项)</span>
                                 </div>
-                            }
+                            </div>
+                            <div class="attachments-grid">
+                                @foreach (var item in dateGroup)
+                                {
+                                    var isSelected = selectedAttachmentIds.Contains(item.Attachment.Id);
+                                    <div class="attachment-item @(isSelected ? "selected" : "")" style="position: relative;" @key="item.Attachment.Id">
+                                        <div style="position: absolute; top: 8px; right: 8px; z-index: 5;" @onclick:stopPropagation="true">
+                                            <FluentCheckbox Value="@isSelected" 
+                                                          ValueChanged="@((bool value) => ToggleAttachmentSelection(item.Attachment.Id, value))" />
+                                        </div>
+                                        <div @onclick="@(() => DownloadAttachment(item.Attachment.Id))">
+                                            <div class="attachment-icon">
+                                                <FluentIcon Value="@GetIconForAttachment(item.Attachment)" Size="@IconSize.Size48" />
+                                            </div>
+                                            <div class="attachment-info">
+                                                <div class="attachment-name" title="@item.Attachment.FileName">
+                                                    @item.Attachment.FileName
+                                                </div>
+                                                <div class="attachment-size">
+                                                    @FileUtilities.FormatSize(item.Attachment.FileSize)
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                         </div>
-                    </div>
-                }
-            </div>
+                    }
+                </div>
+            }
         }
         else
         {
@@ -810,6 +931,24 @@
             }
         }
     </div>
+
+    @* Selection toolbar for multi-select *@
+    @if (selectedAttachmentIds.Count > 0)
+    {
+        <div class="selection-toolbar">
+            <span class="selection-count">已选择 @selectedAttachmentIds.Count 项</span>
+            <FluentButton Appearance="Appearance.Accent"
+                         IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Send())"
+                         OnClick="SendSelectedAttachments">
+                发送选中项
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Neutral"
+                         IconEnd="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())"
+                         OnClick="ClearSelection">
+                取消选择
+            </FluentButton>
+        </div>
+    }
 
     <div class="input-container">
         @if (selectedFiles.Count > 0)
@@ -998,6 +1137,13 @@
     private CancellationTokenSource? _uploadCancellationTokenSource;
     private List<Task> _activeUploadTasks = new();
     
+    // Tab-specific state
+    private bool isTabLoading = false;
+    private List<(AnydropMessage Message, AnydropAttachment Attachment)> tabFilteredAttachments = new();
+    
+    // Multi-select state
+    private HashSet<int> selectedAttachmentIds = new();
+    
     // Modal states
     private bool showPreviewModal = false;
     private bool showSearchModal = false;
@@ -1015,14 +1161,134 @@
                 return messages.Where(m => m.MessageType == "Image");
             else if (currentTab == "videos")
                 return messages.Where(m => m.MessageType == "Video");
+            else if (currentTab == "files")
+                return messages.Where(m => m.MessageType == "File" || m.MessageType == "Document" || m.MessageType == "Audio" || m.MessageType == "Other");
             return messages;
         }
     }
 
-    private void SetTab(string tab)
+    private async Task SetTab(string tab)
     {
         currentTab = tab;
+        selectedAttachmentIds.Clear(); // Clear selection when switching tabs
+        
+        // Load tab content asynchronously for image/video/file tabs
+        if (tab == "images" || tab == "videos" || tab == "files")
+        {
+            await LoadTabContentAsync(tab);
+        }
+        
         StateHasChanged();
+    }
+
+    private async Task LoadTabContentAsync(string tab)
+    {
+        isTabLoading = true;
+        StateHasChanged();
+        
+        // Small delay to show loading state
+        await Task.Delay(50);
+        
+        try
+        {
+            // Filter attachments based on tab type
+            var filteredMessages = tab switch
+            {
+                "images" => messages.Where(m => m.MessageType == "Image"),
+                "videos" => messages.Where(m => m.MessageType == "Video"),
+                "files" => messages.Where(m => m.MessageType == "File" || m.MessageType == "Document" || m.MessageType == "Audio" || m.MessageType == "Other"),
+                _ => Enumerable.Empty<AnydropMessage>()
+            };
+            
+            tabFilteredAttachments = filteredMessages
+                .Where(m => m.Attachments != null && m.Attachments.Any())
+                .SelectMany(m => m.Attachments
+                    .Where(a => a.UploadStatus == Completed)
+                    .Select(a => (Message: m, Attachment: a)))
+                .ToList();
+        }
+        finally
+        {
+            isTabLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleAttachmentSelection(int attachmentId, bool isSelected)
+    {
+        if (isSelected)
+        {
+            selectedAttachmentIds.Add(attachmentId);
+        }
+        else
+        {
+            selectedAttachmentIds.Remove(attachmentId);
+        }
+        StateHasChanged();
+    }
+
+    private void ClearSelection()
+    {
+        selectedAttachmentIds.Clear();
+        StateHasChanged();
+    }
+
+    private async Task SendSelectedAttachments()
+    {
+        if (selectedAttachmentIds.Count == 0)
+            return;
+            
+        isSending = true;
+        StateHasChanged();
+        
+        try
+        {
+            // Get all selected attachments
+            var selectedAttachments = tabFilteredAttachments
+                .Where(item => selectedAttachmentIds.Contains(item.Attachment.Id))
+                .Select(item => item.Attachment)
+                .ToList();
+            
+            // Create a new message for selected attachments
+            var messageContent = $"转发 {selectedAttachments.Count} 个文件";
+            var newMessage = await AnydropService.CreateMessageAsync(messageContent, "File");
+            
+            // For each selected attachment, create a copy linked to the new message
+            foreach (var attachment in selectedAttachments)
+            {
+                try
+                {
+                    // Read the file from the original attachment
+                    var (fileBytes, fileName, contentType) = await AnydropService.DownloadAttachmentAsync(attachment.Id);
+                    
+                    // Upload as a new attachment for the new message
+                    using var stream = new MemoryStream(fileBytes);
+                    await AnydropService.AddAttachmentAsync(newMessage.Id, fileName, stream, fileBytes.Length, contentType);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error copying attachment {AttachmentId}", attachment.Id);
+                }
+            }
+            
+            // Reload messages to show the new message
+            await LoadMessages();
+            
+            // Clear selection
+            ClearSelection();
+            
+            // Show success notification (optional - could use toast/notification service)
+            Logger.LogInformation("Successfully sent {Count} selected attachments", selectedAttachments.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error sending selected attachments");
+        }
+        finally
+        {
+            isSending = false;
+            StateHasChanged();
+        }
     }
 
     protected override async Task OnInitializedAsync()
@@ -1209,25 +1475,26 @@
             await JSRuntime.InvokeVoidAsync("eval", 
                 "document.querySelector('.messages-container').scrollTop = 0");
             
-            // Release UI immediately
-            isSending = false;
-            StateHasChanged();
-            
-            // Clear file selection AFTER capturing file upload tasks to avoid disposal issues
-            selectedFiles.Clear();
-            
             // Cancel any existing uploads
             _uploadCancellationTokenSource?.Cancel();
             _uploadCancellationTokenSource?.Dispose();
             _uploadCancellationTokenSource = new CancellationTokenSource();
             
             // Upload files asynchronously with proper task tracking
+            // IMPORTANT: Start uploads BEFORE clearing selectedFiles to keep IBrowserFile references valid
             _activeUploadTasks.Clear();
             foreach (var (message, file, attachmentId) in fileUploadTasks)
             {
                 var uploadTask = UploadFileAsync(message.Id, file, attachmentId, _uploadCancellationTokenSource.Token);
                 _activeUploadTasks.Add(uploadTask);
             }
+            
+            // Clear file selection AFTER starting uploads to avoid invalidating IBrowserFile references
+            selectedFiles.Clear();
+            
+            // Release UI immediately
+            isSending = false;
+            StateHasChanged();
         }
         catch (Exception ex)
         {
