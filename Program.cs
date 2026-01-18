@@ -72,6 +72,7 @@ builder.Services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
 builder.Services.AddScoped<IScheduledTaskExecutionHistoryService, ScheduledTaskExecutionHistoryService>();
 builder.Services.AddHostedService<ScheduledTaskExecutorService>();
 builder.Services.AddScoped<IAnydropService, AnydropService>();
+builder.Services.AddScoped<IThumbnailService, ThumbnailService>();
 
 var app = builder.Build();
 

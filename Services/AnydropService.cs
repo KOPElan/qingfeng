@@ -14,17 +14,20 @@ public class AnydropService : IAnydropService
     private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
     private readonly ILogger<AnydropService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IThumbnailService _thumbnailService;
     private readonly string _anydropStoragePath;
 
     public AnydropService(
         IDbContextFactory<QingFengDbContext> dbContextFactory,
         ILogger<AnydropService> logger,
         IHttpClientFactory httpClientFactory,
+        IThumbnailService thumbnailService,
         IConfiguration configuration)
     {
         _dbContextFactory = dbContextFactory;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
+        _thumbnailService = thumbnailService;
         
         // Initialize storage path - try to read from settings synchronously
         _anydropStoragePath = GetStoragePathFromSettings(configuration);
@@ -155,6 +158,37 @@ public class AnydropService : IAnydropService
         // Determine attachment type from content type
         var attachmentType = DetermineAttachmentType(contentType);
         
+        // Generate thumbnail if supported
+        string? thumbnailRelativePath = null;
+        if (_thumbnailService.SupportsThumbnails(contentType))
+        {
+            try
+            {
+                var (thumbnailAbsolutePath, thumbnailRelPath) = GenerateThumbnailPaths(messageId, dateDirectory, dateSubPath);
+                
+                var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
+                    absoluteFilePath, 
+                    thumbnailAbsolutePath, 
+                    contentType);
+                
+                if (!thumbnailGenerated)
+                {
+                    _logger.LogWarning("Failed to generate thumbnail for {FileName}", fileName);
+                    thumbnailRelativePath = null;
+                }
+                else
+                {
+                    thumbnailRelativePath = thumbnailRelPath;
+                    _logger.LogInformation("Generated thumbnail for {FileName} at {ThumbnailPath}", fileName, thumbnailRelativePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating thumbnail for {FileName}", fileName);
+                thumbnailRelativePath = null;
+            }
+        }
+        
         var attachment = new AnydropAttachment
         {
             MessageId = messageId,
@@ -163,6 +197,7 @@ public class AnydropService : IAnydropService
             FileSize = fileSize,
             ContentType = contentType,
             AttachmentType = attachmentType,
+            ThumbnailPath = thumbnailRelativePath,
             UploadedAt = now, // Use consistent timestamp
             UploadStatus = Models.UploadStatus.Completed // Mark as completed since file is uploaded
         };
@@ -337,6 +372,17 @@ public class AnydropService : IAnydropService
         }
         
         return (absoluteDir, dateSubPath);
+    }
+    
+    /// <summary>
+    /// Generate thumbnail file paths (both absolute and relative)
+    /// </summary>
+    private static (string absolutePath, string relativePath) GenerateThumbnailPaths(int messageId, string dateDirectory, string dateSubPath)
+    {
+        var thumbnailFileName = $"{messageId}_{Guid.NewGuid()}_thumb.jpg";
+        var absolutePath = Path.Combine(dateDirectory, thumbnailFileName);
+        var relativePath = Path.Combine(dateSubPath, thumbnailFileName);
+        return (absolutePath, relativePath);
     }
 
     private static string DetermineAttachmentType(string contentType)
@@ -513,6 +559,7 @@ public class AnydropService : IAnydropService
         string relativeFilePath;
         int messageId;
         string fileName;
+        string contentType;
         
         using (var context = await _dbContextFactory.CreateDbContextAsync())
         {
@@ -524,6 +571,7 @@ public class AnydropService : IAnydropService
             
             messageId = attachment.MessageId;
             fileName = attachment.FileName;
+            contentType = attachment.ContentType;
             
             // Get date-based directory structure using helper method
             var now = DateTime.UtcNow;
@@ -578,6 +626,49 @@ public class AnydropService : IAnydropService
             throw new IOException($"Failed to save file: {ex.Message}", ex);
         }
         
+        // Generate thumbnail if supported (after file is saved)
+        string? thumbnailRelativePath = null;
+        if (_thumbnailService.SupportsThumbnails(contentType))
+        {
+            try
+            {
+                var dateSubPath = Path.GetDirectoryName(relativeFilePath);
+                var dateDirectory = Path.GetDirectoryName(absoluteFilePath);
+                
+                // Ensure we have valid directory paths
+                if (string.IsNullOrEmpty(dateSubPath) || string.IsNullOrEmpty(dateDirectory))
+                {
+                    _logger.LogWarning("Invalid directory path for thumbnail generation: relative={RelativePath}, absolute={AbsolutePath}", 
+                        relativeFilePath, absoluteFilePath);
+                }
+                else
+                {
+                    var (thumbnailAbsolutePath, thumbnailRelPath) = GenerateThumbnailPaths(messageId, dateDirectory, dateSubPath);
+                    
+                    var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
+                        absoluteFilePath, 
+                        thumbnailAbsolutePath, 
+                        contentType);
+                    
+                    if (!thumbnailGenerated)
+                    {
+                        _logger.LogWarning("Failed to generate thumbnail for {FileName}", fileName);
+                        thumbnailRelativePath = null;
+                    }
+                    else
+                    {
+                        thumbnailRelativePath = thumbnailRelPath;
+                        _logger.LogInformation("Generated thumbnail for {FileName} at {ThumbnailPath}", fileName, thumbnailRelativePath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating thumbnail for {FileName}", fileName);
+                thumbnailRelativePath = null;
+            }
+        }
+        
         // Second context: Update attachment status after file is written
         using (var context = await _dbContextFactory.CreateDbContextAsync())
         {
@@ -588,6 +679,14 @@ public class AnydropService : IAnydropService
                 try
                 {
                     File.Delete(absoluteFilePath);
+                    if (!string.IsNullOrEmpty(thumbnailRelativePath))
+                    {
+                        var thumbnailAbsolutePath = GetAbsoluteFilePath(thumbnailRelativePath);
+                        if (File.Exists(thumbnailAbsolutePath))
+                        {
+                            File.Delete(thumbnailAbsolutePath);
+                        }
+                    }
                 }
                 catch (Exception cleanupEx)
                 {
@@ -597,6 +696,7 @@ public class AnydropService : IAnydropService
             }
             
             attachment.FilePath = relativeFilePath; // Store relative path
+            attachment.ThumbnailPath = thumbnailRelativePath; // Store thumbnail path
             attachment.UploadStatus = Models.UploadStatus.Completed;
             
             await context.SaveChangesAsync();
@@ -682,5 +782,32 @@ public class AnydropService : IAnydropService
         }
         
         return updatedCount;
+    }
+
+    public async Task<AnydropAttachment?> GetAttachmentByIdAsync(int attachmentId)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        return await context.AnydropAttachments.FindAsync(attachmentId);
+    }
+
+    public async Task<byte[]?> GetThumbnailBytesAsync(int attachmentId)
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+        if (attachment == null || string.IsNullOrEmpty(attachment.ThumbnailPath))
+        {
+            return null;
+        }
+        
+        var thumbnailAbsolutePath = GetAbsoluteFilePath(attachment.ThumbnailPath);
+        
+        if (!File.Exists(thumbnailAbsolutePath))
+        {
+            _logger.LogWarning("Thumbnail file not found: {ThumbnailPath}", thumbnailAbsolutePath);
+            return null;
+        }
+        
+        return await File.ReadAllBytesAsync(thumbnailAbsolutePath);
     }
 }

@@ -136,6 +136,7 @@ public class QingFengDbContext : DbContext
             entity.Property(e => e.FilePath).IsRequired().HasMaxLength(2000);
             entity.Property(e => e.ContentType).IsRequired().HasMaxLength(200);
             entity.Property(e => e.AttachmentType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ThumbnailPath).HasMaxLength(2000);
             
             entity.HasOne(e => e.Message)
                 .WithMany(m => m.Attachments)

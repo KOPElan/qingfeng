@@ -53,6 +53,11 @@ public class AnydropAttachment
     public string? UploadErrorMessage { get; set; }
     
     /// <summary>
+    /// Path to the thumbnail file (for images and videos)
+    /// </summary>
+    public string? ThumbnailPath { get; set; }
+    
+    /// <summary>
     /// Navigation property to parent message
     /// </summary>
     public AnydropMessage Message { get; set; } = null!;

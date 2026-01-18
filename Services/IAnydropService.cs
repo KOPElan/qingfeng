@@ -71,4 +71,14 @@ public interface IAnydropService
     /// Convert absolute paths to relative paths for all attachments (data migration utility)
     /// </summary>
     Task<int> ConvertAbsolutePathsToRelativeAsync();
+    
+    /// <summary>
+    /// Get an attachment by ID
+    /// </summary>
+    Task<AnydropAttachment?> GetAttachmentByIdAsync(int attachmentId);
+    
+    /// <summary>
+    /// Get thumbnail bytes for an attachment
+    /// </summary>
+    Task<byte[]?> GetThumbnailBytesAsync(int attachmentId);
 }
