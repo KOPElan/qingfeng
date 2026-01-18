@@ -419,6 +419,37 @@
         object-fit: cover;
     }
 
+    .video-thumbnail {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .video-thumbnail video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .video-play-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    }
+
+    .media-grid-item:hover .video-play-icon {
+        opacity: 0.8;
+        transform: translate(-50%, -50%) scale(1.1);
+        transition: all 0.2s ease;
+    }
+
     .media-grid-item-overlay {
         position: absolute;
         bottom: 0;
@@ -443,6 +474,40 @@
     .media-grid-item.selected {
         border: 3px solid var(--accent-fill-rest);
         box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3);
+    }
+
+    /* Skeleton loading styles */
+    .skeleton {
+        background: linear-gradient(90deg, 
+            var(--neutral-layer-3) 25%, 
+            var(--neutral-layer-2) 50%, 
+            var(--neutral-layer-3) 75%);
+        background-size: 200% 100%;
+        animation: skeleton-loading 1.5s ease-in-out infinite;
+        border-radius: 4px;
+    }
+
+    @@keyframes skeleton-loading {
+        0% {
+            background-position: 200% 0;
+        }
+        100% {
+            background-position: -200% 0;
+        }
+    }
+
+    .skeleton-media {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--neutral-foreground-hint);
+    }
+
+    .skeleton-icon {
+        font-size: 48px;
+        opacity: 0.3;
     }
 
     .selection-toolbar {
@@ -703,18 +768,50 @@
                                                           ValueChanged="@((bool value) => ToggleAttachmentSelection(item.Attachment.Id, value))" />
                                         </div>
                                         <div @onclick="@(() => OpenPreviewModal(item.Attachment))">
-                                            @if (item.Attachment.AttachmentType == "Image")
+                                            @if (!shouldLoadMedia)
                                             {
-                                                <img src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
-                                                     alt="@item.Attachment.FileName" 
-                                                     loading="lazy" />
+                                                <!-- Skeleton placeholder -->
+                                                <div class="skeleton skeleton-media">
+                                                    @if (item.Attachment.AttachmentType == "Image")
+                                                    {
+                                                        <div class="skeleton-icon">🖼️</div>
+                                                    }
+                                                    else if (item.Attachment.AttachmentType == "Video")
+                                                    {
+                                                        <div class="skeleton-icon">🎬</div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="skeleton-icon">📄</div>
+                                                    }
+                                                </div>
                                             }
-                                            else if (item.Attachment.AttachmentType == "Video")
+                                            else
                                             {
-                                                <video aria-label="@item.Attachment.FileName">
-                                                    <source src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
-                                                           type="@item.Attachment.ContentType">
-                                                </video>
+                                                @if (item.Attachment.AttachmentType == "Image")
+                                                {
+                                                    <img src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
+                                                         alt="@item.Attachment.FileName" 
+                                                         loading="lazy"
+                                                         decoding="async" />
+                                                }
+                                                else if (item.Attachment.AttachmentType == "Video")
+                                                {
+                                                    <!-- Video thumbnail placeholder with play icon -->
+                                                    <div class="video-thumbnail" data-video-id="@item.Attachment.Id">
+                                                        <video preload="none" 
+                                                               aria-label="@item.Attachment.FileName"
+                                                               poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect fill='%23000' width='200' height='200'/%3E%3C/svg%3E">
+                                                            <source data-src="/api/anydrop/attachment/@item.Attachment.Id/preview" 
+                                                                   type="@item.Attachment.ContentType">
+                                                        </video>
+                                                        <div class="video-play-icon">
+                                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="white" opacity="0.9">
+                                                                <path d="M8 5v14l11-7z"/>
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                }
                                             }
                                             <div class="media-grid-item-overlay">
                                                 @item.Attachment.FileName
@@ -1139,6 +1236,7 @@
     
     // Tab-specific state
     private bool isTabLoading = false;
+    private bool shouldLoadMedia = false; // Controls when actual media loads
     private List<(AnydropMessage Message, AnydropAttachment Attachment)> tabFilteredAttachments = new();
     
     // Multi-select state
@@ -1167,18 +1265,20 @@
         }
     }
 
-    private async Task SetTab(string tab)
+    private void SetTab(string tab)
     {
         currentTab = tab;
         selectedAttachmentIds.Clear(); // Clear selection when switching tabs
+        shouldLoadMedia = false; // Reset media loading flag
         
-        // Load tab content asynchronously for image/video/file tabs
+        // Immediate UI update for responsive tab switching
+        StateHasChanged();
+        
+        // Load tab content asynchronously without blocking UI
         if (tab == "images" || tab == "videos" || tab == "files")
         {
-            await LoadTabContentAsync(tab);
+            _ = LoadTabContentAsync(tab);
         }
-        
-        StateHasChanged();
     }
 
     private async Task LoadTabContentAsync(string tab)
@@ -1186,31 +1286,44 @@
         isTabLoading = true;
         StateHasChanged();
         
-        // Small delay to show loading state
-        await Task.Delay(50);
-        
         try
         {
-            // Filter attachments based on tab type
-            var filteredMessages = tab switch
+            // Run filtering on background thread to avoid blocking UI
+            await Task.Run(() =>
             {
-                "images" => messages.Where(m => m.MessageType == "Image"),
-                "videos" => messages.Where(m => m.MessageType == "Video"),
-                "files" => messages.Where(m => m.MessageType == "File" || m.MessageType == "Document" || m.MessageType == "Audio" || m.MessageType == "Other"),
-                _ => Enumerable.Empty<AnydropMessage>()
-            };
+                // Filter attachments based on tab type
+                var filteredMessages = tab switch
+                {
+                    "images" => messages.Where(m => m.MessageType == "Image"),
+                    "videos" => messages.Where(m => m.MessageType == "Video"),
+                    "files" => messages.Where(m => m.MessageType == "File" || m.MessageType == "Document" || m.MessageType == "Audio" || m.MessageType == "Other"),
+                    _ => Enumerable.Empty<AnydropMessage>()
+                };
+                
+                tabFilteredAttachments = filteredMessages
+                    .Where(m => m.Attachments != null && m.Attachments.Any())
+                    .SelectMany(m => m.Attachments
+                        .Where(a => a.UploadStatus == Completed)
+                        .Select(a => (Message: m, Attachment: a)))
+                    .ToList();
+            });
             
-            tabFilteredAttachments = filteredMessages
-                .Where(m => m.Attachments != null && m.Attachments.Any())
-                .SelectMany(m => m.Attachments
-                    .Where(a => a.UploadStatus == Completed)
-                    .Select(a => (Message: m, Attachment: a)))
-                .ToList();
-        }
-        finally
-        {
+            // First render with skeletons
             isTabLoading = false;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
+            
+            // Small delay to ensure skeleton DOM is rendered
+            await Task.Delay(50);
+            
+            // Now enable actual media loading
+            shouldLoadMedia = true;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading tab content");
+            isTabLoading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -1294,6 +1407,85 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadMessages();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Initialize lazy loading for media elements
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                if (!window.anydropLazyLoadInitialized) {
+                    window.anydropLazyLoadInitialized = true;
+                    
+                    // Lazy load videos on hover or when coming into viewport
+                    const lazyLoadVideos = () => {
+                        const videos = document.querySelectorAll('.video-thumbnail video[data-src]');
+                        
+                        if ('IntersectionObserver' in window) {
+                            const videoObserver = new IntersectionObserver((entries) => {
+                                entries.forEach(entry => {
+                                    if (entry.isIntersecting) {
+                                        const video = entry.target;
+                                        const source = video.querySelector('source[data-src]');
+                                        if (source && source.dataset.src) {
+                                            source.src = source.dataset.src;
+                                            delete source.dataset.src;
+                                            video.load();
+                                        }
+                                        videoObserver.unobserve(video);
+                                    }
+                                });
+                            }, { rootMargin: '50px' });
+                            
+                            videos.forEach(video => videoObserver.observe(video));
+                        } else {
+                            // Fallback for browsers without IntersectionObserver
+                            videos.forEach(video => {
+                                const source = video.querySelector('source[data-src]');
+                                if (source && source.dataset.src) {
+                                    source.src = source.dataset.src;
+                                    delete source.dataset.src;
+                                    video.load();
+                                }
+                            });
+                        }
+                    };
+                    
+                    // Run on DOM mutations (when tab content changes)
+                    const observer = new MutationObserver(() => {
+                        setTimeout(lazyLoadVideos, 100);
+                    });
+                    
+                    observer.observe(document.body, { 
+                        childList: true, 
+                        subtree: true 
+                    });
+                    
+                    // Initial load
+                    lazyLoadVideos();
+                }
+            ");
+        }
+        
+        // Re-initialize lazy loading when tab changes
+        if (currentTab == "images" || currentTab == "videos")
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                setTimeout(() => {
+                    const videos = document.querySelectorAll('.video-thumbnail video[data-src]');
+                    videos.forEach(video => {
+                        const source = video.querySelector('source[data-src]');
+                        if (source && source.dataset.src && 
+                            video.getBoundingClientRect().top < window.innerHeight + 100) {
+                            source.src = source.dataset.src;
+                            delete source.dataset.src;
+                            video.load();
+                        }
+                    });
+                }, 50);
+            ");
+        }
     }
 
     private async Task LoadMessages()

@@ -132,13 +132,22 @@ public class AnydropService : IAnydropService
             throw new InvalidOperationException($"Message with ID {messageId} not found");
         }
         
+        // Capture timestamp once for consistency
+        var now = DateTime.UtcNow;
+        
+        // Get date-based directory structure
+        var (dateDirectory, dateSubPath) = GetDateBasedDirectory(now);
+        
         // Generate unique file name to avoid collisions
         var fileExtension = Path.GetExtension(fileName);
         var uniqueFileName = $"{messageId}_{Guid.NewGuid()}{fileExtension}";
-        var filePath = Path.Combine(_anydropStoragePath, uniqueFileName);
+        var absoluteFilePath = Path.Combine(dateDirectory, uniqueFileName);
+        
+        // Store relative path in database for portability
+        var relativeFilePath = Path.Combine(dateSubPath, uniqueFileName);
         
         // Save file to disk
-        using (var fileStreamWriter = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (var fileStreamWriter = new FileStream(absoluteFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             await fileStream.CopyToAsync(fileStreamWriter);
         }
@@ -150,11 +159,11 @@ public class AnydropService : IAnydropService
         {
             MessageId = messageId,
             FileName = fileName,
-            FilePath = filePath,
+            FilePath = relativeFilePath, // Store relative path
             FileSize = fileSize,
             ContentType = contentType,
             AttachmentType = attachmentType,
-            UploadedAt = DateTime.UtcNow,
+            UploadedAt = now, // Use consistent timestamp
             UploadStatus = Models.UploadStatus.Completed // Mark as completed since file is uploaded
         };
         
@@ -173,7 +182,7 @@ public class AnydropService : IAnydropService
         
         await context.SaveChangesAsync();
         
-        _logger.LogInformation("Added attachment to message {MessageId}: {FileName}", messageId, fileName);
+        _logger.LogInformation("Added attachment to message {MessageId}: {FileName} at {RelativePath}", messageId, fileName, relativeFilePath);
         return attachment;
     }
 
@@ -212,12 +221,15 @@ public class AnydropService : IAnydropService
             throw new FileNotFoundException($"Attachment with ID {attachmentId} not found");
         }
         
-        if (!File.Exists(attachment.FilePath))
+        // Resolve the actual file path (handle both relative and absolute paths)
+        var actualFilePath = GetAbsoluteFilePath(attachment.FilePath);
+        
+        if (!File.Exists(actualFilePath))
         {
-            throw new FileNotFoundException($"File not found: {attachment.FilePath}");
+            throw new FileNotFoundException($"File not found: {actualFilePath}");
         }
         
-        var fileBytes = await File.ReadAllBytesAsync(attachment.FilePath);
+        var fileBytes = await File.ReadAllBytesAsync(actualFilePath);
         return (fileBytes, attachment.FileName, attachment.ContentType);
     }
 
@@ -239,9 +251,10 @@ public class AnydropService : IAnydropService
         {
             try
             {
-                if (File.Exists(attachment.FilePath))
+                var absoluteFilePath = GetAbsoluteFilePath(attachment.FilePath);
+                if (File.Exists(absoluteFilePath))
                 {
-                    File.Delete(attachment.FilePath);
+                    File.Delete(absoluteFilePath);
                 }
             }
             catch (Exception ex)
@@ -286,6 +299,44 @@ public class AnydropService : IAnydropService
         {
             _logger.LogWarning(ex, "Failed to update link metadata for message {MessageId}, URL: {Url}", messageId, url);
         }
+    }
+
+    /// <summary>
+    /// Convert a file path (relative or absolute) to an absolute path
+    /// </summary>
+    private string GetAbsoluteFilePath(string filePath)
+    {
+        // If already absolute, return as-is
+        if (Path.IsPathRooted(filePath))
+        {
+            return filePath;
+        }
+        
+        // If relative, combine with storage path
+        return Path.Combine(_anydropStoragePath, filePath);
+    }
+
+    /// <summary>
+    /// Generate date-based subdirectory path and ensure it exists
+    /// </summary>
+    /// <returns>Tuple of (absolute directory path, relative path from storage root)</returns>
+    private (string absoluteDir, string relativeDir) GetDateBasedDirectory(DateTime timestamp)
+    {
+        // Generate date-based directory structure (YYYY/MM/DD)
+        var dateSubPath = Path.Combine(
+            timestamp.Year.ToString(), 
+            timestamp.Month.ToString("D2"), 
+            timestamp.Day.ToString("D2")
+        );
+        var absoluteDir = Path.Combine(_anydropStoragePath, dateSubPath);
+        
+        // Create directory if it doesn't exist
+        if (!Directory.Exists(absoluteDir))
+        {
+            Directory.CreateDirectory(absoluteDir);
+        }
+        
+        return (absoluteDir, dateSubPath);
     }
 
     private static string DetermineAttachmentType(string contentType)
@@ -458,7 +509,8 @@ public class AnydropService : IAnydropService
     public async Task UploadAttachmentFileAsync(int attachmentId, Stream fileStream)
     {
         // First context: Fetch attachment details
-        string filePath;
+        string absoluteFilePath;
+        string relativeFilePath;
         int messageId;
         string fileName;
         
@@ -473,31 +525,38 @@ public class AnydropService : IAnydropService
             messageId = attachment.MessageId;
             fileName = attachment.FileName;
             
+            // Get date-based directory structure using helper method
+            var now = DateTime.UtcNow;
+            var (dateDirectory, dateSubPath) = GetDateBasedDirectory(now);
+            
             // Generate unique file name
             var fileExtension = Path.GetExtension(fileName);
             var uniqueFileName = $"{messageId}_{Guid.NewGuid()}{fileExtension}";
-            filePath = Path.Combine(_anydropStoragePath, uniqueFileName);
+            absoluteFilePath = Path.Combine(dateDirectory, uniqueFileName);
+            
+            // Store relative path for database
+            relativeFilePath = Path.Combine(dateSubPath, uniqueFileName);
         }
         
         // Save file to disk with error handling (outside DbContext)
         try
         {
-            using (var fileStreamWriter = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var fileStreamWriter = new FileStream(absoluteFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
             {
                 await fileStream.CopyToAsync(fileStreamWriter);
                 await fileStreamWriter.FlushAsync();
             }
             
             // Verify file was written successfully
-            if (!File.Exists(filePath))
+            if (!File.Exists(absoluteFilePath))
             {
-                throw new IOException($"File was not written successfully: {filePath}");
+                throw new IOException($"File was not written successfully: {absoluteFilePath}");
             }
             
-            var fileInfo = new FileInfo(filePath);
+            var fileInfo = new FileInfo(absoluteFilePath);
             if (fileInfo.Length == 0)
             {
-                File.Delete(filePath);
+                File.Delete(absoluteFilePath);
                 throw new IOException("File was written but has zero length");
             }
         }
@@ -506,14 +565,14 @@ public class AnydropService : IAnydropService
             // Clean up file if it was partially written
             try
             {
-                if (File.Exists(filePath))
+                if (File.Exists(absoluteFilePath))
                 {
-                    File.Delete(filePath);
+                    File.Delete(absoluteFilePath);
                 }
             }
             catch (Exception cleanupEx)
             {
-                _logger.LogWarning(cleanupEx, "Failed to clean up partially written file: {FilePath}", filePath);
+                _logger.LogWarning(cleanupEx, "Failed to clean up partially written file: {FilePath}", absoluteFilePath);
             }
             
             throw new IOException($"Failed to save file: {ex.Message}", ex);
@@ -528,21 +587,100 @@ public class AnydropService : IAnydropService
                 // File was written but attachment no longer exists - clean up
                 try
                 {
-                    File.Delete(filePath);
+                    File.Delete(absoluteFilePath);
                 }
                 catch (Exception cleanupEx)
                 {
-                    _logger.LogWarning(cleanupEx, "Failed to clean up orphaned file: {FilePath}", filePath);
+                    _logger.LogWarning(cleanupEx, "Failed to clean up orphaned file: {FilePath}", absoluteFilePath);
                 }
                 throw new InvalidOperationException($"Attachment with ID {attachmentId} not found");
             }
             
-            attachment.FilePath = filePath;
+            attachment.FilePath = relativeFilePath; // Store relative path
             attachment.UploadStatus = Models.UploadStatus.Completed;
             
             await context.SaveChangesAsync();
         }
         
-        _logger.LogInformation("Uploaded file for attachment {AttachmentId}: {FileName}", attachmentId, fileName);
+        _logger.LogInformation("Uploaded file for attachment {AttachmentId}: {FileName} at {RelativePath}", attachmentId, fileName, relativeFilePath);
+    }
+
+    /// <summary>
+    /// Convert absolute paths to relative paths for all attachments (data migration utility)
+    /// </summary>
+    public async Task<int> ConvertAbsolutePathsToRelativeAsync()
+    {
+        using var context = await _dbContextFactory.CreateDbContextAsync();
+        
+        var attachments = await context.AnydropAttachments.ToListAsync();
+        var updatedCount = 0;
+        
+        // Normalize storage path for reliable comparison with error handling
+        string normalizedStoragePath;
+        try
+        {
+            normalizedStoragePath = Path.GetFullPath(_anydropStoragePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Invalid storage path configuration: {StoragePath}", _anydropStoragePath);
+            throw new InvalidOperationException($"Invalid storage path: {_anydropStoragePath}", ex);
+        }
+        
+        foreach (var attachment in attachments)
+        {
+            try
+            {
+                // Check if path is absolute
+                if (Path.IsPathRooted(attachment.FilePath))
+                {
+                    // Normalize the attachment path for reliable comparison
+                    string normalizedAttachmentPath;
+                    try
+                    {
+                        normalizedAttachmentPath = Path.GetFullPath(attachment.FilePath);
+                    }
+                    catch (Exception pathEx)
+                    {
+                        _logger.LogWarning(pathEx, "Invalid path format for attachment {AttachmentId}: {FilePath}", 
+                            attachment.Id, attachment.FilePath);
+                        continue;
+                    }
+                    
+                    // If the file path is within the storage directory, convert to relative
+                    if (normalizedAttachmentPath.StartsWith(normalizedStoragePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var relativePath = Path.GetRelativePath(normalizedStoragePath, normalizedAttachmentPath);
+                        
+                        // Verify file exists before updating
+                        if (File.Exists(normalizedAttachmentPath))
+                        {
+                            attachment.FilePath = relativePath;
+                            updatedCount++;
+                            _logger.LogInformation("Converted path to relative for attachment {AttachmentId}: {RelativePath}", 
+                                attachment.Id, relativePath);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("File not found for attachment {AttachmentId}: {FilePath}", 
+                                attachment.Id, normalizedAttachmentPath);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing attachment {AttachmentId}", attachment.Id);
+                // Continue processing other attachments
+            }
+        }
+        
+        if (updatedCount > 0)
+        {
+            await context.SaveChangesAsync();
+            _logger.LogInformation("Converted {Count} attachment paths from absolute to relative", updatedCount);
+        }
+        
+        return updatedCount;
     }
 }
