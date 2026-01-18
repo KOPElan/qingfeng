@@ -135,10 +135,8 @@ public class SystemSettingService : ISystemSettingService
         try
         {
             await using var context = await _dbFactory.CreateDbContextAsync();
-            var count = await context.SystemSettings.CountAsync();
-            if (count > 0)
-                return; // Already initialized
-
+            
+            // Define all default settings
             var defaultSettings = new List<SystemSetting>
             {
                 new() {
@@ -199,10 +197,26 @@ public class SystemSettingService : ISystemSettingService
                 }
             };
 
-            context.SystemSettings.AddRange(defaultSettings);
-            await context.SaveChangesAsync();
+            // Get all existing setting keys
+            var existingKeys = await context.SystemSettings
+                .Select(s => s.Key)
+                .ToListAsync();
 
-            _logger.LogInformation("Initialized {Count} default settings", defaultSettings.Count);
+            // Add only missing settings
+            var missingSettings = defaultSettings
+                .Where(ds => !existingKeys.Contains(ds.Key))
+                .ToList();
+
+            if (missingSettings.Any())
+            {
+                context.SystemSettings.AddRange(missingSettings);
+                await context.SaveChangesAsync();
+                _logger.LogInformation("Added {Count} missing default settings", missingSettings.Count);
+            }
+            else
+            {
+                _logger.LogDebug("All default settings already exist");
+            }
         }
         catch (Exception ex)
         {
