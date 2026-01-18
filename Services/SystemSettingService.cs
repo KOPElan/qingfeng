@@ -197,10 +197,10 @@ public class SystemSettingService : ISystemSettingService
                 }
             };
 
-            // Get all existing setting keys
+            // Get all existing setting keys and use HashSet for O(1) lookup
             var existingKeys = await context.SystemSettings
                 .Select(s => s.Key)
-                .ToListAsync();
+                .ToHashSetAsync();
 
             // Add only missing settings
             var missingSettings = defaultSettings
