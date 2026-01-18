@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using QingFeng.Models;
+using Microsoft.EntityFrameworkCore;
+using QingFeng.Data;
 
 namespace QingFeng.Services;
 
@@ -580,21 +582,20 @@ public class ScheduledTaskExecutorService : BackgroundService
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var dbContextFactory = scope.ServiceProvider.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<Data.QingFengDbContext>>();
+            var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<QingFengDbContext>>();
             using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
             
-            var attachments = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(context.AnydropAttachments, cancellationToken);
+            var attachments = await context.AnydropAttachments.ToListAsync(cancellationToken);
             
             foreach (var attachment in attachments)
             {
                 if (cancellationToken.IsCancellationRequested)
                     break;
                 
-                // Check if this attachment's file was moved
-                if (filePathMappings.ContainsKey(attachment.FilePath))
+                // Check if this attachment's file was moved using TryGetValue for efficiency
+                if (filePathMappings.TryGetValue(attachment.FilePath, out var newAbsolutePath))
                 {
                     // Convert to relative path based on new destination directory
-                    var newAbsolutePath = filePathMappings[attachment.FilePath];
                     var relativePath = Path.GetRelativePath(config.DestinationDirectory, newAbsolutePath);
                     attachment.FilePath = relativePath;
                     updatedDbRecords++;
@@ -602,24 +603,28 @@ public class ScheduledTaskExecutorService : BackgroundService
                 else if (Path.IsPathRooted(attachment.FilePath))
                 {
                     // Handle case where file path is absolute but might need adjustment
+                    // Normalize paths for reliable comparison
+                    var normalizedAttachmentPath = Path.GetFullPath(attachment.FilePath);
+                    var normalizedSourceDir = Path.GetFullPath(config.SourceDirectory);
+                    
                     // Check if the path starts with old source directory
-                    if (attachment.FilePath.StartsWith(config.SourceDirectory, StringComparison.OrdinalIgnoreCase))
+                    if (normalizedAttachmentPath.StartsWith(normalizedSourceDir, StringComparison.OrdinalIgnoreCase))
                     {
                         // Calculate relative path and create new absolute path
-                        var relativePathFromSource = Path.GetRelativePath(config.SourceDirectory, attachment.FilePath);
-                        var newAbsolutePath = Path.Combine(config.DestinationDirectory, relativePathFromSource);
+                        var relativePathFromSource = Path.GetRelativePath(normalizedSourceDir, normalizedAttachmentPath);
+                        var newAbsPath = Path.Combine(config.DestinationDirectory, relativePathFromSource);
                         
                         // Only update if the new file exists (was successfully moved)
-                        if (File.Exists(newAbsolutePath))
+                        if (File.Exists(newAbsPath))
                         {
                             // Store as relative path for portability
-                            var relativePath = Path.GetRelativePath(config.DestinationDirectory, newAbsolutePath);
+                            var relativePath = Path.GetRelativePath(config.DestinationDirectory, newAbsPath);
                             attachment.FilePath = relativePath;
                             updatedDbRecords++;
                         }
                         else
                         {
-                            _logger.LogWarning("数据库记录的文件未找到: {FilePath}", newAbsolutePath);
+                            _logger.LogWarning("数据库记录的文件未找到: {FilePath}", newAbsPath);
                         }
                     }
                 }

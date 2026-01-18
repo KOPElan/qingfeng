@@ -132,16 +132,11 @@ public class AnydropService : IAnydropService
             throw new InvalidOperationException($"Message with ID {messageId} not found");
         }
         
-        // Generate date-based directory structure (YYYY/MM/DD)
+        // Capture timestamp once for consistency
         var now = DateTime.UtcNow;
-        var dateSubPath = Path.Combine(now.Year.ToString(), now.Month.ToString("D2"), now.Day.ToString("D2"));
-        var dateDirectory = Path.Combine(_anydropStoragePath, dateSubPath);
         
-        // Create directory if it doesn't exist
-        if (!Directory.Exists(dateDirectory))
-        {
-            Directory.CreateDirectory(dateDirectory);
-        }
+        // Get date-based directory structure
+        var (dateDirectory, dateSubPath) = GetDateBasedDirectory(now);
         
         // Generate unique file name to avoid collisions
         var fileExtension = Path.GetExtension(fileName);
@@ -168,7 +163,7 @@ public class AnydropService : IAnydropService
             FileSize = fileSize,
             ContentType = contentType,
             AttachmentType = attachmentType,
-            UploadedAt = DateTime.UtcNow,
+            UploadedAt = now, // Use consistent timestamp
             UploadStatus = Models.UploadStatus.Completed // Mark as completed since file is uploaded
         };
         
@@ -319,6 +314,29 @@ public class AnydropService : IAnydropService
         
         // If relative, combine with storage path
         return Path.Combine(_anydropStoragePath, filePath);
+    }
+
+    /// <summary>
+    /// Generate date-based subdirectory path and ensure it exists
+    /// </summary>
+    /// <returns>Tuple of (absolute directory path, relative path from storage root)</returns>
+    private (string absoluteDir, string relativeDir) GetDateBasedDirectory(DateTime timestamp)
+    {
+        // Generate date-based directory structure (YYYY/MM/DD)
+        var dateSubPath = Path.Combine(
+            timestamp.Year.ToString(), 
+            timestamp.Month.ToString("D2"), 
+            timestamp.Day.ToString("D2")
+        );
+        var absoluteDir = Path.Combine(_anydropStoragePath, dateSubPath);
+        
+        // Create directory if it doesn't exist
+        if (!Directory.Exists(absoluteDir))
+        {
+            Directory.CreateDirectory(absoluteDir);
+        }
+        
+        return (absoluteDir, dateSubPath);
     }
 
     private static string DetermineAttachmentType(string contentType)
@@ -507,16 +525,9 @@ public class AnydropService : IAnydropService
             messageId = attachment.MessageId;
             fileName = attachment.FileName;
             
-            // Generate date-based directory structure (YYYY/MM/DD)
+            // Get date-based directory structure using helper method
             var now = DateTime.UtcNow;
-            var dateSubPath = Path.Combine(now.Year.ToString(), now.Month.ToString("D2"), now.Day.ToString("D2"));
-            var dateDirectory = Path.Combine(_anydropStoragePath, dateSubPath);
-            
-            // Create directory if it doesn't exist
-            if (!Directory.Exists(dateDirectory))
-            {
-                Directory.CreateDirectory(dateDirectory);
-            }
+            var (dateDirectory, dateSubPath) = GetDateBasedDirectory(now);
             
             // Generate unique file name
             var fileExtension = Path.GetExtension(fileName);
@@ -604,18 +615,24 @@ public class AnydropService : IAnydropService
         var attachments = await context.AnydropAttachments.ToListAsync();
         var updatedCount = 0;
         
+        // Normalize storage path for reliable comparison
+        var normalizedStoragePath = Path.GetFullPath(_anydropStoragePath);
+        
         foreach (var attachment in attachments)
         {
             // Check if path is absolute
             if (Path.IsPathRooted(attachment.FilePath))
             {
+                // Normalize the attachment path for reliable comparison
+                var normalizedAttachmentPath = Path.GetFullPath(attachment.FilePath);
+                
                 // If the file path is within the storage directory, convert to relative
-                if (attachment.FilePath.StartsWith(_anydropStoragePath, StringComparison.OrdinalIgnoreCase))
+                if (normalizedAttachmentPath.StartsWith(normalizedStoragePath, StringComparison.OrdinalIgnoreCase))
                 {
-                    var relativePath = Path.GetRelativePath(_anydropStoragePath, attachment.FilePath);
+                    var relativePath = Path.GetRelativePath(normalizedStoragePath, normalizedAttachmentPath);
                     
                     // Verify file exists before updating
-                    if (File.Exists(attachment.FilePath))
+                    if (File.Exists(normalizedAttachmentPath))
                     {
                         attachment.FilePath = relativePath;
                         updatedCount++;
@@ -625,7 +642,7 @@ public class AnydropService : IAnydropService
                     else
                     {
                         _logger.LogWarning("File not found for attachment {AttachmentId}: {FilePath}", 
-                            attachment.Id, attachment.FilePath);
+                            attachment.Id, normalizedAttachmentPath);
                     }
                 }
             }
