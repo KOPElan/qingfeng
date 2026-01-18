@@ -593,8 +593,10 @@ public class ScheduledTaskExecutorService : BackgroundService
                 // Check if this attachment's file was moved
                 if (filePathMappings.ContainsKey(attachment.FilePath))
                 {
-                    // Update to new absolute path
-                    attachment.FilePath = filePathMappings[attachment.FilePath];
+                    // Convert to relative path based on new destination directory
+                    var newAbsolutePath = filePathMappings[attachment.FilePath];
+                    var relativePath = Path.GetRelativePath(config.DestinationDirectory, newAbsolutePath);
+                    attachment.FilePath = relativePath;
                     updatedDbRecords++;
                 }
                 else if (Path.IsPathRooted(attachment.FilePath))
@@ -604,13 +606,15 @@ public class ScheduledTaskExecutorService : BackgroundService
                     if (attachment.FilePath.StartsWith(config.SourceDirectory, StringComparison.OrdinalIgnoreCase))
                     {
                         // Calculate relative path and create new absolute path
-                        var relativePath = Path.GetRelativePath(config.SourceDirectory, attachment.FilePath);
-                        var newAbsolutePath = Path.Combine(config.DestinationDirectory, relativePath);
+                        var relativePathFromSource = Path.GetRelativePath(config.SourceDirectory, attachment.FilePath);
+                        var newAbsolutePath = Path.Combine(config.DestinationDirectory, relativePathFromSource);
                         
                         // Only update if the new file exists (was successfully moved)
                         if (File.Exists(newAbsolutePath))
                         {
-                            attachment.FilePath = newAbsolutePath;
+                            // Store as relative path for portability
+                            var relativePath = Path.GetRelativePath(config.DestinationDirectory, newAbsolutePath);
+                            attachment.FilePath = relativePath;
                             updatedDbRecords++;
                         }
                         else
