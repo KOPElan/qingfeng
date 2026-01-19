@@ -11,15 +11,17 @@ public class FileManagerService : IFileManagerService
     private readonly string _rootPath;
     private readonly ILogger<FileManagerService> _logger;
     private readonly IDbContextFactory<QingFengDbContext> _dbContextFactory;
+    private readonly IFileUploadService _fileUploadService;
     
     // Buffer size for streaming file operations (80KB)
     // This is optimal for most scenarios as it balances memory usage and I/O performance
     private const int StreamBufferSize = 81920;
 
-    public FileManagerService(ILogger<FileManagerService> logger, IDbContextFactory<QingFengDbContext> dbContextFactory)
+    public FileManagerService(ILogger<FileManagerService> logger, IDbContextFactory<QingFengDbContext> dbContextFactory, IFileUploadService fileUploadService)
     {
         _logger = logger;
         _dbContextFactory = dbContextFactory;
+        _fileUploadService = fileUploadService;
         
         // Set root path based on OS
         if (OperatingSystem.IsWindows())
@@ -524,51 +526,12 @@ public class FileManagerService : IFileManagerService
 
     public async Task UploadFileAsync(string directoryPath, string fileName, byte[] content)
     {
-        if (!IsPathAllowed(directoryPath))
-            throw new UnauthorizedAccessException("Access to this path is not allowed");
-
-        // Sanitize filename to prevent path traversal attacks
-        var sanitizedFileName = Path.GetFileName(fileName);
-        if (string.IsNullOrWhiteSpace(sanitizedFileName) || 
-            sanitizedFileName.Contains("..") || 
-            sanitizedFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-        {
-            throw new ArgumentException("Invalid file name", nameof(fileName));
-        }
-
-        var fullPath = Path.Combine(directoryPath, sanitizedFileName);
-        
-        if (!IsPathAllowed(fullPath))
-            throw new UnauthorizedAccessException("Access to this path is not allowed");
-
-        await File.WriteAllBytesAsync(fullPath, content);
+        await _fileUploadService.UploadFileAsync(directoryPath, fileName, content, IsPathAllowed);
     }
 
     public async Task UploadFileStreamAsync(string directoryPath, string fileName, Stream fileStream, long fileSize)
     {
-        if (!IsPathAllowed(directoryPath))
-            throw new UnauthorizedAccessException("Access to this path is not allowed");
-
-        // Sanitize filename to prevent path traversal attacks
-        var sanitizedFileName = Path.GetFileName(fileName);
-        if (string.IsNullOrWhiteSpace(sanitizedFileName) || 
-            sanitizedFileName.Contains("..") || 
-            sanitizedFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-        {
-            throw new ArgumentException("Invalid file name", nameof(fileName));
-        }
-
-        var fullPath = Path.Combine(directoryPath, sanitizedFileName);
-        
-        if (!IsPathAllowed(fullPath))
-            throw new UnauthorizedAccessException("Access to this path is not allowed");
-
-        // Use streaming to avoid loading entire file into memory
-        // This is more efficient for large files
-        using (var fileStreamOut = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: StreamBufferSize, useAsync: true))
-        {
-            await fileStream.CopyToAsync(fileStreamOut);
-        }
+        await _fileUploadService.UploadFileStreamAsync(directoryPath, fileName, fileStream, fileSize, IsPathAllowed);
     }
 
     public async Task<byte[]> DownloadFileAsync(string filePath)
