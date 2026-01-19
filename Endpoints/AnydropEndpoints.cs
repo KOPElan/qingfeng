@@ -181,7 +181,7 @@ public static class AnydropEndpoints
         .WithName("PreviewAnydropAttachment")
         .WithSummary("预览附件");
 
-        group.MapGet("/attachment/{attachmentId}/thumbnail", async (int attachmentId, IAnydropService service, ILogger<Program> logger) =>
+        group.MapGet("/attachment/{attachmentId}/thumbnail", async (int attachmentId, IAnydropService service, IThumbnailService thumbnailService, ILogger<Program> logger) =>
         {
             try
             {
@@ -203,7 +203,41 @@ public static class AnydropEndpoints
                     }
                 }
                 
-                // Fallback to full file if no thumbnail
+                // For images: try to generate thumbnail on-demand if it doesn't exist
+                if (attachment.AttachmentType == "Image" && thumbnailService.SupportsThumbnails(attachment.ContentType))
+                {
+                    try
+                    {
+                        // Attempt to generate thumbnail on-demand
+                        var thumbnailGenerated = await service.GenerateThumbnailOnDemandAsync(attachmentId);
+                        if (thumbnailGenerated)
+                        {
+                            var thumbnailBytes = await service.GetThumbnailBytesAsync(attachmentId);
+                            if (thumbnailBytes != null)
+                            {
+                                logger.LogInformation("Generated thumbnail on-demand for attachment {AttachmentId}", attachmentId);
+                                return Results.File(thumbnailBytes, "image/jpeg");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to generate thumbnail on-demand for attachment {AttachmentId}", attachmentId);
+                    }
+                }
+                
+                // For videos without thumbnails: return a placeholder SVG
+                if (attachment.AttachmentType == "Video")
+                {
+                    // Return a simple SVG placeholder for videos
+                    var svgPlaceholder = @"<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'>
+                        <rect width='300' height='300' fill='#1a1a1a'/>
+                        <path d='M120 90 L210 150 L120 210 Z' fill='rgba(255,255,255,0.3)'/>
+                    </svg>";
+                    return Results.Content(svgPlaceholder, "image/svg+xml");
+                }
+                
+                // Fallback to full file if no thumbnail and can't generate
                 var (fileBytes, _, contentType) = await service.DownloadAttachmentAsync(attachmentId);
                 return Results.File(fileBytes, contentType);
             }

@@ -810,4 +810,89 @@ public class AnydropService : IAnydropService
         
         return await File.ReadAllBytesAsync(thumbnailAbsolutePath);
     }
+
+    public async Task<bool> GenerateThumbnailOnDemandAsync(int attachmentId)
+    {
+        // First context: Get attachment details
+        string absoluteFilePath;
+        string contentType;
+        int messageId;
+        
+        using (var context = await _dbContextFactory.CreateDbContextAsync())
+        {
+            var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+            if (attachment == null)
+            {
+                return false;
+            }
+            
+            // If thumbnail already exists, no need to regenerate
+            if (!string.IsNullOrEmpty(attachment.ThumbnailPath))
+            {
+                var thumbnailPath = GetAbsoluteFilePath(attachment.ThumbnailPath);
+                if (File.Exists(thumbnailPath))
+                {
+                    return true;
+                }
+            }
+            
+            // Check if file exists and is an image
+            absoluteFilePath = GetAbsoluteFilePath(attachment.FilePath);
+            if (!File.Exists(absoluteFilePath))
+            {
+                _logger.LogWarning("Source file not found for thumbnail generation: {FilePath}", absoluteFilePath);
+                return false;
+            }
+            
+            contentType = attachment.ContentType;
+            messageId = attachment.MessageId;
+            
+            // Only generate for images
+            if (!_thumbnailService.SupportsThumbnails(contentType) || !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+        
+        // Generate thumbnail (outside DbContext to avoid long-running DB operations)
+        try
+        {
+            var dateSubPath = Path.GetDirectoryName(Path.GetRelativePath(_anydropStoragePath, absoluteFilePath));
+            var dateDirectory = Path.GetDirectoryName(absoluteFilePath);
+            
+            if (string.IsNullOrEmpty(dateSubPath) || string.IsNullOrEmpty(dateDirectory))
+            {
+                _logger.LogWarning("Invalid directory path for on-demand thumbnail generation");
+                return false;
+            }
+            
+            var (thumbnailAbsolutePath, thumbnailRelPath) = GenerateThumbnailPaths(messageId, dateDirectory, dateSubPath);
+            
+            var success = await _thumbnailService.GenerateThumbnailAsync(absoluteFilePath, thumbnailAbsolutePath, contentType);
+            
+            if (!success)
+            {
+                return false;
+            }
+            
+            // Second context: Update attachment with thumbnail path
+            using (var context = await _dbContextFactory.CreateDbContextAsync())
+            {
+                var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
+                if (attachment != null)
+                {
+                    attachment.ThumbnailPath = thumbnailRelPath;
+                    await context.SaveChangesAsync();
+                    _logger.LogInformation("Generated thumbnail on-demand for attachment {AttachmentId}", attachmentId);
+                }
+            }
+            
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate thumbnail on-demand for attachment {AttachmentId}", attachmentId);
+            return false;
+        }
+    }
 }

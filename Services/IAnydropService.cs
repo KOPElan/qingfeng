@@ -81,4 +81,9 @@ public interface IAnydropService
     /// Get thumbnail bytes for an attachment
     /// </summary>
     Task<byte[]?> GetThumbnailBytesAsync(int attachmentId);
+    
+    /// <summary>
+    /// Generate thumbnail on-demand for an attachment that doesn't have one
+    /// </summary>
+    Task<bool> GenerateThumbnailOnDemandAsync(int attachmentId);
 }
