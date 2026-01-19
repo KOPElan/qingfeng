@@ -4,6 +4,12 @@ namespace QingFeng.Endpoints;
 
 public static class AnydropEndpoints
 {
+    // SVG placeholder for videos without thumbnails
+    private const string VideoPlaceholderSvg = @"<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'>
+        <rect width='300' height='300' fill='#1a1a1a'/>
+        <path d='M120 90 L210 150 L120 210 Z' fill='rgba(255,255,255,0.3)'/>
+    </svg>";
+    
     public static void MapAnydropEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/anydrop")
@@ -229,12 +235,7 @@ public static class AnydropEndpoints
                 // For videos without thumbnails: return a placeholder SVG
                 if (attachment.AttachmentType == "Video")
                 {
-                    // Return a simple SVG placeholder for videos
-                    var svgPlaceholder = @"<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'>
-                        <rect width='300' height='300' fill='#1a1a1a'/>
-                        <path d='M120 90 L210 150 L120 210 Z' fill='rgba(255,255,255,0.3)'/>
-                    </svg>";
-                    return Results.Content(svgPlaceholder, "image/svg+xml");
+                    return Results.Content(VideoPlaceholderSvg, "image/svg+xml");
                 }
                 
                 // Fallback to full file if no thumbnail and can't generate

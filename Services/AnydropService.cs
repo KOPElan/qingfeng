@@ -847,8 +847,8 @@ public class AnydropService : IAnydropService
             contentType = attachment.ContentType;
             messageId = attachment.MessageId;
             
-            // Only generate for images
-            if (!_thumbnailService.SupportsThumbnails(contentType) || !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            // Only generate for images (videos require FFmpeg which may not be available)
+            if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -879,12 +879,27 @@ public class AnydropService : IAnydropService
             using (var context = await _dbContextFactory.CreateDbContextAsync())
             {
                 var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
-                if (attachment != null)
+                if (attachment == null)
                 {
-                    attachment.ThumbnailPath = thumbnailRelPath;
-                    await context.SaveChangesAsync();
-                    _logger.LogInformation("Generated thumbnail on-demand for attachment {AttachmentId}", attachmentId);
+                    // Attachment was deleted while we were generating the thumbnail
+                    // Clean up the generated thumbnail file
+                    try
+                    {
+                        if (File.Exists(thumbnailAbsolutePath))
+                        {
+                            File.Delete(thumbnailAbsolutePath);
+                        }
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        _logger.LogWarning(cleanupEx, "Failed to clean up orphaned thumbnail: {ThumbnailPath}", thumbnailAbsolutePath);
+                    }
+                    return false;
                 }
+                
+                attachment.ThumbnailPath = thumbnailRelPath;
+                await context.SaveChangesAsync();
+                _logger.LogInformation("Generated thumbnail on-demand for attachment {AttachmentId}", attachmentId);
             }
             
             return true;
