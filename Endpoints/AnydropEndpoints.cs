@@ -180,6 +180,45 @@ public static class AnydropEndpoints
         })
         .WithName("PreviewAnydropAttachment")
         .WithSummary("预览附件");
+
+        group.MapGet("/attachment/{attachmentId}/thumbnail", async (int attachmentId, IAnydropService service, ILogger<Program> logger) =>
+        {
+            try
+            {
+                // Get attachment to check for thumbnail
+                var attachment = await service.GetAttachmentByIdAsync(attachmentId);
+                
+                if (attachment == null)
+                {
+                    return Results.NotFound();
+                }
+                
+                // If thumbnail exists, serve it
+                if (!string.IsNullOrEmpty(attachment.ThumbnailPath))
+                {
+                    var thumbnailBytes = await service.GetThumbnailBytesAsync(attachmentId);
+                    if (thumbnailBytes != null)
+                    {
+                        return Results.File(thumbnailBytes, "image/jpeg");
+                    }
+                }
+                
+                // Fallback to full file if no thumbnail
+                var (fileBytes, _, contentType) = await service.DownloadAttachmentAsync(attachmentId);
+                return Results.File(fileBytes, contentType);
+            }
+            catch (FileNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error serving thumbnail for attachment {AttachmentId}", attachmentId);
+                return Results.Problem("An error occurred while loading the thumbnail.");
+            }
+        })
+        .WithName("GetAnydropAttachmentThumbnail")
+        .WithSummary("获取附件缩略图");
     }
 
     // Request DTO
