@@ -848,7 +848,8 @@ public class AnydropService : IAnydropService
             messageId = attachment.MessageId;
             
             // Only generate for images (videos require FFmpeg which may not be available)
-            if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) || 
+                !_thumbnailService.SupportsThumbnails(contentType))
             {
                 return false;
             }
