@@ -187,11 +187,11 @@ public static class AnydropEndpoints
         .WithName("PreviewAnydropAttachment")
         .WithSummary("预览附件");
 
-        group.MapGet("/attachment/{attachmentId}/thumbnail", async (int attachmentId, IAnydropService service, IThumbnailService thumbnailService, ILogger<Program> logger) =>
+        group.MapGet("/attachment/{attachmentId}/thumbnail", async (int attachmentId, IAnydropService service, ILogger<Program> logger) =>
         {
             try
             {
-                // Get attachment to check for thumbnail
+                // Get attachment info
                 var attachment = await service.GetAttachmentByIdAsync(attachmentId);
                 
                 if (attachment == null)
@@ -199,37 +199,11 @@ public static class AnydropEndpoints
                     return Results.NotFound();
                 }
                 
-                // If thumbnail exists, serve it
-                if (!string.IsNullOrEmpty(attachment.ThumbnailPath))
+                // Try to get thumbnail using convention-based path
+                var thumbnailBytes = await service.GetThumbnailBytesAsync(attachmentId);
+                if (thumbnailBytes != null)
                 {
-                    var thumbnailBytes = await service.GetThumbnailBytesAsync(attachmentId);
-                    if (thumbnailBytes != null)
-                    {
-                        return Results.File(thumbnailBytes, "image/jpeg");
-                    }
-                }
-                
-                // For images: try to generate thumbnail on-demand if it doesn't exist
-                if (attachment.AttachmentType == "Image" && thumbnailService.SupportsThumbnails(attachment.ContentType))
-                {
-                    try
-                    {
-                        // Attempt to generate thumbnail on-demand
-                        var thumbnailGenerated = await service.GenerateThumbnailOnDemandAsync(attachmentId);
-                        if (thumbnailGenerated)
-                        {
-                            var thumbnailBytes = await service.GetThumbnailBytesAsync(attachmentId);
-                            if (thumbnailBytes != null)
-                            {
-                                logger.LogInformation("Generated thumbnail on-demand for attachment {AttachmentId}", attachmentId);
-                                return Results.File(thumbnailBytes, "image/jpeg");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Failed to generate thumbnail on-demand for attachment {AttachmentId}", attachmentId);
-                    }
+                    return Results.File(thumbnailBytes, "image/jpeg");
                 }
                 
                 // For videos without thumbnails: return a placeholder SVG
@@ -238,7 +212,7 @@ public static class AnydropEndpoints
                     return Results.Content(VideoPlaceholderSvg, "image/svg+xml");
                 }
                 
-                // Fallback to full file if no thumbnail and can't generate
+                // Fallback to full file if no thumbnail exists
                 var (fileBytes, _, contentType) = await service.DownloadAttachmentAsync(attachmentId);
                 return Results.File(fileBytes, contentType);
             }

@@ -158,13 +158,12 @@ public class AnydropService : IAnydropService
         // Determine attachment type from content type
         var attachmentType = DetermineAttachmentType(contentType);
         
-        // Generate thumbnail if supported
-        string? thumbnailRelativePath = null;
+        // Generate thumbnail if supported (using convention-based path)
         if (_thumbnailService.SupportsThumbnails(contentType))
         {
             try
             {
-                var (thumbnailAbsolutePath, thumbnailRelPath) = GenerateThumbnailPaths(messageId, dateDirectory, dateSubPath);
+                var thumbnailAbsolutePath = DeriveThumbnailPath(absoluteFilePath);
                 
                 var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
                     absoluteFilePath, 
@@ -174,18 +173,15 @@ public class AnydropService : IAnydropService
                 if (!thumbnailGenerated)
                 {
                     _logger.LogWarning("Failed to generate thumbnail for {FileName}", fileName);
-                    thumbnailRelativePath = null;
                 }
                 else
                 {
-                    thumbnailRelativePath = thumbnailRelPath;
-                    _logger.LogInformation("Generated thumbnail for {FileName} at {ThumbnailPath}", fileName, thumbnailRelativePath);
+                    _logger.LogInformation("Generated thumbnail for {FileName}", fileName);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating thumbnail for {FileName}", fileName);
-                thumbnailRelativePath = null;
             }
         }
         
@@ -197,7 +193,6 @@ public class AnydropService : IAnydropService
             FileSize = fileSize,
             ContentType = contentType,
             AttachmentType = attachmentType,
-            ThumbnailPath = thumbnailRelativePath,
             UploadedAt = now, // Use consistent timestamp
             UploadStatus = Models.UploadStatus.Completed // Mark as completed since file is uploaded
         };
@@ -281,15 +276,23 @@ public class AnydropService : IAnydropService
             throw new InvalidOperationException($"Message with ID {messageId} not found");
         }
         
-        // Delete associated files
+        // Delete associated files and thumbnails
         foreach (var attachment in message.Attachments)
         {
             try
             {
+                // Delete original file
                 var absoluteFilePath = GetAbsoluteFilePath(attachment.FilePath);
                 if (File.Exists(absoluteFilePath))
                 {
                     File.Delete(absoluteFilePath);
+                }
+                
+                // Delete thumbnail using convention-based path
+                var thumbnailAbsolutePath = DeriveThumbnailPath(absoluteFilePath);
+                if (File.Exists(thumbnailAbsolutePath))
+                {
+                    File.Delete(thumbnailAbsolutePath);
                 }
             }
             catch (Exception ex)
@@ -375,14 +378,18 @@ public class AnydropService : IAnydropService
     }
     
     /// <summary>
-    /// Generate thumbnail file paths (both absolute and relative)
+    /// Derive thumbnail path from original file path using convention
+    /// Convention: original.jpg -> original_thumb.jpg
     /// </summary>
-    private static (string absolutePath, string relativePath) GenerateThumbnailPaths(int messageId, string dateDirectory, string dateSubPath)
+    private static string DeriveThumbnailPath(string originalFilePath)
     {
-        var thumbnailFileName = $"{messageId}_{Guid.NewGuid()}_thumb.jpg";
-        var absolutePath = Path.Combine(dateDirectory, thumbnailFileName);
-        var relativePath = Path.Combine(dateSubPath, thumbnailFileName);
-        return (absolutePath, relativePath);
+        var directory = Path.GetDirectoryName(originalFilePath);
+        var fileNameWithoutExt = Path.GetFileNameWithoutExtension(originalFilePath);
+        var thumbnailFileName = $"{fileNameWithoutExt}_thumb.jpg";
+        
+        return string.IsNullOrEmpty(directory) 
+            ? thumbnailFileName 
+            : Path.Combine(directory, thumbnailFileName);
     }
 
     private static string DetermineAttachmentType(string contentType)
@@ -626,46 +633,30 @@ public class AnydropService : IAnydropService
             throw new IOException($"Failed to save file: {ex.Message}", ex);
         }
         
-        // Generate thumbnail if supported (after file is saved)
-        string? thumbnailRelativePath = null;
+        // Generate thumbnail if supported (after file is saved, using convention-based path)
         if (_thumbnailService.SupportsThumbnails(contentType))
         {
             try
             {
-                var dateSubPath = Path.GetDirectoryName(relativeFilePath);
-                var dateDirectory = Path.GetDirectoryName(absoluteFilePath);
+                var thumbnailAbsolutePath = DeriveThumbnailPath(absoluteFilePath);
                 
-                // Ensure we have valid directory paths
-                if (string.IsNullOrEmpty(dateSubPath) || string.IsNullOrEmpty(dateDirectory))
+                var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
+                    absoluteFilePath, 
+                    thumbnailAbsolutePath, 
+                    contentType);
+                
+                if (!thumbnailGenerated)
                 {
-                    _logger.LogWarning("Invalid directory path for thumbnail generation: relative={RelativePath}, absolute={AbsolutePath}", 
-                        relativeFilePath, absoluteFilePath);
+                    _logger.LogWarning("Failed to generate thumbnail for {FileName}", fileName);
                 }
                 else
                 {
-                    var (thumbnailAbsolutePath, thumbnailRelPath) = GenerateThumbnailPaths(messageId, dateDirectory, dateSubPath);
-                    
-                    var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
-                        absoluteFilePath, 
-                        thumbnailAbsolutePath, 
-                        contentType);
-                    
-                    if (!thumbnailGenerated)
-                    {
-                        _logger.LogWarning("Failed to generate thumbnail for {FileName}", fileName);
-                        thumbnailRelativePath = null;
-                    }
-                    else
-                    {
-                        thumbnailRelativePath = thumbnailRelPath;
-                        _logger.LogInformation("Generated thumbnail for {FileName} at {ThumbnailPath}", fileName, thumbnailRelativePath);
-                    }
+                    _logger.LogInformation("Generated thumbnail for {FileName}", fileName);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating thumbnail for {FileName}", fileName);
-                thumbnailRelativePath = null;
             }
         }
         
@@ -679,13 +670,10 @@ public class AnydropService : IAnydropService
                 try
                 {
                     File.Delete(absoluteFilePath);
-                    if (!string.IsNullOrEmpty(thumbnailRelativePath))
+                    var thumbnailAbsolutePath = DeriveThumbnailPath(absoluteFilePath);
+                    if (File.Exists(thumbnailAbsolutePath))
                     {
-                        var thumbnailAbsolutePath = GetAbsoluteFilePath(thumbnailRelativePath);
-                        if (File.Exists(thumbnailAbsolutePath))
-                        {
-                            File.Delete(thumbnailAbsolutePath);
-                        }
+                        File.Delete(thumbnailAbsolutePath);
                     }
                 }
                 catch (Exception cleanupEx)
@@ -696,7 +684,6 @@ public class AnydropService : IAnydropService
             }
             
             attachment.FilePath = relativeFilePath; // Store relative path
-            attachment.ThumbnailPath = thumbnailRelativePath; // Store thumbnail path
             attachment.UploadStatus = Models.UploadStatus.Completed;
             
             await context.SaveChangesAsync();
@@ -795,120 +782,21 @@ public class AnydropService : IAnydropService
         using var context = await _dbContextFactory.CreateDbContextAsync();
         
         var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
-        if (attachment == null || string.IsNullOrEmpty(attachment.ThumbnailPath))
+        if (attachment == null)
         {
             return null;
         }
         
-        var thumbnailAbsolutePath = GetAbsoluteFilePath(attachment.ThumbnailPath);
+        // Derive thumbnail path from original file path using convention
+        var originalAbsolutePath = GetAbsoluteFilePath(attachment.FilePath);
+        var thumbnailAbsolutePath = DeriveThumbnailPath(originalAbsolutePath);
         
         if (!File.Exists(thumbnailAbsolutePath))
         {
-            _logger.LogWarning("Thumbnail file not found: {ThumbnailPath}", thumbnailAbsolutePath);
+            _logger.LogDebug("Thumbnail file not found: {ThumbnailPath}", thumbnailAbsolutePath);
             return null;
         }
         
         return await File.ReadAllBytesAsync(thumbnailAbsolutePath);
-    }
-
-    public async Task<bool> GenerateThumbnailOnDemandAsync(int attachmentId)
-    {
-        // First context: Get attachment details
-        string absoluteFilePath;
-        string contentType;
-        int messageId;
-        
-        using (var context = await _dbContextFactory.CreateDbContextAsync())
-        {
-            var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
-            if (attachment == null)
-            {
-                return false;
-            }
-            
-            // If thumbnail already exists, no need to regenerate
-            if (!string.IsNullOrEmpty(attachment.ThumbnailPath))
-            {
-                var thumbnailPath = GetAbsoluteFilePath(attachment.ThumbnailPath);
-                if (File.Exists(thumbnailPath))
-                {
-                    return true;
-                }
-            }
-            
-            // Check if file exists and is an image
-            absoluteFilePath = GetAbsoluteFilePath(attachment.FilePath);
-            if (!File.Exists(absoluteFilePath))
-            {
-                _logger.LogWarning("Source file not found for thumbnail generation: {FilePath}", absoluteFilePath);
-                return false;
-            }
-            
-            contentType = attachment.ContentType;
-            messageId = attachment.MessageId;
-            
-            // Only generate for images (videos require FFmpeg which may not be available)
-            if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) || 
-                !_thumbnailService.SupportsThumbnails(contentType))
-            {
-                return false;
-            }
-        }
-        
-        // Generate thumbnail (outside DbContext to avoid long-running DB operations)
-        try
-        {
-            var dateSubPath = Path.GetDirectoryName(Path.GetRelativePath(_anydropStoragePath, absoluteFilePath));
-            var dateDirectory = Path.GetDirectoryName(absoluteFilePath);
-            
-            if (string.IsNullOrEmpty(dateSubPath) || string.IsNullOrEmpty(dateDirectory))
-            {
-                _logger.LogWarning("Invalid directory path for on-demand thumbnail generation");
-                return false;
-            }
-            
-            var (thumbnailAbsolutePath, thumbnailRelPath) = GenerateThumbnailPaths(messageId, dateDirectory, dateSubPath);
-            
-            var success = await _thumbnailService.GenerateThumbnailAsync(absoluteFilePath, thumbnailAbsolutePath, contentType);
-            
-            if (!success)
-            {
-                return false;
-            }
-            
-            // Second context: Update attachment with thumbnail path
-            using (var context = await _dbContextFactory.CreateDbContextAsync())
-            {
-                var attachment = await context.AnydropAttachments.FindAsync(attachmentId);
-                if (attachment == null)
-                {
-                    // Attachment was deleted while we were generating the thumbnail
-                    // Clean up the generated thumbnail file
-                    try
-                    {
-                        if (File.Exists(thumbnailAbsolutePath))
-                        {
-                            File.Delete(thumbnailAbsolutePath);
-                        }
-                    }
-                    catch (Exception cleanupEx)
-                    {
-                        _logger.LogWarning(cleanupEx, "Failed to clean up orphaned thumbnail: {ThumbnailPath}", thumbnailAbsolutePath);
-                    }
-                    return false;
-                }
-                
-                attachment.ThumbnailPath = thumbnailRelPath;
-                await context.SaveChangesAsync();
-                _logger.LogInformation("Generated thumbnail on-demand for attachment {AttachmentId}", attachmentId);
-            }
-            
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to generate thumbnail on-demand for attachment {AttachmentId}", attachmentId);
-            return false;
-        }
     }
 }
