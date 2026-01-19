@@ -560,6 +560,7 @@ public class AnydropService : IAnydropService
         string contentType;
         string dateDirectory;
         string dateSubPath;
+        long fileSize;
         
         using (var context = await _dbContextFactory.CreateDbContextAsync())
         {
@@ -572,6 +573,7 @@ public class AnydropService : IAnydropService
             messageId = attachment.MessageId;
             fileName = attachment.FileName;
             contentType = attachment.ContentType;
+            fileSize = attachment.FileSize;
             
             // Get date-based directory structure using helper method
             var now = DateTime.UtcNow;
@@ -583,10 +585,10 @@ public class AnydropService : IAnydropService
             // Store relative path for database
             relativeFilePath = Path.Combine(dateSubPath, uniqueFileName);
             
-            // Save file to disk using the file upload service (outside DbContext)
+            // Save file to disk using the file upload service (use fileSize from attachment record)
             try
             {
-                absoluteFilePath = await _fileUploadService.UploadFileStreamAsync(dateDirectory, uniqueFileName, fileStream, fileStream.Length, pathValidator: null);
+                absoluteFilePath = await _fileUploadService.UploadFileStreamAsync(dateDirectory, uniqueFileName, fileStream, fileSize, pathValidator: null);
             }
             catch (Exception ex)
             {

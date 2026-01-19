@@ -25,6 +25,12 @@ public class FileUploadService : IFileUploadService
             throw new UnauthorizedAccessException("Access to this path is not allowed");
         }
 
+        // Ensure directory exists
+        if (!Directory.Exists(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
+
         // Sanitize filename to prevent path traversal attacks
         var sanitizedFileName = SanitizeFileName(fileName);
         
@@ -43,7 +49,7 @@ public class FileUploadService : IFileUploadService
             await fileStream.CopyToAsync(fileStreamOut);
         }
 
-        _logger.LogInformation("Uploaded file via stream: {FileName} to {DirectoryPath}", sanitizedFileName, directoryPath);
+        _logger.LogInformation("Uploaded file via stream: {FileName} to {DirectoryPath}, size: {FileSize} bytes", sanitizedFileName, directoryPath, fileSize);
         return fullPath;
     }
 
@@ -53,6 +59,12 @@ public class FileUploadService : IFileUploadService
         if (pathValidator != null && !pathValidator(directoryPath))
         {
             throw new UnauthorizedAccessException("Access to this path is not allowed");
+        }
+
+        // Ensure directory exists
+        if (!Directory.Exists(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
         }
 
         // Sanitize filename to prevent path traversal attacks
@@ -68,7 +80,7 @@ public class FileUploadService : IFileUploadService
 
         await File.WriteAllBytesAsync(fullPath, content);
 
-        _logger.LogInformation("Uploaded file: {FileName} to {DirectoryPath}", sanitizedFileName, directoryPath);
+        _logger.LogInformation("Uploaded file: {FileName} to {DirectoryPath}, size: {FileSize} bytes", sanitizedFileName, directoryPath, content.Length);
         return fullPath;
     }
 
