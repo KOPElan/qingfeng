@@ -1,0 +1,98 @@
+@page "/notification-test"
+@using QingFeng.Services
+@inject INotificationService NotificationService
+
+<PageTitle>通知测试</PageTitle>
+
+<FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+    <FluentLabel Typo="Typography.H4">通知服务测试</FluentLabel>
+    
+    <FluentCard>
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+            <FluentLabel Typo="Typography.H6">创建测试通知</FluentLabel>
+            
+            <FluentButton Appearance="Appearance.Accent" OnClick="CreateInfoNotification">
+                创建信息通知
+            </FluentButton>
+            
+            <FluentButton Appearance="Appearance.Accent" OnClick="CreateSuccessNotification">
+                创建成功通知
+            </FluentButton>
+            
+            <FluentButton Appearance="Appearance.Accent" OnClick="CreateWarningNotification">
+                创建警告通知
+            </FluentButton>
+            
+            <FluentButton Appearance="Appearance.Accent" OnClick="CreateErrorNotification">
+                创建错误通知
+            </FluentButton>
+            
+            <FluentButton Appearance="Appearance.Accent" OnClick="CreateNotificationWithAction">
+                创建带操作的通知
+            </FluentButton>
+        </FluentStack>
+    </FluentCard>
+    
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <FluentMessageBar Intent="MessageIntent.Success">
+            @_message
+        </FluentMessageBar>
+    }
+</FluentStack>
+
+@code {
+    private string _message = string.Empty;
+
+    private async Task CreateInfoNotification()
+    {
+        await NotificationService.CreateNotificationAsync(
+            "信息通知",
+            "这是一条测试信息通知",
+            "Info"
+        );
+        _message = "已创建信息通知";
+    }
+
+    private async Task CreateSuccessNotification()
+    {
+        await NotificationService.CreateNotificationAsync(
+            "操作成功",
+            "文件上传已成功完成",
+            "Success"
+        );
+        _message = "已创建成功通知";
+    }
+
+    private async Task CreateWarningNotification()
+    {
+        await NotificationService.CreateNotificationAsync(
+            "警告",
+            "磁盘空间不足，请及时清理",
+            "Warning"
+        );
+        _message = "已创建警告通知";
+    }
+
+    private async Task CreateErrorNotification()
+    {
+        await NotificationService.CreateNotificationAsync(
+            "错误",
+            "无法连接到服务器，请检查网络连接",
+            "Error"
+        );
+        _message = "已创建错误通知";
+    }
+
+    private async Task CreateNotificationWithAction()
+    {
+        await NotificationService.CreateNotificationAsync(
+            "新任务完成",
+            "定时备份任务已完成，点击查看详情",
+            "Success",
+            "/scheduled-tasks",
+            "✅"
+        );
+        _message = "已创建带操作的通知";
+    }
+}
