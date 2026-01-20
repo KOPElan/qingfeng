@@ -1,0 +1,204 @@
+@using QingFeng.Services
+@using QingFeng.Models
+@inject INotificationService NotificationService
+@implements IDisposable
+
+<FluentStack Orientation="Orientation.Vertical" Style="max-height: 500px; overflow-y: auto; width: 400px;">
+    <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; justify-content: space-between; padding: 0.5rem 0;">
+        <FluentLabel Typo="Typography.H6">通知</FluentLabel>
+        @if (_notifications.Any())
+        {
+            <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
+                @if (_notifications.Any(n => !n.IsRead))
+                {
+                    <FluentButton Appearance="Appearance.Lightweight" 
+                                 OnClick="MarkAllAsRead" 
+                                 Title="全部标记为已读">
+                        全部已读
+                    </FluentButton>
+                }
+                @if (_notifications.Any(n => n.IsRead))
+                {
+                    <FluentButton Appearance="Appearance.Lightweight" 
+                                 OnClick="DeleteAllRead" 
+                                 Title="清除已读通知">
+                        清除已读
+                    </FluentButton>
+                }
+            </FluentStack>
+        }
+    </FluentStack>
+
+    @if (!_notifications.Any())
+    {
+        <FluentStack Orientation="Orientation.Vertical" 
+                     Style="align-items: center; justify-content: center; padding: 2rem 0; color: var(--neutral-foreground-hint);">
+            <div style="font-size: 3rem;">🔔</div>
+            <FluentLabel>暂无通知</FluentLabel>
+        </FluentStack>
+    }
+    else
+    {
+        @foreach (var notification in _notifications)
+        {
+            <FluentCard Style="@GetCardStyle(notification)">
+                <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.5rem;">
+                    <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; justify-content: space-between;">
+                        <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; gap: 0.5rem;">
+                            @if (!string.IsNullOrEmpty(notification.Icon))
+                            {
+                                <span>@notification.Icon</span>
+                            }
+                            else
+                            {
+                                <span>@GetTypeIcon(notification.Type)</span>
+                            }
+                            <FluentLabel Typo="Typography.Body" Style="@GetTitleStyle(notification)">
+                                @notification.Title
+                            </FluentLabel>
+                        </FluentStack>
+                        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.25rem;">
+                            @if (!notification.IsRead)
+                            {
+                                <FluentButton Appearance="Appearance.Lightweight" 
+                                            OnClick="() => MarkAsRead(notification.Id)"
+                                            IconOnly="true"
+                                            Title="标记为已读">
+                                    <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Checkmark())" />
+                                </FluentButton>
+                            }
+                            <FluentButton Appearance="Appearance.Lightweight" 
+                                        OnClick="() => DeleteNotification(notification.Id)"
+                                        IconOnly="true"
+                                        Title="删除">
+                                <FluentIcon Value="@((Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
+                            </FluentButton>
+                        </FluentStack>
+                    </FluentStack>
+                    <FluentLabel Typo="Typography.Body" Style="@GetMessageStyle(notification)">
+                        @notification.Message
+                    </FluentLabel>
+                    <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; justify-content: space-between;">
+                        <FluentLabel Style="color: var(--neutral-foreground-hint); font-size: 12px;">
+                            @GetRelativeTime(notification.CreatedAt)
+                        </FluentLabel>
+                        @if (!string.IsNullOrEmpty(notification.ActionUrl))
+                        {
+                            <FluentButton Appearance="Appearance.Lightweight" 
+                                        OnClick="() => NavigateToAction(notification.ActionUrl)">
+                                查看详情
+                            </FluentButton>
+                        }
+                    </FluentStack>
+                </FluentStack>
+            </FluentCard>
+        }
+    }
+</FluentStack>
+
+@code {
+    private List<Notification> _notifications = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadNotifications();
+        NotificationService.OnNotificationChanged += OnNotificationChanged;
+    }
+
+    private async Task LoadNotifications()
+    {
+        _notifications = await NotificationService.GetAllNotificationsAsync();
+    }
+
+    private async Task OnNotificationChanged()
+    {
+        await LoadNotifications();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task MarkAsRead(int notificationId)
+    {
+        await NotificationService.MarkAsReadAsync(notificationId);
+    }
+
+    private async Task MarkAllAsRead()
+    {
+        await NotificationService.MarkAllAsReadAsync();
+    }
+
+    private async Task DeleteNotification(int notificationId)
+    {
+        await NotificationService.DeleteNotificationAsync(notificationId);
+    }
+
+    private async Task DeleteAllRead()
+    {
+        await NotificationService.DeleteAllReadNotificationsAsync();
+    }
+
+    private void NavigateToAction(string url)
+    {
+        // Navigation logic here if needed
+        // NavigationManager.NavigateTo(url);
+    }
+
+    private string GetCardStyle(Notification notification)
+    {
+        var opacity = notification.IsRead ? "0.6" : "1";
+        var borderColor = GetTypeBorderColor(notification.Type);
+        return $"opacity: {opacity}; border-left: 3px solid {borderColor}; margin-bottom: 0.5rem;";
+    }
+
+    private string GetTitleStyle(Notification notification)
+    {
+        return notification.IsRead ? "" : "font-weight: 600;";
+    }
+
+    private string GetMessageStyle(Notification notification)
+    {
+        return notification.IsRead ? "color: var(--neutral-foreground-hint);" : "";
+    }
+
+    private string GetTypeIcon(string type)
+    {
+        return type switch
+        {
+            "Success" => "✅",
+            "Warning" => "⚠️",
+            "Error" => "❌",
+            _ => "ℹ️"
+        };
+    }
+
+    private string GetTypeBorderColor(string type)
+    {
+        return type switch
+        {
+            "Success" => "var(--success)",
+            "Warning" => "var(--warning)",
+            "Error" => "var(--error)",
+            _ => "var(--accent-fill-rest)"
+        };
+    }
+
+    private string GetRelativeTime(DateTime dateTime)
+    {
+        var timeSpan = DateTime.UtcNow - dateTime;
+        
+        if (timeSpan.TotalMinutes < 1)
+            return "刚刚";
+        if (timeSpan.TotalMinutes < 60)
+            return $"{(int)timeSpan.TotalMinutes} 分钟前";
+        if (timeSpan.TotalHours < 24)
+            return $"{(int)timeSpan.TotalHours} 小时前";
+        if (timeSpan.TotalDays < 7)
+            return $"{(int)timeSpan.TotalDays} 天前";
+        
+        return dateTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnNotificationChanged -= OnNotificationChanged;
+    }
+}

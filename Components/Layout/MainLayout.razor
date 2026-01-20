@@ -4,6 +4,7 @@
 @implements IDisposable
 @using QingFeng.Services
 @inject IAuthenticationService AuthService
+@inject INotificationService NotificationService
 
 <FluentDesignTheme @bind-Mode="@_mode" 
                    @bind-OfficeColor="@_officeColor"
@@ -29,6 +30,23 @@ else
             </FluentStack>
             <FluentSpacer />
             <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.75rem;">
+                <!-- Notification Button -->
+                <FluentButton Appearance="Appearance.Lightweight" 
+                             OnClick="ToggleNotificationPanel" 
+                             Title="通知" 
+                             aria-label="通知"
+                             Style="position: relative;">
+                    🔔
+                    @if (_unreadCount > 0)
+                    {
+                        <FluentBadge Appearance="Appearance.Accent" 
+                                    BackgroundColor="var(--error)"
+                                    Color="white"
+                                    Style="position: absolute; top: 0; right: 0; min-width: 18px; height: 18px; font-size: 10px; padding: 0 4px;">
+                            @(_unreadCount > 99 ? "99+" : _unreadCount.ToString())
+                        </FluentBadge>
+                    }
+                </FluentButton>
                 @if (!string.IsNullOrEmpty(_currentUsername))
                 {
                     <FluentLabel>@_currentUsername</FluentLabel>
@@ -82,6 +100,16 @@ else
     </FluentDialogBody>
 </FluentDialog>
 
+<!-- Notification Panel Dialog -->
+<FluentDialog Hidden="@_notificationPanelHidden" Modal="false" OnDismiss="@(() => _notificationPanelHidden = true)" class="notification-panel-dialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.H5">🔔 通知中心</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <NotificationPanel />
+    </FluentDialogBody>
+</FluentDialog>
+
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
@@ -95,6 +123,8 @@ else
     private bool _isAuthPage = false;
     private string? _currentUsername;
     private bool _themePanelHidden = true;
+    private bool _notificationPanelHidden = true;
+    private int _unreadCount = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,6 +132,21 @@ else
         UpdateIsAuthPage();
         NavigationManager.LocationChanged += OnLocationChanged;
         await UpdateCurrentUserAsync();
+        await UpdateUnreadCount();
+        
+        // Subscribe to notification changes
+        NotificationService.OnNotificationChanged += OnNotificationChanged;
+    }
+    
+    private async Task UpdateUnreadCount()
+    {
+        _unreadCount = await NotificationService.GetUnreadCountAsync();
+    }
+    
+    private async Task OnNotificationChanged()
+    {
+        await UpdateUnreadCount();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task UpdateCurrentUserAsync()
@@ -135,6 +180,11 @@ else
     {
         _themePanelHidden = !_themePanelHidden;
     }
+    
+    private void ToggleNotificationPanel()
+    {
+        _notificationPanelHidden = !_notificationPanelHidden;
+    }
 
     private void OnThemeModeChanged(DesignThemeModes mode)
     {
@@ -160,5 +210,6 @@ else
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
+        NotificationService.OnNotificationChanged -= OnNotificationChanged;
     }
 }

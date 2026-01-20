@@ -20,6 +20,7 @@ public class QingFengDbContext : DbContext
     public DbSet<ScheduledTaskExecutionHistory> ScheduledTaskExecutionHistories { get; set; } = null!;
     public DbSet<AnydropMessage> AnydropMessages { get; set; } = null!;
     public DbSet<AnydropAttachment> AnydropAttachments { get; set; } = null!;
+    public DbSet<Notification> Notifications { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -142,6 +143,19 @@ public class QingFengDbContext : DbContext
                 .WithMany(m => m.Attachments)
                 .HasForeignKey(e => e.MessageId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        // Configure Notification
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => e.IsRead);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Message).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.Type).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ActionUrl).HasMaxLength(1000);
+            entity.Property(e => e.Icon).HasMaxLength(100);
         });
     }
 }
