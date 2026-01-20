@@ -15,6 +15,7 @@ public class AnydropService : IAnydropService
     private readonly ILogger<AnydropService> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IThumbnailService _thumbnailService;
+    private readonly IFileUploadService _fileUploadService;
     private readonly string _anydropStoragePath;
 
     public AnydropService(
@@ -22,12 +23,14 @@ public class AnydropService : IAnydropService
         ILogger<AnydropService> logger,
         IHttpClientFactory httpClientFactory,
         IThumbnailService thumbnailService,
+        IFileUploadService fileUploadService,
         IConfiguration configuration)
     {
         _dbContextFactory = dbContextFactory;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
         _thumbnailService = thumbnailService;
+        _fileUploadService = fileUploadService;
         
         // Initialize storage path - try to read from settings synchronously
         _anydropStoragePath = GetStoragePathFromSettings(configuration);
@@ -141,19 +144,14 @@ public class AnydropService : IAnydropService
         // Get date-based directory structure
         var (dateDirectory, dateSubPath) = GetDateBasedDirectory(now);
         
-        // Generate unique file name to avoid collisions
-        var fileExtension = Path.GetExtension(fileName);
-        var uniqueFileName = $"{messageId}_{Guid.NewGuid()}{fileExtension}";
-        var absoluteFilePath = Path.Combine(dateDirectory, uniqueFileName);
+        // Generate unique file name using the file upload service
+        var uniqueFileName = _fileUploadService.GenerateUniqueFileName(fileName, messageId.ToString());
+        
+        // Save file to disk using the file upload service (no path validation needed for Anydrop storage)
+        var absoluteFilePath = await _fileUploadService.UploadFileStreamAsync(dateDirectory, uniqueFileName, fileStream, fileSize, pathValidator: null);
         
         // Store relative path in database for portability
         var relativeFilePath = Path.Combine(dateSubPath, uniqueFileName);
-        
-        // Save file to disk
-        using (var fileStreamWriter = new FileStream(absoluteFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
-        {
-            await fileStream.CopyToAsync(fileStreamWriter);
-        }
         
         // Determine attachment type from content type
         var attachmentType = DetermineAttachmentType(contentType);
@@ -567,6 +565,9 @@ public class AnydropService : IAnydropService
         int messageId;
         string fileName;
         string contentType;
+        string dateDirectory;
+        string dateSubPath;
+        long fileSize;
         
         using (var context = await _dbContextFactory.CreateDbContextAsync())
         {
@@ -579,58 +580,47 @@ public class AnydropService : IAnydropService
             messageId = attachment.MessageId;
             fileName = attachment.FileName;
             contentType = attachment.ContentType;
+            fileSize = attachment.FileSize;
             
             // Get date-based directory structure using helper method
             var now = DateTime.UtcNow;
-            var (dateDirectory, dateSubPath) = GetDateBasedDirectory(now);
+            (dateDirectory, dateSubPath) = GetDateBasedDirectory(now);
             
-            // Generate unique file name
-            var fileExtension = Path.GetExtension(fileName);
-            var uniqueFileName = $"{messageId}_{Guid.NewGuid()}{fileExtension}";
-            absoluteFilePath = Path.Combine(dateDirectory, uniqueFileName);
+            // Generate unique file name using the file upload service
+            var uniqueFileName = _fileUploadService.GenerateUniqueFileName(fileName, messageId.ToString());
             
             // Store relative path for database
             relativeFilePath = Path.Combine(dateSubPath, uniqueFileName);
-        }
-        
-        // Save file to disk with error handling (outside DbContext)
-        try
-        {
-            using (var fileStreamWriter = new FileStream(absoluteFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
-            {
-                await fileStream.CopyToAsync(fileStreamWriter);
-                await fileStreamWriter.FlushAsync();
-            }
             
-            // Verify file was written successfully
-            if (!File.Exists(absoluteFilePath))
-            {
-                throw new IOException($"File was not written successfully: {absoluteFilePath}");
-            }
-            
-            var fileInfo = new FileInfo(absoluteFilePath);
-            if (fileInfo.Length == 0)
-            {
-                File.Delete(absoluteFilePath);
-                throw new IOException("File was written but has zero length");
-            }
-        }
-        catch (Exception ex)
-        {
-            // Clean up file if it was partially written
+            // Save file to disk using the file upload service (use fileSize from attachment record)
             try
             {
-                if (File.Exists(absoluteFilePath))
-                {
-                    File.Delete(absoluteFilePath);
-                }
+                absoluteFilePath = await _fileUploadService.UploadFileStreamAsync(dateDirectory, uniqueFileName, fileStream, fileSize, pathValidator: null);
+            }
+            catch (Exception ex)
+            {
+                throw new IOException($"Failed to save file: {ex.Message}", ex);
+            }
+        }
+        
+        // Verify file was written successfully
+        if (!File.Exists(absoluteFilePath))
+        {
+            throw new IOException($"File was not written successfully: {absoluteFilePath}");
+        }
+        
+        var fileInfo = new FileInfo(absoluteFilePath);
+        if (fileInfo.Length == 0)
+        {
+            try
+            {
+                File.Delete(absoluteFilePath);
             }
             catch (Exception cleanupEx)
             {
-                _logger.LogWarning(cleanupEx, "Failed to clean up partially written file: {FilePath}", absoluteFilePath);
+                _logger.LogWarning(cleanupEx, "Failed to clean up zero-length file: {FilePath}", absoluteFilePath);
             }
-            
-            throw new IOException($"Failed to save file: {ex.Message}", ex);
+            throw new IOException("File was written but has zero length");
         }
         
         // Generate thumbnail if supported (after file is saved, using convention-based path)
