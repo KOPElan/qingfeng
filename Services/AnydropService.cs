@@ -628,33 +628,20 @@ public class AnydropService : IAnydropService
         {
             try
             {
-                var thumbnailDateSubPath = Path.GetDirectoryName(relativeFilePath);
-                var thumbnailDateDirectory = Path.GetDirectoryName(absoluteFilePath);
+                var thumbnailAbsolutePath = DeriveThumbnailPath(absoluteFilePath);
                 
-                // Ensure we have valid directory paths
-                if (string.IsNullOrEmpty(thumbnailDateSubPath) || string.IsNullOrEmpty(thumbnailDateDirectory))
+                var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
+                    absoluteFilePath, 
+                    thumbnailAbsolutePath, 
+                    contentType);
+                
+                if (!thumbnailGenerated)
                 {
                     _logger.LogWarning("Failed to generate thumbnail for {FileName}", fileName);
                 }
                 else
                 {
-                    var (thumbnailAbsolutePath, thumbnailRelPath) = GenerateThumbnailPaths(messageId, thumbnailDateDirectory, thumbnailDateSubPath);
-                    
-                    var thumbnailGenerated = await _thumbnailService.GenerateThumbnailAsync(
-                        absoluteFilePath, 
-                        thumbnailAbsolutePath, 
-                        contentType);
-                    
-                    if (!thumbnailGenerated)
-                    {
-                        _logger.LogWarning("Failed to generate thumbnail for {FileName}", fileName);
-                        thumbnailRelativePath = null;
-                    }
-                    else
-                    {
-                        thumbnailRelativePath = thumbnailRelPath;
-                        _logger.LogInformation("Generated thumbnail for {FileName} at {ThumbnailPath}", fileName, thumbnailRelativePath);
-                    }
+                    _logger.LogInformation("Generated thumbnail for {FileName}", fileName);
                 }
             }
             catch (Exception ex)
