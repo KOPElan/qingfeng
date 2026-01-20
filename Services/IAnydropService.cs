@@ -78,7 +78,7 @@ public interface IAnydropService
     Task<AnydropAttachment?> GetAttachmentByIdAsync(int attachmentId);
     
     /// <summary>
-    /// Get thumbnail bytes for an attachment
+    /// Get thumbnail bytes for an attachment (using convention-based path derivation)
     /// </summary>
     Task<byte[]?> GetThumbnailBytesAsync(int attachmentId);
 }
