@@ -74,6 +74,7 @@ builder.Services.AddHostedService<ScheduledTaskExecutorService>();
 builder.Services.AddScoped<IAnydropService, AnydropService>();
 builder.Services.AddScoped<IThumbnailService, ThumbnailService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 var app = builder.Build();
 
